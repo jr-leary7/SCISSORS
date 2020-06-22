@@ -8,31 +8,28 @@ ClusterCells(
   seurat.object = NULL,
   n.variable.genes = 3000,
   initial.resolution = 0.5,
-  perform.SingleR = TRUE,
-  species = "human",
-  ref.data = NULL,
   random.seed = 629
 )
 }
 \arguments{
-\item{seurat.object}{The Seurat object containing the cells you'd like to analyze.}
+\item{seurat.object}{The object containing the cells you'd like to analyze.}
 
 \item{n.variable.genes}{The number of variable genes to find at each step. Defaults to 3000.}
 
 \item{initial.resolution}{The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.5.}
 
-\item{perform.SingleR}{Should broad cell types be determined using the \code{SingleR} package? Defaults to TRUE.}
-
-\item{species}{If cell types are to be determined using \code{SingleR}, what species are the cells? Defaults to "human".}
-
-\item{ref.data}{If cell types are to be determined using \code{SingleR}, a user-provided dataset can be used as a reference. Defaults to the data from Mabbott \emph{et al} (2013): the Human Primary Cell Atlas.}
-
 \item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 
-\item{use.SingleR.clusters}{If cell types are determined by \code{SingleR}, should those types be used as clusters? Defaults to TRUE.}
+\item{run.SingleR}{Should cell type identification through \code{SingleR} be run? Defaults to TRUE.}
+
+\item{ref.data}{(Optional) A user-defined reference dataset to be used with \code{SingleR}. If NULL, the Human Primary Cell Atlas dataset will be used. Defaults to NULL.}
+
+\item{recluster.res}{How many times should each cluster be divided? Defaults to 1.}
+
+\item{...}{Optional parameter passed to other functions. Default is NULL.}
 }
 \description{
-This function iteratively reclusters cells, each time recalculating the highly variable genes that define each cell population. The goal is to provide more accurate cell subtype recognition, as the highly variable genes that define broad cell types most likely do not correctly represent cell subtypes and rare cell populations.
+This function prepares a \code{Seurat} object for iterative reclustering. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features and assays are present (\% mitochondrial DNA, normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering. Next, it calls \code{SingleR}, then iteratively reclusters the cell types in order to reveal subtypes and rare cell populations.
 }
 \examples{
 ClusterCells(seurat.object = pbmc, n.variable.genes = 5000, initial.resolution = .75, ref.data = cell_ref)
@@ -40,6 +37,4 @@ ClusterCells(seurat.object = baron_pancreas, initial.resolution = .5, perform.Si
 }
 \references{
 Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph{Cell}.
-
-Aran \emph{et al} (2019). Reference-based analysis of lung single-cell sequencing reveals a transitional profibrotic macrophage. \emph{Nature Immunology}.
 }
