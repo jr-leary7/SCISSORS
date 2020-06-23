@@ -8,6 +8,10 @@ ClusterCells(
   seurat.object = NULL,
   n.variable.genes = 3000,
   initial.resolution = 0.5,
+  run.SingleR = FALSE,
+  ref.data = NULL,
+  species = "Human",
+  recluster.res = 1,
   random.seed = 629
 )
 }
@@ -18,13 +22,15 @@ ClusterCells(
 
 \item{initial.resolution}{The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.5.}
 
-\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
-
-\item{run.SingleR}{Should cell type identification through \code{SingleR} be run? Defaults to TRUE.}
+\item{run.SingleR}{Should cell type identification through \code{SingleR} be run? Defaults to FALSE.}
 
 \item{ref.data}{(Optional) A user-defined reference dataset to be used with \code{SingleR}. If NULL, the Human Primary Cell Atlas dataset will be used. Defaults to NULL.}
 
+\item{species}{If \code{run.SingleR = TRUE}, what species are the cells? DEfaults to "Human".}
+
 \item{recluster.res}{How many times should each cluster be divided? Defaults to 1.}
+
+\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 
 \item{...}{Optional parameter passed to other functions. Default is NULL.}
 }

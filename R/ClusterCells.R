@@ -6,8 +6,9 @@
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 3000.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.5.
-#' @param run.SingleR Should cell type identification through `SingleR` be run? Defaults to TRUE.
+#' @param run.SingleR Should cell type identification through `SingleR` be run? Defaults to FALSE.
 #' @param ref.data (Optional) A user-defined reference dataset to be used with `SingleR`. If NULL, the Human Primary Cell Atlas dataset will be used. Defaults to NULL.
+#' @param species If `run.SingleR = TRUE`, what species are the cells? DEfaults to "Human".
 #' @param recluster.res How many times should each cluster be divided? Defaults to 1.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @param ... Optional parameter passed to other functions. Default is NULL.
@@ -21,6 +22,10 @@
 ClusterCells <- function(seurat.object = NULL,
                          n.variable.genes = 3000,
                          initial.resolution = .5,
+                         run.SingleR = FALSE,
+                         ref.data = NULL,
+                         species = "Human",
+                         recluster.res = 1,
                          random.seed = 629) {
   # check arguments & assays present in Seurat object
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object!") }
@@ -103,7 +108,7 @@ ClusterCells <- function(seurat.object = NULL,
   }
 
   # recluster each cluster 3 times
-  reclust_results <- ReclusterCells(seurat.object)
+  reclust_results <- ReclusterCells(seurat.object, recluster.res = recluster.res)
 
   # process reclustering results
   ## code goes here !

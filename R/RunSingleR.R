@@ -17,10 +17,7 @@ RunSingleR <- function(seurat.object = NULL,
                         ref.data = NULL,
                         dif.exp.method = "wilcox") {
   # test input
-  if (is.null(seurat.object@assays$SCT)) {
-    stop("Please normalize your data using SCTransform before running SingleR")
-  }
-
+  if (is.null(seurat.object@assays$SCT)) { stop("Please normalize your data using SCTransform before running SingleR") }
   # setup inputs
   norm_counts <- data.frame(seurat.object@assays$SCT@data)
   if (is.null(ref.data)) {
@@ -31,10 +28,5 @@ RunSingleR <- function(seurat.object = NULL,
                        clusters = seurat.object$seurat_clusters,
                        method = "cluster",
                        de.method = dif.exp.method)
-  table(results$labels)
-
-
   }
-
-
 }
