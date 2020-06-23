@@ -33,6 +33,7 @@ ClusterCells <- function(seurat.object = NULL,
     seurat.object@meta.data$nCount_RNA <- RNA_counts
     seurat.object@meta.data$nFeature_RNA <- feature_counts
     seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")
+    print("Normalizing counts using SCTransform negative-binomial regression")
     seurat.object <- SCTransform(seurat.object,
                                  assay = "RNA",
                                  vars.to.regress = "percent_MT",
@@ -42,10 +43,10 @@ ClusterCells <- function(seurat.object = NULL,
   }
   if (is.null(seurat.object@assays$SCT) & length(VariableFeatures(seurat.object)) == 0) {
     print("Normalizing data, scaling, and selecting variable features using SCTransform")
-    # check if % mito DNA exists in Seurat object & regress out if so
-    if (any(grepl("MT|mt", colnames(seurat.object@meta.data)))) {
+    # check if % mito DNA exists in Seurat object metadata & regress out if so
+    if (any(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))) {
       col_loc <- which(grepl("MT|mt", colnames(seurat.object@meta.data)))
-      col_name <- colnames(seurat.object$meta.data)[col_loc]
+      col_name <- colnames(seurat.object@meta.data)[col_loc]
       print("Regressing out % mitochondrial DNA")
       seurat.object <- SCTransform(seurat.object,
                                    assay = "RNA",
@@ -65,7 +66,8 @@ ClusterCells <- function(seurat.object = NULL,
   }
 
   # check if PCA components exist in Seurat object
-  if (is.null(seurat.object@reductions$PCA)) {
+  if (is.null(seurat.object@reductions$pca)) {
+    sprintf("Running PCA with 30 principal components using %s highly variable genes", n.variable.genes)
     seurat.object <- RunPCA(seurat.object,
                             features = VariableFeatures(seurat.object),
                             npcs = 30,
@@ -75,6 +77,7 @@ ClusterCells <- function(seurat.object = NULL,
 
   # check if t-SNE components exist in Seurat object
   if (is.null(seurat.object@reductions$tsne)) {
+    print("Running t-SNE on 30 principal components with perplexity = 30")
     seurat.object <- RunTSNE(seurat.object,
                              reduction = "pca",
                              dims = 1:30,
@@ -85,6 +88,7 @@ ClusterCells <- function(seurat.object = NULL,
 
 
   # initial clustering
+  print("Clustering cells in PCA space using k = 20 nearest neighbors & resolution = .5")
   seurat.object <- FindNeighbors(seurat.object,
                                  reduction = "pca",
                                  dims = 1:30)
@@ -99,7 +103,7 @@ ClusterCells <- function(seurat.object = NULL,
   }
 
   # recluster each cluster 3 times
-  reclust_results <- ReclusterCells(seurat.object, recluster.res = 2)
+  reclust_results <- ReclusterCells(seurat.object)
 
   # process reclustering results
   ## code goes here !

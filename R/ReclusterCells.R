@@ -21,9 +21,11 @@ ReclusterCells <- function(seurat.object = NULL,
   # run on clusters assigned by Seurat
   if (!use.SingleR.labels) {
     reclust_list <- list()
-    for (clust in seq(seurat.object$seurat_clusters)) {
+    final_clust <- max(as.numeric(seurat.object$seurat_clusters)) - 1  # needed b/c Seurat cluster IDs are 0-indexed
+    for (clust in 0:final_clust) {
       temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
       if (var.method == "sctransform") {
+        print("Normalizing cluster expression & selecting highly variable genes using SCTransform")
         temp_obj <- SCTransform(temp_obj,
                                 variable.features.n = n.variable.genes,
                                 seed.use = 629,
@@ -34,20 +36,69 @@ ReclusterCells <- function(seurat.object = NULL,
                                          nfeatures = n.variable.genes)
       } else { stop("Choose a viable highly variable gene selection method") }
 
-      # run PCA
-      temp_obj <- RunPCA(temp_obj,
-                         npcs = 1:20,
-                         verbose = FALSE,
-                         seed.use = 629)
-      # find clusters
-      temp_obj <- FindNeighbors(temp_obj,
-                                reduction = "pca",
-                                dims = 1:20)
-      temp_obj <- FindClusters(temp_obj,
-                               resolution = .3,
-                               random.seed = 629)
+      if (ncol(temp_obj) < 100) { reclust_list[[clust + 1]] <- temp_obj } else {
+        # run PCA
+        temp_obj <- RunPCA(temp_obj,
+                           npcs = 20,
+                           verbose = FALSE,
+                           seed.use = 629)
 
-      reclust_list[[clust]] <- NULL  # change this to be the correct output later
+        temp_obj <- RunTSNE(temp_obj,
+                            reduction = "pca",
+                            dims = 1:20,
+                            seed.use = 629,
+                            dim.embed = 2,
+                            perplexity = perplexity)
+        # find clusters
+        temp_obj <- FindNeighbors(temp_obj,
+                                  reduction = "pca",
+                                  dims = 1:20)
+        temp_obj <- FindClusters(temp_obj,
+                                 resolution = .2,
+                                 random.seed = 629)
+
+        reclust_list[[clust + 1]] <- temp_obj
+      }
     }
+  } else {
+    reclust_list <- list()
+    for (clust in unique(seurat.object$SingleR_label)) {
+      temp_obj <- subset(seurat.object, subset = SingleR_label == clust)
+      if (var.method == "sctransform") {
+        print("Normalizing cluster expression & selecting highly variable genes using SCTransform")
+        temp_obj <- SCTransform(temp_obj,
+                                variable.features.n = n.variable.genes,
+                                seed.use = 629,
+                                verbose = FALSE)
+      } else if (var.method == "vst") {
+        temp_obj <- FindVariableFeatures(temp_obj,
+                                         selection.method = "vst",
+                                         nfeatures = n.variable.genes)
+      } else { stop("Choose a viable highly variable gene selection method") }
+
+      if (ncol(temp_obj) < 100) { reclust_list[[clust + 1]] <- temp_obj } else {
+        # run PCA
+        temp_obj <- RunPCA(temp_obj,
+                           npcs = 20,
+                           verbose = FALSE,
+                           seed.use = 629)
+
+        temp_obj <- RunTSNE(temp_obj,
+                            reduction = "pca",
+                            dims = 1:20,
+                            seed.use = 629,
+                            dim.embed = 2,
+                            perplexity = perplexity)
+        # find clusters
+        temp_obj <- FindNeighbors(temp_obj,
+                                  reduction = "pca",
+                                  dims = 1:20)
+        temp_obj <- FindClusters(temp_obj,
+                                 resolution = .2,
+                                 random.seed = 629)
+
+        reclust_list[[clust + 1]] <- temp_obj
+   }
   }
+ }
 }
