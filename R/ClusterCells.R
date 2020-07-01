@@ -4,12 +4,11 @@
 #' @import Seurat
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @param seurat.object The object containing the cells you'd like to analyze.
-#' @param n.variable.genes The number of variable genes to find at each step. Defaults to 3000.
+#' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.5.
 #' @param run.SingleR Should cell type identification through `SingleR` be run? Defaults to FALSE.
 #' @param ref.data (Optional) A user-defined reference dataset to be used with `SingleR`. If NULL, the Human Primary Cell Atlas dataset will be used. Defaults to NULL.
-#' @param species If `run.SingleR = TRUE`, what species are the cells? DEfaults to "Human".
-#' @param recluster.res How many times should each cluster be divided? Defaults to 1.
+#' @param species If `run.SingleR = TRUE`, what species are the cells? Defaults to "Human".
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @param ... Optional parameter passed to other functions. Default is NULL.
 #' @export
@@ -20,12 +19,11 @@
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 
 ClusterCells <- function(seurat.object = NULL,
-                         n.variable.genes = 3000,
+                         n.variable.genes = 4000,
                          initial.resolution = .5,
                          run.SingleR = FALSE,
                          ref.data = NULL,
                          species = "Human",
-                         recluster.res = 1,
                          random.seed = 629) {
   # check arguments & assays present in Seurat object
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object!") }
@@ -46,13 +44,12 @@ ClusterCells <- function(seurat.object = NULL,
                                  seed.use = random.seed,
                                  verbose = FALSE)
   }
-  if (is.null(seurat.object@assays$SCT) & length(VariableFeatures(seurat.object)) == 0) {
-    print("Normalizing data, scaling, and selecting variable features using SCTransform")
+  else if (is.null(seurat.object@assays$SCT) & length(VariableFeatures(seurat.object)) == 0) {
     # check if % mito DNA exists in Seurat object metadata & regress out if so
     if (any(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))) {
-      col_loc <- which(grepl("MT|mt", colnames(seurat.object@meta.data)))
+      col_loc <- which(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))
       col_name <- colnames(seurat.object@meta.data)[col_loc]
-      print("Regressing out % mitochondrial DNA")
+      print("Normalizing counts using SCTransform negative-binomial regression")
       seurat.object <- SCTransform(seurat.object,
                                    assay = "RNA",
                                    variable.features.n = n.variable.genes,
@@ -61,7 +58,8 @@ ClusterCells <- function(seurat.object = NULL,
                                    verbose = FALSE)
     } else {
       # add % mito and regress out
-      seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")
+      seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # non-specific to species
+      print("Normalizing counts using SCTransform negative-binomial regression")
       seurat.object <- SCTransform(seurat.object,
                                    assay = "RNA",
                                    variable.features.n = n.variable.genes,
@@ -72,7 +70,7 @@ ClusterCells <- function(seurat.object = NULL,
 
   # check if PCA components exist in Seurat object
   if (is.null(seurat.object@reductions$pca)) {
-    sprintf("Running PCA with 30 principal components using %s highly variable genes", n.variable.genes)
+    print(sprintf("Running PCA with 30 principal components using %s highly variable genes", n.variable.genes))
     seurat.object <- RunPCA(seurat.object,
                             features = VariableFeatures(seurat.object),
                             npcs = 30,
@@ -92,11 +90,12 @@ ClusterCells <- function(seurat.object = NULL,
   }
 
 
-  # initial clustering
-  print("Clustering cells in PCA space using k = 20 nearest neighbors & resolution = .5")
+  # initial clustering, using k ~ sqrt(N) as a general rule
+  print("Clustering cells in PCA space using k = 50 nearest neighbors & resolution = .5")
   seurat.object <- FindNeighbors(seurat.object,
                                  reduction = "pca",
-                                 dims = 1:30)
+                                 dims = 1:30,
+                                 k.param = round(sqrt(ncol(seurat.object))))
   seurat.object <- FindClusters(seurat.object,
                                 resolution = .5,
                                 algorithm = 1,
@@ -107,13 +106,16 @@ ClusterCells <- function(seurat.object = NULL,
     seurat.object <- RunSingleR(seurat.object, ref.data = ref.data)
   }
 
-  # recluster each cluster 3 times
-  reclust_results <- ReclusterCells(seurat.object, recluster.res = recluster.res)
+  # re-cluster each cluster after re-identifying the 3,000 highest-variance genes within each cluster
+  reclust_results <- ReclusterCells(seurat.object)
 
-  # process reclustering results
-  ## code goes here !
+  # create re-clustered plots to inspect visually
+  plot_list <- list()
+  for (clust in seq(reclust_results)) {
+    plot_list[[clust]] <- DimPlot(reclust_results[[clust]], reduction = "tsne", group.by = "seurat_clusters")
+  }
 
 
-  return(seurat.object)
+  return(list(seurat.object, reclust_results, plot_list))
 }
 

@@ -2,30 +2,30 @@
 % Please edit documentation in R/ReclusterCells.R
 \name{ReclusterCells}
 \alias{ReclusterCells}
-\title{A function to iteratively recalculate cluster assignments based on highly variable genes}
+\title{A function to iteratively recalculate cluster assignments based on highly variable genes.}
 \usage{
 ReclusterCells(
   seurat.object = NULL,
-  recluster.res = 1,
-  var.method = "sctransform",
-  use.SingleR.labels = FALSE
+  use.SingleR.labels = FALSE,
+  n.variable.genes = 3000,
+  which.clust = "auto"
 )
 }
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
 
-\item{recluster.res}{The amount of times to recluster each cluster and subcluster. Defaults to 1.}
-
-\item{var.method}{How should highly variable genes be identified? One of "sctransform" or "vst". Defaults to "sctransform".}
-
 \item{use.SingleR.labels}{Should cell types from \code{SingleR} be used to recluster cells? Defaults to FALSE.}
 
 \item{n.variable.genes}{How many variable genes should be detected in each subcluster? Defaults to 3000}
+
+\item{which.clust}{How should we decide which clusters to recluster? Defaults to "auto", which tests homogeneity of clusters, and reclusters the heterogenous ones. Can also be a user-defined list of clusters, which overrides the cluster homogeneity test.}
+
+\item{random.seed}{The random seed used to control stochasticity. Defaults to 629.}
 }
 \description{
-This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster.
+This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using the variance-stabilizing transformation implemented in \code{Seurat}.
 }
 \examples{
 ReclusterCells(seurat.object)
-ReclusterCells(seurat.object, recluster.res = 2, use.SingleR.labels = TRUE)
+ReclusterCells(seurat.object, n.variable.genes = 4000, use.SingleR.labels = TRUE)
 }
