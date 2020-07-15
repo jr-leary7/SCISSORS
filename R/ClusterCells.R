@@ -28,6 +28,7 @@ ClusterCells <- function(seurat.object = NULL,
   # check arguments & assays present in Seurat object
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object!") }
   if (class(seurat.object)[1] == "SingleCellExperiment") {
+    # convert object
     print("Converting user-supplied SingleCellExperiment object to Seurat object")
     seurat.object <- as.Seurat(seurat.object, data = NULL)
     # add necessary metadata to calculate % mito & regress it out
@@ -36,6 +37,7 @@ ClusterCells <- function(seurat.object = NULL,
     seurat.object@meta.data$nCount_RNA <- RNA_counts
     seurat.object@meta.data$nFeature_RNA <- feature_counts
     seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")
+    # normalize counts and find highly variable genes
     print("Normalizing counts using SCTransform negative-binomial regression")
     seurat.object <- SCTransform(seurat.object,
                                  assay = "RNA",
@@ -89,25 +91,25 @@ ClusterCells <- function(seurat.object = NULL,
                              perplexity = 30)
   }
 
-
   # initial clustering, using k ~ sqrt(N) as a general rule
-  print("Clustering cells in PCA space using k = 50 nearest neighbors & resolution = .5")
+  print(sprintf("Clustering cells in PCA space using k ~ sqrt(N) & resolution = %s", initial.resolution))
   seurat.object <- FindNeighbors(seurat.object,
                                  reduction = "pca",
                                  dims = 1:30,
                                  k.param = round(sqrt(ncol(seurat.object))))
   seurat.object <- FindClusters(seurat.object,
-                                resolution = .5,
+                                resolution = initial.resolution,
                                 algorithm = 1,
                                 random.seed = 629)
+
+  # recluster cells using top 3,000 highest variance genes in each cluster
+  print(sprintf("Identifying subpopulations in %s clusters", length(unique(seurat.object$seurat_clusters))))
+  seurat.object <- ReclusterCells(seurat.object)
 
   # run SingleR
   if (run.SingleR) {
     seurat.object <- RunSingleR(seurat.object, ref.data = ref.data)
   }
-
-  # re-cluster each cluster after re-identifying the 3,000 highest-variance genes within each cluster
-  reclust_results <- ReclusterCells(seurat.object)
 
   # create re-clustered plots to inspect visually
   plot_list <- list()

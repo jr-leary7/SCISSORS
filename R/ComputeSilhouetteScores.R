@@ -4,6 +4,7 @@
 #'
 #' @param seurat.obj The input object for which silhouette score will be computed. Defaults to NULL.
 #' @importFrom cluster silhouette
+#' @export
 #' @examples
 #' ComputeSilhouetteScores(seurat.obj = seurat_object)
 
