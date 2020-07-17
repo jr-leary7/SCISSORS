@@ -8,14 +8,29 @@ library(Seurat)
 library(scRNAseq)
 ```
 # Analysis
-Next, we use the `ClusterCells` function to automatically convert the data, which is contained in a `SingleCellExperiment` object, to the `Seurat` format. This functions also calculates the percentage of mitochondrial DNA for each cell, then uses `SCTransform` to select highly variable genes, normalize and scale the counts, regress out the effect of the percentage of mitochondrial DNA, run PCA & t-SNE, cluster the cells, and finally run the re-clustering agorithm on each identified cluster. 
+Next, we use the `PrepareData` function to automatically convert the data, which is contained in a `SingleCellExperiment` object, to the `Seurat` format. This function also calculates the percentage of mitochondrial DNA for each cell and uses `SCTransform` to select highly variable genes, normalize and scale the counts, and regress out the effect of the percentage of mitochondrial DNA. It then runs PCA & t-SNE using 30 PCs as an intialization for the t-SNE embedding. Finally, we create a SNN graph using the approximation $k = \sqrt{N}$ and generate a preliminary rough clustering of our cells using Louvain modularity optimization. Basically, the function performs all the necessary pre-processing steps commonly used in `Seurat`. 
 ```{r}
 baron <- scRNAseq::BaronPancreasData()
-baron <- ClusterCells(seurat.object = baron, 
-                      n.variable.genes = 4000, 
-                      initial.resolution = .5, 
-                      random.seed = 629)
+baron <- PrepareData(seurat.object = baron, 
+                     n.variable.genes = 4000, 
+                     initial.resolution = .5, 
+                     random.seed = 629)
 ```
 
-# Results
-Once I generate figures, the results will go here! 
+# Reclustering
+The `ReclusterCells` function performs the actual subpopulation-detection analysis, which is based on tuning the parameters of the Louvain modularity optimization function with the goal of maximizing the mean silhouette score of a given set of parameters. In this case, after investigating the preliminary clustering results, we decide to identify subpopulations in clusters 0, 3, 5 & 6. The `do.plot` argument allows the printing of the optimal reclustering results for eacgh cluster to the graphics viewer in RStudio. 
+```{r}
+reclust_results <- ReclusterCells(seurat.object = baron, 
+                                  n.variable.genes = 4000, 
+                                  which.clust = list(0, 3, 5, 6), 
+                                  resolution.vals = c(.05, .1, .2, .35), 
+                                  do.plot = TRUE)
+```
+
+# Identifying Subpopulation Marker Genes
+Next, we'd of course like to identify marker genes for our newly discovered subpopulations. This process is implemented in the `FindSubpopulationMarkers` function. It creates a "new" cluster for the identified subpopulation, and uses a one-versus-many approach to determine which genes uniquely identify it. The test used can be user-specified, but defaults to a Wilcox test. 
+```{r}
+subpop_markers <- FindSubpopulationMarkers(seurat.object = baron, 
+                                           reclust.data = reclust_results, 
+                                           )
+```

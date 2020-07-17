@@ -2,30 +2,39 @@
 % Please edit documentation in R/ReclusterCells.R
 \name{ReclusterCells}
 \alias{ReclusterCells}
-\title{A function to iteratively recalculate cluster assignments based on highly variable genes.}
+\title{Identify subpopulations in single cell clusters.}
 \usage{
 ReclusterCells(
   seurat.object = NULL,
-  use.SingleR.labels = FALSE,
-  n.variable.genes = 3000,
-  which.clust = "auto"
+  n.variable.genes = 4000,
+  which.clust = "auto",
+  resolution.vals = c(0.05, 0.1, 0.2, 0.35),
+  k.val = NULL,
+  do.plot = FALSE,
+  random.seed = 629
 )
 }
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
 
-\item{use.SingleR.labels}{Should cell types from \code{SingleR} be used to recluster cells? Defaults to FALSE.}
+\item{n.variable.genes}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
 
-\item{n.variable.genes}{How many variable genes should be detected in each subcluster? Defaults to 3000}
+\item{which.clust}{Which clusters should undergo subpopulation detection analysis? If a user-defined list is not provided, all clusters will be re-clustered; this is NOT recommended as spurious,
+biologically non-relevant clusters will be "discovered," and the FP rate will increase. Defaults to "auto".}
 
-\item{which.clust}{How should we decide which clusters to recluster? Defaults to "auto", which tests homogeneity of clusters, and reclusters the heterogenous ones. Can also be a user-defined list of clusters, which overrides the cluster homogeneity test.}
+\item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).}
 
-\item{random.seed}{The random seed used to control stochasticity. Defaults to 629.}
+\item{k.val}{(Optional) The parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \emph{k} ~ sqrt(\emph{n}).}
+
+\item{do.plot}{(Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.}
+
+\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 }
 \description{
-This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using the variance-stabilizing transformation implemented in \code{Seurat}.
+This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{sctransform} as implemented in \code{Seurat}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
 }
 \examples{
 ReclusterCells(seurat.object)
-ReclusterCells(seurat.object, n.variable.genes = 4000, use.SingleR.labels = TRUE)
+ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), random.seed = 100)
+ReclusterCells(seurat.object, n.variable.genes = 3000, which.clust = list(0, 3, 5), do.plot = TRUE)
 }

@@ -1,7 +1,8 @@
-#' A function to compute the cosine distance matrix.
+#' Compute the cosine distance matrix.
 #'
 #' This function takes a matrix as input, and computes the cosine distance (1 - cosine similarity) between the observations.
 #' @param input The input matrix. Defaults to NULL.
+#' @export
 #' @examples
 #' CosineDist(input = pca_matrix)
 

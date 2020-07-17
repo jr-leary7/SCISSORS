@@ -1,4 +1,4 @@
-#' A function to compute the silhouette score of a clustering.
+#' Calculate the mean silhouette score of a clustering.
 #'
 #' This function will compute the silhouette score for each cluster identified by `Seurat`'s Louvain modularity optimization community detection algorithm.
 #'

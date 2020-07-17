@@ -2,7 +2,7 @@
 % Please edit documentation in R/CosineDist.R
 \name{CosineDist}
 \alias{CosineDist}
-\title{A function to compute the cosine distance matrix.}
+\title{Compute the cosine distance matrix.}
 \usage{
 CosineDist(input = NULL)
 }

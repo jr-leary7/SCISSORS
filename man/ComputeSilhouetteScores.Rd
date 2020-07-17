@@ -2,7 +2,7 @@
 % Please edit documentation in R/ComputeSilhouetteScores.R
 \name{ComputeSilhouetteScores}
 \alias{ComputeSilhouetteScores}
-\title{A function to compute the silhouette score of a clustering.}
+\title{Calculate the mean silhouette score of a clustering.}
 \usage{
 ComputeSilhouetteScores(seurat.obj = NULL)
 }
