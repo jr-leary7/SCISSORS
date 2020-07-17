@@ -28,9 +28,17 @@ reclust_results <- ReclusterCells(seurat.object = baron,
 ```
 
 # Identifying Subpopulation Marker Genes
-Next, we'd of course like to identify marker genes for our newly discovered subpopulations. This process is implemented in the `FindSubpopulationMarkers` function. It creates a "new" cluster for the identified subpopulation, and uses a one-versus-many approach to determine which genes uniquely identify it. The test used can be user-specified, but defaults to a Wilcox test. 
+Next, we'd of course like to identify marker genes for our newly discovered subpopulations. This process is implemented in the `FindSubpopulationMarkers` function. It creates a "new" cluster for the identified subpopulation, and uses a one-versus-many approach to determine which genes uniquely identify it. The test used can be user-specified, but defaults to a Wilcox test. Here we find marker genes for each of the identified subpopulations in cluster 6.
 ```{r}
 subpop_markers <- FindSubpopulationMarkers(seurat.object = baron, 
                                            reclust.data = reclust_results, 
-                                           )
+                                           which.clust = list(6), 
+                                           diff.exp.test = "wilcox", 
+                                           log.fc.thresh = 1.75, 
+                                           random.seed = 629))
 ```
+
+The subpopulation markers can be annotated using `biomaRt` or another gene onology package, and can be used to determine, on a transcriptomic level, what about the molecular biology of your subpopulation makes it unique and special. 
+
+# Contact Information
+This package is based on the ideas of Xianlu Peng, PhD (Research Asst. Professor, Lineberger Comprehensive Cancer Center, UNC Chapel Hill). The code is written and maintained by Jack Leary (Research Collaborator, Lineberger Comprehensive Cancer Center, UNC Chapel Hill). Jack can be reached on GitHub as well as at jrleary@live.unc.edu for any questions, issues, or bugs. 

@@ -27,16 +27,16 @@ ReclusterCells <- function(seurat.object = NULL,
   # test input
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object as input!") }
 
-  if (which.cells != "auto" & length(which.cells) >= 1) {
+  if (which.clust != "auto" & length(which.clust) >= 1) {
     reclust_list <- list()
     unique_clusts <- sort(as.integer(unique(seurat.object$seurat_clusters)) - 1)
     print(sprintf("Identifying %s most variable genes and re-clustering each cluster", n.variable.genes))
 
-    for (clust in seq(unique_clusts)) {
+    for (clust in seq(which.clust)) {
       print(sprintf("Identifying subpopulations in cluster %s using %s highly variable genes",
-                    unique_clusts[clust],
+                    which.clust[[clust]],
                     n.variable.genes))
-      temp_obj <- subset(seurat.object, subset = seurat_clusters == unique_clusts[clust])
+      temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
       temp_obj <- SCTransform(temp_obj,
                               vars.to.regress = "percent_MT",
                               seed.use = random.seed,
@@ -91,11 +91,11 @@ ReclusterCells <- function(seurat.object = NULL,
       } else {
         # replace new object w/ original one, as no subpopulations were found
         print(sprintf("Did not find suffcient evidence of subclusters, as the max silhouette score was: %s", round(max(sil_scores), 4)))
-        temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
+        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
       }
       reclust_list[[clust]] <- temp_obj
     }
-    names(reclust_list) <- as.character(unique_clusts)
+    names(reclust_list) <- as.character(unlist(which.clust))
   }
   return(reclust_list)
 }

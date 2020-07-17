@@ -2,11 +2,10 @@
 
 export(ComputeSilhouetteScores)
 export(CosineDist)
+export(FindSubpopulationMarkers)
 export(PrepareData)
 export(ReclusterCells)
-export(RunSingleR)
 import(Seurat)
-import(SingleR)
 importClassesFrom(SingleCellExperiment,SingleCellExperiment)
 importFrom(cluster,silhouette)
 importFrom(ggplot2,labs)
