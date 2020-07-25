@@ -5,7 +5,9 @@
 #' @importFrom ggplot2 labs
 #' @param seurat.object The `Seurat` object containing cells and their assigned cluster IDs.
 #' @param n.variable.genes How many variable genes should be detected in each subcluster? Defaults to 4000.
-#' @param which.clust Which clusters should undergo subpopulation detection analysis? If a user-defined list is not provided, all clusters will be re-clustered; this is NOT recommended as spurious,
+#' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Defaults to 10.
+#' @param redo.tSNE (Optional) Should a cluster-specific t-SNE embedding be generated? Sometimes subpopulations appear mixed together on the original t-SNE coordinates, but separate clearly when re-embedded. Defaults to TRUE.
+#' @param which.clust Which clusters should undergo subpopulation detection analysis? If a user-defined list is not provided, all clusters will be re-clustered; this is NOT recommended as some clusters will not contain subpopulations.
 #' biologically non-relevant clusters will be "discovered," and the FP rate will increase. Defaults to "auto".
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).
 #' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
@@ -19,7 +21,9 @@
 
 ReclusterCells <- function(seurat.object = NULL,
                            n.variable.genes = 4000,
-                           which.clust = "auto",
+                           n.PC = 10,
+                           redo.tSNE = TRUE,
+                           which.clust = NULL,
                            resolution.vals = c(.05, .1, .2, .35),
                            k.val = NULL,
                            do.plot = FALSE,
@@ -27,11 +31,10 @@ ReclusterCells <- function(seurat.object = NULL,
   # check inputs
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object as input!") }
   # run function
-  if (which.clust != "auto" & length(which.clust) == 1) {
+  if (!is.null(which.clust)) {
     reclust_list <- list()
     unique_clusts <- sort(as.integer(unique(seurat.object$seurat_clusters)) - 1)
-    print(sprintf("Identifying %s most variable genes and re-clustering each cluster", n.variable.genes))
-
+    # recluster for a single cluster
     if (length(which.clust == 1)) {
       print(sprintf("Identifying subpopulations in cluster %s using %s highly variable genes",
                     which.clust,
@@ -43,17 +46,19 @@ ReclusterCells <- function(seurat.object = NULL,
                               variable.features.n = n.variable.genes,
                               verbose = FALSE)
       temp_obj <- RunPCA(temp_obj,
-                         npcs = 15,
+                         npcs = n.PC,
                          seed.use = 629,
                          verbose = FALSE,
                          features = VariableFeatures(temp_obj))
-      temp_obj <- RunTSNE(temp_obj,
+      if (redo.tSNE) {
+        temp_obj <- RunTSNE(temp_obj,
                           reduction = "pca",
+                          dims = 1:n.PC,
                           dim.embed = 2,
                           seed.use = random.seed)
-
+      }
       # set k parameter
-      if (is.null(k.val)) {k.val <- round(sqrt(ncol(temp_obj)))}
+      if (is.null(k.val)) { k.val <- round(sqrt(ncol(temp_obj))) }
       temp_obj <- FindNeighbors(temp_obj,
                                 reduction = "pca",
                                 k.param = k.val)
@@ -94,6 +99,7 @@ ReclusterCells <- function(seurat.object = NULL,
         temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
       }
       reclust_list[[1]] <- temp_obj
+      # recluster for multiple clusters
     } else if (length(which.clust) > 1) {
       for (clust in seq(which.clust)) {
         print(sprintf("Identifying subpopulations in cluster %s using %s highly variable genes",
@@ -106,17 +112,19 @@ ReclusterCells <- function(seurat.object = NULL,
                                 variable.features.n = n.variable.genes,
                                 verbose = FALSE)
         temp_obj <- RunPCA(temp_obj,
-                           npcs = 15,
+                           npcs = n.PC,
                            seed.use = 629,
                            verbose = FALSE,
                            features = VariableFeatures(temp_obj))
-        temp_obj <- RunTSNE(temp_obj,
+        if (redo.tSNE) {
+          temp_obj <- RunTSNE(temp_obj,
                             reduction = "pca",
+                            dims = 1:n.PC,
                             dim.embed = 2,
                             seed.use = random.seed)
-
+        }
         # set k parameter
-        if (is.null(k.val)) {k.val <- round(sqrt(ncol(temp_obj)))}
+        if (is.null(k.val)) { k.val <- round(sqrt(ncol(temp_obj))) }
         temp_obj <- FindNeighbors(temp_obj,
                                   reduction = "pca",
                                   k.param = k.val)
@@ -156,14 +164,12 @@ ReclusterCells <- function(seurat.object = NULL,
           print(sprintf("Did not find suffcient evidence of subclusters, as the max silhouette score was: %s", round(max(sil_scores), 4)))
           temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
         }
-        reclust_list[[]] <- temp_obj
+        reclust_list[[clust]] <- temp_obj
       }
-    } else {
-      stop("Please provide a valid list of clusters to analyze, or choose auto mode")
     }
-
+    # prepare results
     names(reclust_list) <- as.character(unlist(which.clust))
-  }
+  } else { stop("Please provide a list of clusters to analyze.") }
 
   return(reclust_list)
 }

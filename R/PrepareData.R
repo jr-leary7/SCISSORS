@@ -7,6 +7,7 @@
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
+#' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
 #' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
 #' @param do.plot (Optional) Should the function print a t-SNE plot of your cells to the graphics viewer? Defaults to FALSE.
@@ -20,6 +21,7 @@
 
 PrepareData <- function(seurat.object = NULL,
                         n.variable.genes = 4000,
+                        n.PC = 30,
                         initial.resolution = .3,
                         k.val = NULL,
                         do.plot = FALSE,
@@ -72,20 +74,22 @@ PrepareData <- function(seurat.object = NULL,
 
   # check if PCA components exist in Seurat object
   if (is.null(seurat.object@reductions$pca)) {
-    print(sprintf("Running PCA with 30 principal components using %s highly variable genes", n.variable.genes))
+    print(sprintf("Running PCA with %s principal components using %s highly variable genes",
+                  n.PC,
+                  n.variable.genes))
     seurat.object <- RunPCA(seurat.object,
                             features = VariableFeatures(seurat.object),
-                            npcs = 30,
+                            npcs = n.PC,
                             verbose = FALSE,
                             seed.use = random.seed)
   }
 
   # check if t-SNE components exist in Seurat object
   if (is.null(seurat.object@reductions$tsne)) {
-    print("Running t-SNE on 30 principal components with perplexity = 30")
+    print(sprintf("Running t-SNE on %s principal components with perplexity = 30", n.PC))
     seurat.object <- RunTSNE(seurat.object,
                              reduction = "pca",
-                             dims = 1:30,
+                             dims = 1:n.PC,
                              dim.embed = 2,
                              seed.use = random.seed,
                              perplexity = 30)
@@ -97,7 +101,7 @@ PrepareData <- function(seurat.object = NULL,
   print(sprintf("Clustering cells in PCA space using k ~ %s & resolution = %s", k.val, initial.resolution))
   seurat.object <- FindNeighbors(seurat.object,
                                  reduction = "pca",
-                                 dims = 1:30,
+                                 dims = 1:n.PC,
                                  k.param = k.val)
   seurat.object <- FindClusters(seurat.object,
                                 resolution = initial.resolution,
