@@ -24,19 +24,19 @@ ReclusterCells <- function(seurat.object = NULL,
                            k.val = NULL,
                            do.plot = FALSE,
                            random.seed = 629) {
-  # test input
+  # check inputs
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object as input!") }
-
-  if (which.clust != "auto" & length(which.clust) >= 1) {
+  # run function
+  if (which.clust != "auto" & length(which.clust) == 1) {
     reclust_list <- list()
     unique_clusts <- sort(as.integer(unique(seurat.object$seurat_clusters)) - 1)
     print(sprintf("Identifying %s most variable genes and re-clustering each cluster", n.variable.genes))
 
-    for (clust in seq(which.clust)) {
+    if (length(which.clust == 1)) {
       print(sprintf("Identifying subpopulations in cluster %s using %s highly variable genes",
-                    which.clust[[clust]],
+                    which.clust,
                     n.variable.genes))
-      temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
+      temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[1]])
       temp_obj <- SCTransform(temp_obj,
                               vars.to.regress = "percent_MT",
                               seed.use = random.seed,
@@ -91,11 +91,79 @@ ReclusterCells <- function(seurat.object = NULL,
       } else {
         # replace new object w/ original one, as no subpopulations were found
         print(sprintf("Did not find suffcient evidence of subclusters, as the max silhouette score was: %s", round(max(sil_scores), 4)))
-        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
+        temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
       }
-      reclust_list[[clust]] <- temp_obj
+      reclust_list[[1]] <- temp_obj
+    } else if (length(which.clust) > 1) {
+      for (clust in seq(which.clust)) {
+        print(sprintf("Identifying subpopulations in cluster %s using %s highly variable genes",
+                      which.clust[[clust]],
+                      n.variable.genes))
+        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
+        temp_obj <- SCTransform(temp_obj,
+                                vars.to.regress = "percent_MT",
+                                seed.use = random.seed,
+                                variable.features.n = n.variable.genes,
+                                verbose = FALSE)
+        temp_obj <- RunPCA(temp_obj,
+                           npcs = 15,
+                           seed.use = 629,
+                           verbose = FALSE,
+                           features = VariableFeatures(temp_obj))
+        temp_obj <- RunTSNE(temp_obj,
+                            reduction = "pca",
+                            dim.embed = 2,
+                            seed.use = random.seed)
+
+        # set k parameter
+        if (is.null(k.val)) {k.val <- round(sqrt(ncol(temp_obj)))}
+        temp_obj <- FindNeighbors(temp_obj,
+                                  reduction = "pca",
+                                  k.param = k.val)
+        # iterate over resolution parameters and compute silhouette scores to find best re-clustering
+        sil_scores <- c()
+        for (res in seq(resolution.vals)) {
+          temp_obj <- FindClusters(temp_obj,
+                                   resolution = resolution.vals[res],
+                                   algorithm = 1,
+                                   random.seed = random.seed,
+                                   verbose = FALSE)
+          if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
+            sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
+            mean_sil <- mean(sil_res)
+            sil_scores[res] <- mean_sil
+          } else {
+            # neutral placeholder value for the case when the number of identified clusters is 1
+            sil_scores[res] <- 0
+          }
+        }
+        # extract best parameters and save results
+        names(sil_scores) <- as.character(resolution.vals)
+        if (max(sil_scores) > .25) {
+          correct_res <- as.numeric(names(sil_scores[sil_scores == max(sil_scores)]))
+          print(sprintf("Clustering cells using resolution = %s, which achieved silhouette score: %s",
+                        correct_res,
+                        round(max(sil_scores), 4)))
+          temp_obj <- FindClusters(temp_obj,
+                                   resolution = correct_res,
+                                   algorithm = 1,
+                                   random.seed = random.seed)
+          if (do.plot == TRUE) {
+            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering with resolution = %s", correct_res)))
+          }
+        } else {
+          # replace new object w/ original one, as no subpopulations were found
+          print(sprintf("Did not find suffcient evidence of subclusters, as the max silhouette score was: %s", round(max(sil_scores), 4)))
+          temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
+        }
+        reclust_list[[]] <- temp_obj
+      }
+    } else {
+      stop("Please provide a valid list of clusters to analyze, or choose auto mode")
     }
+
     names(reclust_list) <- as.character(unlist(which.clust))
   }
+
   return(reclust_list)
 }

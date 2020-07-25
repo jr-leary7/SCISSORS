@@ -9,7 +9,7 @@ FindSubpopulationMarkers(
   reclust.data = NULL,
   which.clust = NULL,
   diff.exp.test = "wilcox",
-  logfc.threshhold = 1.25,
+  logfc.thresh = 2,
   random.seed = 629
 )
 }
@@ -22,9 +22,9 @@ FindSubpopulationMarkers(
 
 \item{diff.exp.test}{The test used to calculate differential expression using \code{FindMarkers}. Defaults to "wilcox".}
 
-\item{random.seed}{(Optional) The seed used to control stochasticity in several functions. Defaults to 629.}
+\item{logfc.thresh}{The lo2 fold-change cutoff used when performing differential expression analysis. Defaults to 2.}
 
-\item{logfc.thresh}{The lo2 fold-change cutoff used when performing differential expression analysis. Defaults to 1.25.}
+\item{random.seed}{(Optional) The seed used to control stochasticity in several functions. Defaults to 629.}
 }
 \description{
 This function determines which cells characterize the subpopulations identified using \code{ReclusterCells}. It is intended to be run on a single re-clustered \code{Seurat} object at a time, though if you wish you could

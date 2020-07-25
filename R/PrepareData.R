@@ -24,8 +24,9 @@ PrepareData <- function(seurat.object = NULL,
                         k.val = NULL,
                         do.plot = FALSE,
                         random.seed = 629) {
-  # check arguments & assays present in Seurat object
+  # check inputs & assays present in Seurat object
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object!") }
+  # run function
   if (class(seurat.object)[1] == "SingleCellExperiment") {
     # convert object
     print("Converting user-supplied SingleCellExperiment object to Seurat object")
