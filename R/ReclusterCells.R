@@ -33,12 +33,8 @@ ReclusterCells <- function(seurat.object = NULL,
   # run function
   if (!is.null(which.clust)) {
     reclust_list <- list()
-    unique_clusts <- sort(as.integer(unique(seurat.object$seurat_clusters)) - 1)
     # recluster for a single cluster
-    if (length(which.clust == 1)) {
-      print(sprintf("Identifying subpopulations in cluster %s using %s highly variable genes",
-                    which.clust,
-                    n.variable.genes))
+    if (length(which.clust) == 1) {
       temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[1]])
       temp_obj <- SCTransform(temp_obj,
                               vars.to.regress = "percent_MT",
@@ -83,28 +79,31 @@ ReclusterCells <- function(seurat.object = NULL,
       names(sil_scores) <- as.character(resolution.vals)
       if (max(sil_scores) > .25) {
         correct_res <- as.numeric(names(sil_scores[sil_scores == max(sil_scores)]))
-        print(sprintf("Clustering cells using resolution = %s, which achieved silhouette score: %s",
+        print(sprintf("Reclustering cells in cluster %s using resolution = %s, which achieved silhouette score: %s",
+                      which.clust[[1]],
                       correct_res,
-                      round(max(sil_scores), 4)))
+                      round(max(sil_scores), 3)))
         temp_obj <- FindClusters(temp_obj,
                                  resolution = correct_res,
                                  algorithm = 1,
                                  random.seed = random.seed)
         if (do.plot == TRUE) {
-          print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering with resolution = %s", correct_res)))
+          print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s with resolution = %s",
+                                                                             which.clust[[1]],
+                                                                             correct_res)))
         }
       } else {
         # replace new object w/ original one, as no subpopulations were found
-        print(sprintf("Did not find suffcient evidence of subclusters, as the max silhouette score was: %s", round(max(sil_scores), 4)))
+        print(sprintf("Did not find suffcient evidence of subclusters in cluster %s, as the max silhouette score was: %s",
+                      which.clust[[clust]],
+                      round(max(sil_scores), 3)))
         temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
       }
       reclust_list[[1]] <- temp_obj
+
       # recluster for multiple clusters
     } else if (length(which.clust) > 1) {
       for (clust in seq(which.clust)) {
-        print(sprintf("Identifying subpopulations in cluster %s using %s highly variable genes",
-                      which.clust[[clust]],
-                      n.variable.genes))
         temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
         temp_obj <- SCTransform(temp_obj,
                                 vars.to.regress = "percent_MT",
@@ -149,27 +148,30 @@ ReclusterCells <- function(seurat.object = NULL,
         names(sil_scores) <- as.character(resolution.vals)
         if (max(sil_scores) > .25) {
           correct_res <- as.numeric(names(sil_scores[sil_scores == max(sil_scores)]))
-          print(sprintf("Clustering cells using resolution = %s, which achieved silhouette score: %s",
+          print(sprintf("Relustering cells in cluster %s using resolution = %s, which achieved silhouette score: %s",
+                        which.clust[[clust]],
                         correct_res,
                         round(max(sil_scores), 4)))
           temp_obj <- FindClusters(temp_obj,
                                    resolution = correct_res,
                                    algorithm = 1,
                                    random.seed = random.seed)
-          if (do.plot == TRUE) {
-            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering with resolution = %s", correct_res)))
+          if (do.plot) {
+            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s with resolution = %s",
+                                                                               which.clust[[clust]],
+                                                                               correct_res)))
           }
         } else {
           # replace new object w/ original one, as no subpopulations were found
-          print(sprintf("Did not find suffcient evidence of subclusters, as the max silhouette score was: %s", round(max(sil_scores), 4)))
+          print(sprintf("Did not find suffcient evidence of subclusters in cluster %s, as the max silhouette score was: %s",
+                        which.clust[[clust]],
+                        round(max(sil_scores), 3)))
           temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
         }
         reclust_list[[clust]] <- temp_obj
       }
-    }
-    # prepare results
+    } else { stop("Please provide a list of clusters to analyze.") }
     names(reclust_list) <- as.character(unlist(which.clust))
-  } else { stop("Please provide a list of clusters to analyze.") }
-
+  }
   return(reclust_list)
 }

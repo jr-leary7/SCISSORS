@@ -12,7 +12,6 @@ ComputeSilhouetteScores <- function(seurat.obj = NULL) {
   # check inputs
   if (is.null(seurat.obj)) { stop("Somehow, you didn't supply a Seurat object ...") }
   # run function
-  print("Computing cosine similarity matrix")
   # prepare input matrix
   pca_df <- data.frame(Embeddings(seurat.obj, reduction = "pca"))
   pca_mat <- as.matrix(pca_df)
