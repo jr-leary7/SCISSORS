@@ -7,7 +7,10 @@
 ReclusterCells(
   seurat.object = NULL,
   n.variable.genes = 4000,
-  which.clust = "auto",
+  n.PC = 10,
+  which.dim.reduc = c("tsne", "umap"),
+  redo.embedding = TRUE,
+  which.clust = NULL,
   resolution.vals = c(0.05, 0.1, 0.2, 0.35),
   k.val = NULL,
   do.plot = FALSE,
@@ -19,8 +22,13 @@ ReclusterCells(
 
 \item{n.variable.genes}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
 
-\item{which.clust}{Which clusters should undergo subpopulation detection analysis? If a user-defined list is not provided, all clusters will be re-clustered; this is NOT recommended as spurious,
-biologically non-relevant clusters will be "discovered," and the FP rate will increase. Defaults to "auto".}
+\item{n.PC}{How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Defaults to 10.}
+
+\item{which.dim.reduc}{(Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have \code{phateR} installed.}
+
+\item{redo.embedding}{(Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.}
+
+\item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list.}
 
 \item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).}
 
@@ -32,9 +40,4 @@ biologically non-relevant clusters will be "discovered," and the FP rate will in
 }
 \description{
 This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{sctransform} as implemented in \code{Seurat}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
-}
-\examples{
-ReclusterCells(seurat.object)
-ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), random.seed = 100)
-ReclusterCells(seurat.object, n.variable.genes = 3000, which.clust = list(0, 3, 5), do.plot = TRUE)
 }

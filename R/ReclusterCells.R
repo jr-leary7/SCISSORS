@@ -2,13 +2,14 @@
 #'
 #' This function identifies subclusters of cell types by recalculating the *n* most highly variable genes for each cluster using `sctransform` as implemented in `Seurat`. The function returns a list of `Seurat` objects, one for each cluster the user wants to investigate.
 #' @import Seurat
+#' @import phateR
 #' @importFrom ggplot2 labs
 #' @param seurat.object The `Seurat` object containing cells and their assigned cluster IDs.
+#' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list.
 #' @param n.variable.genes How many variable genes should be detected in each subcluster? Defaults to 4000.
 #' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Defaults to 10.
-#' @param redo.tSNE (Optional) Should a cluster-specific t-SNE embedding be generated? Sometimes subpopulations appear mixed together on the original t-SNE coordinates, but separate clearly when re-embedded. Defaults to TRUE.
-#' @param which.clust Which clusters should undergo subpopulation detection analysis? If a user-defined list is not provided, all clusters will be re-clustered; this is NOT recommended as some clusters will not contain subpopulations.
-#' biologically non-relevant clusters will be "discovered," and the FP rate will increase. Defaults to "auto".
+#' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
+#' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).
 #' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
 #' @param do.plot (Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.
@@ -16,13 +17,14 @@
 #' @export
 #' @examples
 #' ReclusterCells(seurat.object)
-#' ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), random.seed = 100)
-#' ReclusterCells(seurat.object, n.variable.genes = 3000, which.clust = list(0, 3, 5), do.plot = TRUE)
+#' ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), redo.embedding = TRUE, which.dim.reduc = c("tsne", "phate))
+#' ReclusterCells(seurat.object, which.clust = list(0, 3, 5), n.variable.genes = 3000, do.plot = TRUE)
 
 ReclusterCells <- function(seurat.object = NULL,
                            n.variable.genes = 4000,
                            n.PC = 10,
-                           redo.tSNE = TRUE,
+                           which.dim.reduc = c("tsne", "umap"),
+                           redo.embedding = TRUE,
                            which.clust = NULL,
                            resolution.vals = c(.05, .1, .2, .35),
                            k.val = NULL,
@@ -43,21 +45,80 @@ ReclusterCells <- function(seurat.object = NULL,
                               verbose = FALSE)
       temp_obj <- RunPCA(temp_obj,
                          npcs = n.PC,
-                         seed.use = 629,
-                         verbose = FALSE,
-                         features = VariableFeatures(temp_obj))
-      if (redo.tSNE) {
-        temp_obj <- RunTSNE(temp_obj,
-                          reduction = "pca",
-                          dims = 1:n.PC,
-                          dim.embed = 2,
-                          seed.use = random.seed)
+                         features = VariableFeatures(temp_obj),
+                         seed.use = rrandom.seed,
+                         verbose = FALSE)
+      # re-run nonlinear dimension reduction
+      if (redo.embedding) {
+        if (which.dim.reduc == "all") {
+          temp_obj <- RunTSNE(temp_obj,
+                              reduction = "pca",
+                              dims = 1:n.PC,
+                              dim.embed = 2,
+                              seed.use = random.seed)
+          temp_obj <- RunUMAP(temp_obj,
+                              reduction = "pca",
+                              dims = 1:n.PC,
+                              umap.method = "uwot",
+                              n.components = 2,
+                              metric = "cosine",
+                              seed.use = random.seed,
+                              verbose = FALSE)
+          pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
+          phate_res <- phate(pca_df,
+                             ndim = 2,
+                             mds.solver = "smacof",
+                             knn.dist.method = "cosine",
+                             mds.dist.method = "cosine",
+                             npca = NULL,
+                             seed = random.seed,
+                             verbose = FALSE)
+          phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
+                                            assay = "SCT",
+                                            key = "PHATE_",
+                                            global = TRUE)
+          temp_obj@reductions$phate <- phate_obj
+        }
+        if ("tsne" %in% which.dim.reduc) {
+          temp_obj <- RunTSNE(temp_obj,
+                              reduction = "pca",
+                              dims = 1:n.PC,
+                              dim.embed = 2,
+                              seed.use = random.seed)
+        }
+        if ("umap" %in% which.dim.reduc) {
+          temp_obj <- RunUMAP(temp_obj,
+                              reduction = "pca",
+                              dims = 1:n.PC,
+                              umap.method = "uwot",
+                              n.components = 2,
+                              metric = "cosine",
+                              seed.use = random.seed,
+                              verbose = FALSE)
+        }
+        if ("phate" %in% which.dim.reduc) {
+          pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
+          phate_res <- phate(pca_df,
+                             ndim = 2,
+                             mds.solver = "smacof",
+                             knn.dist.method = "cosine",
+                             mds.dist.method = "cosine",
+                             npca = NULL,
+                             seed = random.seed,
+                             verbose = FALSE)
+          phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
+                                            assay = "SCT",
+                                            key = "PHATE_",
+                                            global = TRUE)
+          temp_obj@reductions$phate <- phate_obj
+        }
       }
       # set k parameter
       if (is.null(k.val)) { k.val <- round(sqrt(ncol(temp_obj))) }
       temp_obj <- FindNeighbors(temp_obj,
                                 reduction = "pca",
-                                k.param = k.val)
+                                k.param = k.val,
+                                verbose = FALSE)
       # iterate over resolution parameters and compute silhouette scores to find best re-clustering
       sil_scores <- c()
       for (res in seq(resolution.vals)) {
@@ -79,17 +140,20 @@ ReclusterCells <- function(seurat.object = NULL,
       names(sil_scores) <- as.character(resolution.vals)
       if (max(sil_scores) > .25) {
         correct_res <- as.numeric(names(sil_scores[sil_scores == max(sil_scores)]))
-        print(sprintf("Reclustering cells in cluster %s using resolution = %s, which achieved silhouette score: %s",
+        print(sprintf("Reclustering cells in cluster %s using k = %s & resolution = %s, which achieved silhouette score: %s",
                       which.clust[[1]],
+                      k.val,
                       correct_res,
                       round(max(sil_scores), 3)))
         temp_obj <- FindClusters(temp_obj,
                                  resolution = correct_res,
                                  algorithm = 1,
-                                 random.seed = random.seed)
+                                 random.seed = random.seed,
+                                 verbose = FALSE)
         if (do.plot == TRUE) {
-          print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s with resolution = %s",
+          print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
                                                                              which.clust[[1]],
+                                                                             k.val,
                                                                              correct_res)))
         }
       } else {
@@ -112,21 +176,79 @@ ReclusterCells <- function(seurat.object = NULL,
                                 verbose = FALSE)
         temp_obj <- RunPCA(temp_obj,
                            npcs = n.PC,
+                           features = VariableFeatures(temp_obj),
                            seed.use = 629,
-                           verbose = FALSE,
-                           features = VariableFeatures(temp_obj))
-        if (redo.tSNE) {
-          temp_obj <- RunTSNE(temp_obj,
-                            reduction = "pca",
-                            dims = 1:n.PC,
-                            dim.embed = 2,
-                            seed.use = random.seed)
+                           verbose = FALSE)
+        # re-run nonlinear dimension reduction
+        if (redo.embedding) {
+          if (which.dim.reduc == "all") {
+            temp_obj <- RunTSNE(temp_obj,
+                                reduction = "pca",
+                                dims = 1:n.PC,
+                                dim.embed = 2,
+                                seed.use = random.seed)
+            temp_obj <- RunUMAP(temp_obj,
+                                reduction = "pca",
+                                umap.method = "uwot",
+                                n.components = 2,
+                                metric = "cosine",
+                                seed.use = random.seed,
+                                verbose = FALSE)
+            pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
+            phate_res <- phate(pca_df,
+                               ndim = 2,
+                               mds.solver = "smacof",
+                               knn.dist.method = "cosine",
+                               mds.dist.method = "cosine",
+                               npca = NULL,
+                               seed = random.seed,
+                               verbose = FALSE)
+            phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
+                                              assay = "SCT",
+                                              key = "PHATE_",
+                                              global = TRUE)
+            temp_obj@reductions$phate <- phate_obj
+          }
+          if ("tsne" %in% which.dim.reduc) {
+            temp_obj <- RunTSNE(temp_obj,
+                                reduction = "pca",
+                                dims = 1:n.PC,
+                                dim.embed = 2,
+                                seed.use = random.seed)
+          }
+          if ("umap" %in% which.dim.reduc) {
+            temp_obj <- RunUMAP(temp_obj,
+                                reduction = "pca",
+                                dims = 1:n.PC,
+                                umap.method = "uwot",
+                                n.components = 2,
+                                metric = "cosine",
+                                seed.use = random.seed,
+                                verbose = FALSE)
+          }
+          if ("phate" %in% which.dim.reduc) {
+            pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
+            phate_res <- phate(pca_df,
+                               ndim = 2,
+                               mds.solver = "smacof",
+                               knn.dist.method = "cosine",
+                               mds.dist.method = "cosine",
+                               npca = NULL,
+                               seed = random.seed,
+                               verbose = FALSE)
+            phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
+                                              assay = "SCT",
+                                              key = "PHATE_",
+                                              global = TRUE)
+            temp_obj@reductions$phate <- phate_obj
+          }
         }
         # set k parameter
         if (is.null(k.val)) { k.val <- round(sqrt(ncol(temp_obj))) }
         temp_obj <- FindNeighbors(temp_obj,
                                   reduction = "pca",
-                                  k.param = k.val)
+                                  k.param = k.val,
+                                  verbose = FALSE)
         # iterate over resolution parameters and compute silhouette scores to find best re-clustering
         sil_scores <- c()
         for (res in seq(resolution.vals)) {
@@ -148,17 +270,20 @@ ReclusterCells <- function(seurat.object = NULL,
         names(sil_scores) <- as.character(resolution.vals)
         if (max(sil_scores) > .25) {
           correct_res <- as.numeric(names(sil_scores[sil_scores == max(sil_scores)]))
-          print(sprintf("Relustering cells in cluster %s using resolution = %s, which achieved silhouette score: %s",
+          print(sprintf("Relustering cells in cluster %s using k = %s & resolution = %s, which achieved silhouette score: %s",
                         which.clust[[clust]],
+                        k.val,
                         correct_res,
-                        round(max(sil_scores), 4)))
+                        round(max(sil_scores), 3)))
           temp_obj <- FindClusters(temp_obj,
                                    resolution = correct_res,
                                    algorithm = 1,
-                                   random.seed = random.seed)
+                                   random.seed = random.seed,
+                                   verbose = FALSE)
           if (do.plot) {
-            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s with resolution = %s",
+            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
                                                                                which.clust[[clust]],
+                                                                               k.val,
                                                                                correct_res)))
           }
         } else {

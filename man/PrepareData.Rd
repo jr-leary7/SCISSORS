@@ -7,6 +7,7 @@
 PrepareData(
   seurat.object = NULL,
   n.variable.genes = 4000,
+  n.PC = 30,
   initial.resolution = 0.3,
   k.val = NULL,
   do.plot = FALSE,
@@ -17,6 +18,8 @@ PrepareData(
 \item{seurat.object}{The object containing the cells you'd like to analyze.}
 
 \item{n.variable.genes}{The number of variable genes to find at each step. Defaults to 4000.}
+
+\item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.}
 
 \item{initial.resolution}{The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.3.}
 

@@ -22,7 +22,7 @@ FindSubpopulationMarkers <- function(seurat.object = NULL,
                                      logfc.thresh = 2,
                                      random.seed = 629) {
   # check inputs
-  if (is.null(seurat.object) | is.null(reclust.data) | is.null(which.clust)) { stop("Please provide the correct inputs.") }
+  if (is.null(seurat.object) | is.null(reclust.data)) { stop("Please provide the correct inputs.") }
   # run function
   temp_obj <- reclust.data
   marker_gene_list <- list()

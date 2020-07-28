@@ -7,7 +7,7 @@
 FindSubpopulationMarkers(
   seurat.object = NULL,
   reclust.data = NULL,
-  which.clust = NULL,
+  which.compare = "all cells",
   diff.exp.test = "wilcox",
   logfc.thresh = 2,
   random.seed = 629
@@ -16,9 +16,9 @@ FindSubpopulationMarkers(
 \arguments{
 \item{seurat.object}{The original \code{Seurat} object containing the entire cell population and related metadata.}
 
-\item{reclust.data}{The list of reclustered \code{Seurat} objects as returned by \code{ReclusterCells}.}
+\item{reclust.data}{A specific\code{Seurat} object from the list of objects returned by \code{ReclusterCells}.}
 
-\item{which.clust}{The cluster (with subpopulations) for which you'd like to obtain marker genes with respect to the entire cell population.}
+\item{which.compare}{Should subpopulation marker genes be determined in the context of the entire sample, or solely the single cluster? Defaults to "all cells"; choose "within cluster" to determine biomarkers at the cluster level.}
 
 \item{diff.exp.test}{The test used to calculate differential expression using \code{FindMarkers}. Defaults to "wilcox".}
 
