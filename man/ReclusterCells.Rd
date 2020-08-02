@@ -41,3 +41,8 @@ ReclusterCells(
 \description{
 This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{sctransform} as implemented in \code{Seurat}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
 }
+\examples{
+ReclusterCells(seurat.object)
+ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), redo.embedding = TRUE, which.dim.reduc = c("tsne", "phate"))
+ReclusterCells(seurat.object, which.clust = list(0, 3, 5), n.variable.genes = 3000, do.plot = TRUE)
+}

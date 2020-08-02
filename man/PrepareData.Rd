@@ -8,6 +8,7 @@ PrepareData(
   seurat.object = NULL,
   n.variable.genes = 4000,
   n.PC = 30,
+  which.dim.reduc = c("tsne", "umap"),
   initial.resolution = 0.3,
   k.val = NULL,
   do.plot = FALSE,
@@ -20,6 +21,8 @@ PrepareData(
 \item{n.variable.genes}{The number of variable genes to find at each step. Defaults to 4000.}
 
 \item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.}
+
+\item{which.dim.reduc}{(Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have \code{phateR} installed.}
 
 \item{initial.resolution}{The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.3.}
 
@@ -35,8 +38,8 @@ The input is a \code{Seurat} object in any stage of pre-processing, or even a \c
 The function checks which metadata features and assays are present (\% mitochondrial DNA, normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 }
 \examples{
-PrepareData(seurat.object = pbmc, n.variable.genes = 5000, initial.resolution = .75, ref.data = cell_ref)
-PrepareData(seurat.object = baron_pancreas, initial.resolution = .5, perform.SingleR = TRUE, species = "mouse")
+PrepareData(seurat.object = pbmc, n.variable.genes = 5000, which.dim.reduc = c("tsne", "phate"), initial.resolution = .75, do.plot = TRUE)
+PrepareData(seurat.object = pbmc, initial.resolution = .5, k.val = 25, random.seed = 100)
 }
 \references{
 Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph{Cell}.

@@ -17,7 +17,7 @@
 #' @export
 #' @examples
 #' ReclusterCells(seurat.object)
-#' ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), redo.embedding = TRUE, which.dim.reduc = c("tsne", "phate))
+#' ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), redo.embedding = TRUE, which.dim.reduc = c("tsne", "phate"))
 #' ReclusterCells(seurat.object, which.clust = list(0, 3, 5), n.variable.genes = 3000, do.plot = TRUE)
 
 ReclusterCells <- function(seurat.object = NULL,
@@ -46,7 +46,7 @@ ReclusterCells <- function(seurat.object = NULL,
       temp_obj <- RunPCA(temp_obj,
                          npcs = n.PC,
                          features = VariableFeatures(temp_obj),
-                         seed.use = rrandom.seed,
+                         seed.use = random.seed,
                          verbose = FALSE)
       # re-run nonlinear dimension reduction
       if (redo.embedding) {

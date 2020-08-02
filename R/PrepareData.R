@@ -8,20 +8,22 @@
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.
+#' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
 #' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
 #' @param do.plot (Optional) Should the function print a t-SNE plot of your cells to the graphics viewer? Defaults to FALSE.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
-#' PrepareData(seurat.object = pbmc, n.variable.genes = 5000, initial.resolution = .75, ref.data = cell_ref)
-#' PrepareData(seurat.object = baron_pancreas, initial.resolution = .5, perform.SingleR = TRUE, species = "mouse")
+#' PrepareData(seurat.object = pbmc, n.variable.genes = 5000, which.dim.reduc = c("tsne", "phate"), initial.resolution = .75, do.plot = TRUE)
+#' PrepareData(seurat.object = pbmc, initial.resolution = .5, k.val = 25, random.seed = 100)
 #' @references
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 
 PrepareData <- function(seurat.object = NULL,
                         n.variable.genes = 4000,
                         n.PC = 30,
+                        which.dim.reduc = c("tsne", "umap"),
                         initial.resolution = .3,
                         k.val = NULL,
                         do.plot = FALSE,
@@ -84,8 +86,8 @@ PrepareData <- function(seurat.object = NULL,
                             seed.use = random.seed)
   }
 
-  # check if t-SNE components exist in Seurat object
-  if (is.null(seurat.object@reductions$tsne)) {
+  # run t-SNE
+  if ("tsne" %in% which.dim.reduc) {
     print(sprintf("Running t-SNE on %s principal components with perplexity = 30", n.PC))
     seurat.object <- RunTSNE(seurat.object,
                              reduction = "pca",
@@ -93,6 +95,36 @@ PrepareData <- function(seurat.object = NULL,
                              dim.embed = 2,
                              seed.use = random.seed,
                              perplexity = 30)
+  }
+
+  # run UMAP
+  if ("umap" %in% which.dim.reduc) {
+    print(sprintf("Running UMAP on %s principal components", n.PC))
+    seurat.object <- RunUMAP(seurat.object,
+                             umap.method = "uwot",
+                             n.components = 2,
+                             reduction = "pca",
+                             verbose = FALSE,
+                             seed.use = random.seed)
+  }
+
+  # run PHATE
+  if ("phate" %in% which.dim.reduc) {
+    print(sprintf("Running PHATE on %s principal components", n.PC))
+    pca_df <- data.frame(Embeddings(seurat.object, reduction = "pca"))
+    phate_res <- phate(pca_df,
+                       ndim = 2,
+                       mds.solver = "smacof",
+                       knn.dist.method = "cosine",
+                       mds.dist.method = "cosine",
+                       npca = NULL,
+                       seed = random.seed,
+                       verbose = FALSE)
+    phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
+                                      assay = "SCT",
+                                      key = "PHATE_",
+                                      global = TRUE)
+    seurat.object@reductions$phate <- phate_obj
   }
 
   # initial clustering
@@ -115,4 +147,3 @@ PrepareData <- function(seurat.object = NULL,
 
   return(seurat.object)
 }
-
