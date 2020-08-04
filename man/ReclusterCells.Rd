@@ -12,7 +12,7 @@ ReclusterCells(
   redo.embedding = TRUE,
   which.clust = NULL,
   resolution.vals = c(0.05, 0.1, 0.2, 0.35),
-  k.val = NULL,
+  k.vals = c(10, 25, 50),
   do.plot = FALSE,
   random.seed = 629
 )
@@ -32,7 +32,7 @@ ReclusterCells(
 
 \item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).}
 
-\item{k.val}{(Optional) The parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \emph{k} ~ sqrt(\emph{n}).}
+\item{k.vals}{(Optional) The parameters \emph{k} to be tested .}
 
 \item{do.plot}{(Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.}
 

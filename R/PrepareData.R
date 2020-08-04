@@ -102,6 +102,7 @@ PrepareData <- function(seurat.object = NULL,
     print(sprintf("Running UMAP on %s principal components", n.PC))
     seurat.object <- RunUMAP(seurat.object,
                              umap.method = "uwot",
+                             dims = 1:n.PC,
                              n.components = 2,
                              reduction = "pca",
                              verbose = FALSE,

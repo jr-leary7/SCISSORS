@@ -11,7 +11,7 @@
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
 #' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).
-#' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
+#' @param k.vals (Optional) The parameters *k* to be tested .
 #' @param do.plot (Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
@@ -27,7 +27,7 @@ ReclusterCells <- function(seurat.object = NULL,
                            redo.embedding = TRUE,
                            which.clust = NULL,
                            resolution.vals = c(.05, .1, .2, .35),
-                           k.val = NULL,
+                           k.vals = c(10, 25, 50),
                            do.plot = FALSE,
                            random.seed = 629) {
   # check inputs
@@ -113,55 +113,77 @@ ReclusterCells <- function(seurat.object = NULL,
           temp_obj@reductions$phate <- phate_obj
         }
       }
-      # set k parameter
-      if (is.null(k.val)) { k.val <- round(sqrt(ncol(temp_obj))) }
-      temp_obj <- FindNeighbors(temp_obj,
-                                reduction = "pca",
-                                k.param = k.val,
-                                verbose = FALSE)
+      # set max k parameter
+      k_max <- round(sqrt(ncol(temp_obj)))
+      if (k_max > max(k.vals)) {
+        k.vals <- c(k.vals, k_max)
+      }
       # iterate over resolution parameters and compute silhouette scores to find best re-clustering
       sil_scores <- c()
-      for (res in seq(resolution.vals)) {
-        temp_obj <- FindClusters(temp_obj,
-                                 resolution = resolution.vals[res],
-                                 algorithm = 1,
-                                 random.seed = random.seed,
-                                 verbose = FALSE)
-        if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
-          sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
-          mean_sil <- mean(sil_res)
-          sil_scores[res] <- mean_sil
-        } else {
-          # neutral placeholder value for the case when the number of identified clusters is 1
-          sil_scores[res] <- 0
+      i <- 1
+      for (k in seq(k.vals)) {
+        for (r in seq(resolution.vals)) {
+          temp_obj <- FindNeighbors(temp_obj,
+                                    reduction = "pca",
+                                    k.param = k.vals[k],
+                                    verbose = FALSE)
+          temp_obj <- FindClusters(temp_obj,
+                                   resolution = resolution.vals[r],
+                                   random.seed = random.seed,
+                                   algorithm = 1,
+                                   verbose = FALSE)
+          if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
+            sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
+            mean_sil <- mean(sil_res)
+            sil_scores[i] <- mean_sil
+          } else {
+            # neutral placeholder value for the case when the number of identified clusters is 1
+            sil_scores[i] <- 0
+          }
+          names(sil_scores)[i] <- as.character(paste0("k", k.vals[k], "r", resolution.vals[r]))
+          i <- i + 1
         }
       }
       # extract best parameters and save results
-      names(sil_scores) <- as.character(resolution.vals)
       if (max(sil_scores) > .25) {
-        correct_res <- as.numeric(names(sil_scores[sil_scores == max(sil_scores)]))
+        best_params <- names(sil_scores[sil_scores == max(sil_scores)])
+        if (length(best_params) > 1) {
+          best_param_index <- ceiling(length(best_params) / 2)
+          best_k <- strsplit(best_params[best_param_index], "r")[[1]][1]
+          best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
+          best_res <- as.numeric(strsplit(best_params[best_param_index], "r")[[1]][2])
+        } else {
+          best_k <- strsplit(best_params, "r")[[1]][1]
+          best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
+          best_res <- as.numeric(strsplit(best_params, "r")[[1]][2])
+        }
+        # cluster cells using best parameters
         print(sprintf("Reclustering cells in cluster %s using k = %s & resolution = %s, which achieved silhouette score: %s",
                       which.clust[[1]],
-                      k.val,
-                      correct_res,
+                      best_k,
+                      best_res,
                       round(max(sil_scores), 3)))
+        temp_obj <- FindNeighbors(temp_obj,
+                                  reduction = "pca",
+                                  k.param = best_k,
+                                  verbose = FALSE)
         temp_obj <- FindClusters(temp_obj,
-                                 resolution = correct_res,
+                                 resolution = best_res,
                                  algorithm = 1,
                                  random.seed = random.seed,
                                  verbose = FALSE)
-        if (do.plot == TRUE) {
+        if (do.plot) {
           print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
                                                                              which.clust[[1]],
-                                                                             k.val,
-                                                                             correct_res)))
+                                                                             best_k,
+                                                                             best_res)))
         }
       } else {
         # replace new object w/ original one, as no subpopulations were found
         print(sprintf("Did not find suffcient evidence of subclusters in cluster %s, as the max silhouette score was: %s",
-                      which.clust[[clust]],
+                      which.clust[[1]],
                       round(max(sil_scores), 3)))
-        temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
+        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[1]])
       }
       reclust_list[[1]] <- temp_obj
 
@@ -243,60 +265,81 @@ ReclusterCells <- function(seurat.object = NULL,
             temp_obj@reductions$phate <- phate_obj
           }
         }
-        # set k parameter
-        if (is.null(k.val)) { k.val <- round(sqrt(ncol(temp_obj))) }
-        temp_obj <- FindNeighbors(temp_obj,
-                                  reduction = "pca",
-                                  k.param = k.val,
-                                  verbose = FALSE)
+        # set max k parameter
+        k_max <- round(sqrt(ncol(temp_obj)))
+        if (k_max > max(k.vals)) {
+          k.vals <- c(k.vals, k_max)
+        }
         # iterate over resolution parameters and compute silhouette scores to find best re-clustering
         sil_scores <- c()
-        for (res in seq(resolution.vals)) {
-          temp_obj <- FindClusters(temp_obj,
-                                   resolution = resolution.vals[res],
-                                   algorithm = 1,
-                                   random.seed = random.seed,
-                                   verbose = FALSE)
-          if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
-            sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
-            mean_sil <- mean(sil_res)
-            sil_scores[res] <- mean_sil
-          } else {
-            # neutral placeholder value for the case when the number of identified clusters is 1
-            sil_scores[res] <- 0
+        i <- 1
+        for (k in seq(k.vals)) {
+          for (r in seq(resolution.vals)) {
+            temp_obj <- FindNeighbors(temp_obj,
+                                      reduction = "pca",
+                                      k.param = k.vals[k],
+                                      verbose = FALSE)
+            temp_obj <- FindClusters(temp_obj,
+                                     resolution = resolution.vals[r],
+                                     random.seed = random.seed,
+                                     algorithm = 1,
+                                     verbose = FALSE)
+            if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
+              sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
+              mean_sil <- mean(sil_res)
+              sil_scores[i] <- mean_sil
+            } else {
+              # neutral placeholder value for the case when the number of identified clusters is 1
+              sil_scores[i] <- 0
+            }
+            names(sil_scores)[i] <- as.character(paste0("k", k.vals[k], "r", resolution.vals[r]))
+            i <- i + 1
           }
         }
         # extract best parameters and save results
-        names(sil_scores) <- as.character(resolution.vals)
         if (max(sil_scores) > .25) {
-          correct_res <- as.numeric(names(sil_scores[sil_scores == max(sil_scores)]))
-          print(sprintf("Relustering cells in cluster %s using k = %s & resolution = %s, which achieved silhouette score: %s",
+          best_params <- names(sil_scores[sil_scores == max(sil_scores)])
+          if (length(best_params) > 1) {
+            best_param_index <- ceiling(length(best_params) / 2)
+            best_k <- strsplit(best_params[best_param_index], "r")[[1]][1]
+            best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
+            best_res <- as.numeric(strsplit(best_params[best_param_index], "r")[[1]][2])
+          } else {
+            best_k <- strsplit(best_params, "r")[[1]][1]
+            best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
+            best_res <- as.numeric(strsplit(best_params, "r")[[1]][2])
+          }
+          # cluster cells using best parameters
+          print(sprintf("Reclustering cells in cluster %s using k = %s & resolution = %s, which achieved silhouette score: %s",
                         which.clust[[clust]],
-                        k.val,
-                        correct_res,
+                        best_k,
+                        best_res,
                         round(max(sil_scores), 3)))
+          temp_obj <- FindNeighbors(temp_obj,
+                                    reduction = "pca",
+                                    k.param = best_k,
+                                    verbose = FALSE)
           temp_obj <- FindClusters(temp_obj,
-                                   resolution = correct_res,
+                                   resolution = best_res,
                                    algorithm = 1,
                                    random.seed = random.seed,
                                    verbose = FALSE)
           if (do.plot) {
             print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
                                                                                which.clust[[clust]],
-                                                                               k.val,
-                                                                               correct_res)))
+                                                                               best_k,
+                                                                               best_res)))
           }
         } else {
           # replace new object w/ original one, as no subpopulations were found
           print(sprintf("Did not find suffcient evidence of subclusters in cluster %s, as the max silhouette score was: %s",
                         which.clust[[clust]],
                         round(max(sil_scores), 3)))
-          temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
+          temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
         }
         reclust_list[[clust]] <- temp_obj
       }
     } else { stop("Please provide a list of clusters to analyze.") }
     names(reclust_list) <- as.character(unlist(which.clust))
   }
-  return(reclust_list)
 }
