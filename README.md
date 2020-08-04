@@ -1,4 +1,4 @@
-# YehLabClust
+# SCISSORS
 This package allows the reclustering of single cell clusters based on the identification of the highly variable genes that are unique to each cluster. Here we'll briefly describe the workflow on a dataset taken from Baron *et al* (2016), which is available as part of the `scRNAseq` package. 
 
 # Data
