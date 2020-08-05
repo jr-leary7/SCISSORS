@@ -139,7 +139,9 @@ PrepareData <- function(seurat.object = NULL,
   seurat.object <- FindClusters(seurat.object,
                                 resolution = initial.resolution,
                                 algorithm = 1,
-                                random.seed = 629)
+                                random.seed = 629,
+                                verbose = FALSE)
+  print(sprintf("Found %s unique clusters", length(unique(seurat.object$seurat_clusters))))
 
   # plot results, if user desires
   if (do.plot == TRUE) {

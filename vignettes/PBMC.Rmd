@@ -1,0 +1,68 @@
+---
+title: "PBMC Analysis using SCISSORS"
+author: "Jack Leary"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: paper
+    highlight: tango
+    code_folding: hide
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE)
+```
+
+# Introduction
+This document will serve as a tutorial for using `SCISSORS`, with the added functionality of detailing *exactly* how the figures presented in our manuscript were generated. 
+
+# Libraries
+```{r}
+library(SCISSORS)
+library(Seurat)
+library(SeuratData)
+library(ggplot2)
+```
+
+# Data
+We load a scRNA-seq dataset provided by 10X Genomics that consists of ~2,700 peripheral blood mononuclear cells from a healthy donor. 
+```{r}
+pbmc <- LoadData("pbmc3k")
+```
+
+# Preprocessing
+Here we use `PrepareData()` to normalize expression & select highly variable genes through `sctransform`, run PCA & t-SNE. and 
+```{r}
+pbmc <- PrepareData(pbmc, 
+                    n.variable.genes = 4000, 
+                    n.PC = 30, 
+                    which.dim.reduc = "tsne", 
+                    initial.resolution = .3, 
+                    do.plot = TRUE, 
+                    random.seed = 629)
+```
+
+
+# Reclustering
+```{r}
+reclust_results <- ReclusterCells(pbmc, 
+                                  n.variable.genes = 4000, 
+                                  n.PC = 20, 
+                                  which.dim.reduc = "tsne", 
+                                  redo.embedding = TRUE, 
+                                  which.clust = list(0, 1, 2), 
+                                  do.plot = TRUE, 
+                                  random.seed = 629)
+```
+
+# Marker Genes
+Next, we'll use a Wilcox test to determine which genes characterize our new subclusters. 
+
+# Identify Cell Types
+Lastly, we use the marker genes provided in the [Satija Lab's PBMC3k vignette](https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html) to assign a label to each of our clusters and subclusters. 
+
+# Conclusions
+Did we do well?
