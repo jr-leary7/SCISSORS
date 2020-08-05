@@ -342,4 +342,5 @@ ReclusterCells <- function(seurat.object = NULL,
     } else { stop("Please provide a list of clusters to analyze.") }
     names(reclust_list) <- as.character(unlist(which.clust))
   }
+  return(reclust_list)
 }
