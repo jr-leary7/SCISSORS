@@ -28,7 +28,7 @@ FindSubpopulationMarkers(
 }
 \description{
 This function determines which cells characterize the subpopulations identified using \code{ReclusterCells}. It is intended to be run on a single re-clustered \code{Seurat} object at a time, though if you wish you could
-iterate over the list of reclustering results, and save the outputs from this function in a matching array of lists. The function returns a list of dataframes, one dataframe per cluster, containing normal and Bonferroni-adjust
+iterate over the list of reclustering results, and save the outputs from this function in a matching array of lists. The function returns a list of dataframes, one dataframe per cluster, containing normal and Bonferroni-adjusted
 p-values, gene prevalence, and effect size in the form of log2 fold change.
 }
 \examples{

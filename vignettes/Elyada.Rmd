@@ -1,0 +1,255 @@
+---
+title: "Elyada *et al* 2017 Analysis using SCISSORS"
+author: "Jack Leary"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: paper
+    highlight: tango
+    code_folding: hide
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE)
+```
+
+# Introduction
+In 2017, The Tuveson lab published a paper written by Elyada *et al* that detailed the discovery of cancer-associated fibroblasts (CAFs) in mice. The subtypes were then validated in human samples affected with PDAC. Here we will use SCISSORS to identify the CAF subtypes within the larger fibroblast population. 
+
+# Libraries
+```{r}
+library(Seurat)
+library(SCISSORS)
+library(ggplot2)
+library(patchwork)
+library(VAM)
+```
+
+# Data
+First we load in the $\text{gene} \times \text{cell}$ counts matrix, then create a `Seurat` object to hold it in. Next, we add a samplename identifier taken from the publically available metadata concerning the nine samples. 
+```{r}
+raw_counts <- Read10X(data.dir = "~/Desktop/filtered_feature_bc_matrix/")
+pdac <- CreateSeuratObject(raw_counts, 
+                           project = "ElyadaAggr", 
+                           min.cells = 3, 
+                           min.features = 200)
+pdac@meta.data$sample <- NA
+pdac@meta.data$condition <- NA
+pdac@meta.data$sex <- NA
+for (i in seq(nrow(pdac@meta.data))) {
+  if (grepl("-1", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274536"
+    pdac@meta.data$condition[i] <- "PDAC"
+    pdac@meta.data$sex[i] <- "female"
+  }
+  if (grepl("-2", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274537"
+    pdac@meta.data$condition[i] <- "PDAC"
+    pdac@meta.data$sex[i] <- "male"
+  }
+  if (grepl("-3", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274538"
+    pdac@meta.data$condition[i] <- "PDAC"
+    pdac@meta.data$sex[i] <- "male"
+  }
+  if (grepl("-4", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274539"
+    pdac@meta.data$condition[i] <- "PDAC"
+    pdac@meta.data$sex[i] <- "male"
+  }
+  if (grepl("-5", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274540"
+    pdac@meta.data$condition[i] <- "PDAC"
+    pdac@meta.data$sex[i] <- "male"
+  }
+  if (grepl("-6", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274541"
+    pdac@meta.data$condition[i] <- "AdjNorm"
+    pdac@meta.data$sex[i] <- "female"
+  }
+  if (grepl("-7", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274542"
+    pdac@meta.data$condition[i] <- "PDAC"
+    pdac@meta.data$sex[i] <- "female"
+  }
+  if (grepl("-8", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274543"
+    pdac@meta.data$condition[i] <- "AdjNorm"
+    pdac@meta.data$sex[i] <- "male"
+  }
+  if (grepl("-9", rownames(pdac@meta.data)[i])) {
+    pdac@meta.data$sample[i] <- "SRR9274544"
+    pdac@meta.data$condition[i] <- "PDAC"
+    pdac@meta.data$sex[i] <- "female"
+  }
+}
+```
+
+# Preprocessing
+```{r, warning=FALSE}
+pdac <- PrepareData(pdac, 
+                    n.variable.genes = 4000, 
+                    n.PC = 30, 
+                    which.dim.reduc = "tsne", 
+                    initial.resolution = .4, 
+                    do.plot = FALSE, 
+                    random.seed = 629)
+DimPlot(pdac, reduction = "tsne") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+```
+
+# Fibroblasts Identification
+We can assume that cluster 7 incldues the fibroblast population, and potentially some other cell types as well. 
+```{r}
+FeaturePlot(pdac, features = "COL1A1") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  labs(title = "COL1A1") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(pdac, features = "COL3A1") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  labs(title = "COL3A1") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(pdac, features = "LUM") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  labs(title = "LUM") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(pdac, features = "DCN") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  labs(title = "DCN") + 
+  theme(axis.ticks = element_blank())
+```
+
+# Reclustering
+Here we use `ReclusterCells()` to identify subclusters within cluster 7. We find five distinct subclusters, which are clearly visible on the t-SNE re-embedding. 
+```{r, warning=FALSE}
+fibro_reclust <- ReclusterCells(pdac, 
+                                n.variable.genes = 4000, 
+                                n.PC = 20, 
+                                resolution.vals = c(.1, .2, .3), 
+                                k.vals = c(10, 20, 30, 50), 
+                                which.dim.reduc = "tsne", 
+                                redo.embedding = TRUE, 
+                                which.clust = list(7), 
+                                do.plot = FALSE)
+DimPlot(fibro_reclust[[1]], reduction = "tsne") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  labs(title = "SCISSORS on cluster 7") + 
+  theme(axis.ticks = element_blank())
+```
+
+## Subtype Identification
+Next, we use the `VAM` method of single cell gene set enrichment analysis to determine which clusters are enriched for the iCAF and myCAF marker genes. 
+```{r}
+fibro <- fibro_reclust[[1]]
+icaf_genes <- c("IL6", "PDGFRA", "CXCL12", "CFD", "LMNA", 
+                "AGTR1", "HAS1", "CXCL1", "CXCL2", "CCL2", "IL8")
+mycaf_genes <- c("ACTA2", "TAGLN", "MMP11", "MYL9", 
+                 "HOPX", "POSTN", "TPM1", "TPM2")
+pan_caf_genes <- c("COL1A1", "FAP", "PDPN", "DCN", "VIM")
+gene_sets <- list(icaf_genes, mycaf_genes, pan_caf_genes)
+names(gene_sets) <- c("iCAF", "myCAF", "Pan-CAF")
+for (i in seq(gene_sets)) {
+  gene_sets[[i]] <- gene_sets[[i]][gene_sets[[i]] %in% rownames(fibro)]
+}
+fibro <- vamForSeurat(fibro, gene.set.collection = gene_sets)
+DefaultAssay(fibro) <- "VAM.cdf"
+```
+
+### Visualization
+First, we examine Pan-CAF gene set enrichment. We can see that only the bottom two clusters are highly enriched for the CAF marker genes. 
+```{r}
+FeaturePlot(fibro, features = "Pan-CAF") + 
+  NoLegend() + 
+  labs(title = "Pan-CAF Enrichment") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+```
+
+We can see from our enrichment plots that clusters 3 and 4 are clearly not composed of CAF cells. Similarly, we can easily define cluster 0 as the myCAF population, and cluster 2 as the smaller iCAF population. Finally, though cluster 1 shows some enrichment for both pathways, it doesn't have a consistent enough pattern to label it another CAF cluster. 
+```{r}
+p1 <- FeaturePlot(fibro, features = "iCAF") + 
+  NoLegend() +
+  labs(title = "iCAF Enrichment") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank())
+p2 <- FeaturePlot(fibro, features = "myCAF") + 
+  NoLegend() + 
+  labs(title = "myCAF Enrichment") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank())
+p3 <- DimPlot(fibro_reclust[[1]], reduction = "tsne") + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+(p1 | p2) / p3 + plot_annotation(title = "CAF Cells")
+```
+
+By examining the marker genes provided in the Elyada paper, we define cluster 1 as being composed of perivascular cells. This intuitively makes sense, as the perivascular cells were positioned near to the fibroblast cells in the paper's main t-SNE figure. 
+```{r}
+DefaultAssay(fibro) <- "SCT"
+p4 <- FeaturePlot(fibro, features = "IGFBP7") + 
+  NoLegend() +
+  labs(title = "IGFBP7") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank())
+p5 <- FeaturePlot(fibro, features = "ACTA2") + 
+  NoLegend() +
+  labs(title = "ACTA2") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank())
+p6 <- FeaturePlot(fibro, features = "RGS5") + 
+  NoLegend() +
+  labs(title = "RGS5") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank())
+(p4 | p5 | p6) / p3 + plot_annotation(title = "Perivascular Cells")
+```
+
+Next, we use the gene markers PLVAP and VWF (again provided in the Elyada paper) to identify cluster 3 as the endothelial cells. 
+```{r}
+p7 <- FeaturePlot(fibro, features = "PLVAP") + 
+  NoLegend() + 
+  labs(title = "PLVAP") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank())
+p8 <- FeaturePlot(fibro, features = "VWF") + 
+  NoLegend() + 
+  labs(title = "VWF") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank())
+(p7 | p8) / p3 + plot_annotation(title = "Endothelial Cells")
+```
+
+Finally, we add cell labels to our identified clusters. 
+```{r}
+fibro@meta.data$label <- NA
+fibro@meta.data$label <- ifelse(fibro@meta.data$seurat_clusters == 0, "myCAF", 
+                                ifelse(fibro@meta.data$seurat_clusters == 1, "Perivascular", 
+                                       ifelse(fibro@meta.data$seurat_clusters == 2, "iCAF", 
+                                              ifelse(fibro@meta.data$seurat_clusters == 3, "Endothelial", "Unknown"))))
+DimPlot(fibro, group.by = "label", label = TRUE) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank(), 
+        axis.title = element_blank(), 
+        axis.text = element_blank(), 
+        axis.line = element_blank())
+```

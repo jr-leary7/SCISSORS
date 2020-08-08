@@ -1,9 +1,10 @@
 #' Identify marker genes for previosuly identified subpopulations.
 #'
 #' This function determines which cells characterize the subpopulations identified using `ReclusterCells`. It is intended to be run on a single re-clustered `Seurat` object at a time, though if you wish you could
-#' iterate over the list of reclustering results, and save the outputs from this function in a matching array of lists. The function returns a list of dataframes, one dataframe per cluster, containing normal and Bonferroni-adjust
+#' iterate over the list of reclustering results, and save the outputs from this function in a matching array of lists. The function returns a list of dataframes, one dataframe per cluster, containing normal and Bonferroni-adjusted
 #' p-values, gene prevalence, and effect size in the form of log2 fold change.
 #' @import Seurat
+#' @importFrom data.table rbindlist
 #' @param seurat.object The original `Seurat` object containing the entire cell population and related metadata.
 #' @param reclust.data A specific`Seurat` object from the list of objects returned by `ReclusterCells`.
 #' @param which.compare Should subpopulation marker genes be determined in the context of the entire sample, or solely the single cluster? Defaults to "all cells"; choose "within cluster" to determine biomarkers at the cluster level.
@@ -46,18 +47,21 @@ FindSubpopulationMarkers <- function(seurat.object = NULL,
                             verbose = FALSE,
                             test.use = "wilcox",
                             random.seed = random.seed)
+      markers$cluster <- unique_clusts[i]
+      markers$gene <- rownames(markers)
       marker_gene_list[[i]] <- markers
     }
+    markers <- rbindlist(marker_gene_list)
     names(marker_gene_list) <- as.character(unique_clusts)
   } else if (which.compare == "within cluster") {
     # calculate subpopulation vs. single cluster marker genes
-    marker_gene_list[[1]] <- FindAllMarkers(temp_obj,
-                                            features = VariableFeatures(temp_obj),
-                                            logfc.threshold = logfc.thresh,
-                                            test.use = diff.exp.test,
-                                            verbose = FALSE,
-                                            random.seed = random.seed,
-                                            only.pos = TRUE)
+    markers <- FindAllMarkers(temp_obj,
+                              features = VariableFeatures(temp_obj),
+                              logfc.threshold = logfc.thresh,
+                              test.use = diff.exp.test,
+                              verbose = FALSE,
+                              random.seed = random.seed,
+                              only.pos = TRUE)
   }
-  return(marker_gene_list)
+  return(markers)
 }
