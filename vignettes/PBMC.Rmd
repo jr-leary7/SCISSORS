@@ -44,7 +44,6 @@ pbmc <- PrepareData(pbmc,
                     random.seed = 629)
 ```
 
-
 # Reclustering
 ```{r, warning=FALSE, message=FALSE}
 reclust_results <- ReclusterCells(pbmc, 
