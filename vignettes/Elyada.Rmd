@@ -3,10 +3,9 @@ title: "Elyada *et al* 2017 Analysis using SCISSORS"
 author: "Jack Leary"
 date: "`r Sys.Date()`"
 output:
-  html_document:
+  pdf_document:
     theme: paper
     highlight: tango
-    code_folding: hide
     df_print: kable
 ---
 
@@ -26,6 +25,7 @@ library(SCISSORS)
 library(ggplot2)
 library(patchwork)
 library(VAM)
+library(SingleR)
 ```
 
 # Data
@@ -101,6 +101,19 @@ DimPlot(pdac, reduction = "tsne") +
   xlab("t-SNE 1") + 
   ylab("t-SNE 2") + 
   theme(axis.ticks = element_blank())
+```
+
+# SingleR Cell Type Identification
+```{r}
+sc_ref <- readRDS("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/Seurat/single_cell_ref_normalized.Rds")
+res <- SingleR(test = data.frame(pdac@assays$SCT@data), 
+               ref = sc_ref, 
+               labels = sc_ref$label, 
+               method = "cluster", 
+               clusters = pdac$seurat_clusters, 
+               de.method = "wilcox")
+pdac[["SingleR.labels.sc"]] <- res$labels[match(pdac[[]][["seurat_clusters"]], 
+                                                rownames(res))]
 ```
 
 # Fibroblasts Identification

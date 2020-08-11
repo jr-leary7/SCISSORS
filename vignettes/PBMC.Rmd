@@ -3,10 +3,9 @@ title: "PBMC Analysis using SCISSORS"
 author: "Jack Leary"
 date: "`r Sys.Date()`"
 output:
-  html_document:
+  pdf_document:
     theme: paper
     highlight: tango
-    code_folding: hide
     df_print: kable
 ---
 
@@ -35,7 +34,7 @@ pbmc <- LoadData("pbmc3k")
 
 # Preprocessing
 Here we use `PrepareData()` to normalize expression & select highly variable genes through `sctransform`, run PCA & t-SNE. and 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 pbmc <- PrepareData(pbmc, 
                     n.variable.genes = 4000, 
                     n.PC = 30, 
@@ -47,7 +46,7 @@ pbmc <- PrepareData(pbmc,
 
 
 # Reclustering
-```{r}
+```{r, warning=FALSE, message=FALSE}
 reclust_results <- ReclusterCells(pbmc, 
                                   n.variable.genes = 4000, 
                                   n.PC = 20, 

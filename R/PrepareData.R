@@ -15,8 +15,8 @@
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
-#' PrepareData(seurat.object = pbmc, n.variable.genes = 5000, which.dim.reduc = c("tsne", "phate"), initial.resolution = .75, do.plot = TRUE)
-#' PrepareData(seurat.object = pbmc, initial.resolution = .5, k.val = 25, random.seed = 100)
+#' PrepareData(seurat.object, n.variable.genes = 5000, do.plot = TRUE)
+#' PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 100)
 #' @references
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 

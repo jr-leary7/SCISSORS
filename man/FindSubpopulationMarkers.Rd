@@ -32,6 +32,5 @@ iterate over the list of reclustering results, and save the outputs from this fu
 p-values, gene prevalence, and effect size in the form of log2 fold change.
 }
 \examples{
-FindSubpopulationMarkers(seurat.object = pbmc_small, reclust.data = reclust_results)
-FindSubpopulationMarkers(seurat.object = pbmc_small, reclust.data = reclust_results, diff.exp.test = "t")
+FindSubpopulationMarkers(seurat.object, reclust.data = reclust_results)
 }

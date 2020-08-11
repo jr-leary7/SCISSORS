@@ -6,7 +6,7 @@
 #' @importFrom cluster silhouette
 #' @export
 #' @examples
-#' ComputeSilhouetteScores(seurat.obj = seurat_object)
+#' ComputeSilhouetteScores(seurat.obj)
 
 ComputeSilhouetteScores <- function(seurat.obj = NULL) {
   # check inputs

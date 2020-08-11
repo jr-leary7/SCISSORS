@@ -13,8 +13,7 @@
 #' @param random.seed (Optional) The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
-#' FindSubpopulationMarkers(seurat.object = pbmc_small, reclust.data = reclust_results)
-#' FindSubpopulationMarkers(seurat.object = pbmc_small, reclust.data = reclust_results, diff.exp.test = "t")
+#' FindSubpopulationMarkers(seurat.object, reclust.data = reclust_results)
 
 FindSubpopulationMarkers <- function(seurat.object = NULL,
                                      reclust.data = NULL,

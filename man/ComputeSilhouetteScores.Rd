@@ -13,5 +13,5 @@ ComputeSilhouetteScores(seurat.obj = NULL)
 This function will compute the silhouette score for each cluster identified by \code{Seurat}'s Louvain modularity optimization community detection algorithm.
 }
 \examples{
-ComputeSilhouetteScores(seurat.obj = seurat_object)
+ComputeSilhouetteScores(seurat.obj)
 }

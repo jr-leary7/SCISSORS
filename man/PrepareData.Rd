@@ -38,8 +38,8 @@ The input is a \code{Seurat} object in any stage of pre-processing, or even a \c
 The function checks which metadata features and assays are present (\% mitochondrial DNA, normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 }
 \examples{
-PrepareData(seurat.object = pbmc, n.variable.genes = 5000, which.dim.reduc = c("tsne", "phate"), initial.resolution = .75, do.plot = TRUE)
-PrepareData(seurat.object = pbmc, initial.resolution = .5, k.val = 25, random.seed = 100)
+PrepareData(seurat.object, n.variable.genes = 5000, do.plot = TRUE)
+PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 100)
 }
 \references{
 Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph{Cell}.

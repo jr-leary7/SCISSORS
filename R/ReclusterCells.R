@@ -2,10 +2,10 @@
 #'
 #' This function identifies subclusters of cell types by recalculating the *n* most highly variable genes for each cluster using `sctransform` as implemented in `Seurat`. The function returns a list of `Seurat` objects, one for each cluster the user wants to investigate.
 #' @import Seurat
-#' @import phateR
 #' @importFrom ggplot2 labs
 #' @param seurat.object The `Seurat` object containing cells and their assigned cluster IDs.
 #' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list.
+#' @param merge.clusters (Optional). If multiple clusters are specified, should the clusters be re-clustered as one? Defaults to FALSE.
 #' @param n.variable.genes How many variable genes should be detected in each subcluster? Defaults to 4000.
 #' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Defaults to 10.
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
@@ -16,16 +16,17 @@
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
-#' ReclusterCells(seurat.object)
-#' ReclusterCells(seurat.object, resolution.vals = c(0.1, 0.2, 0.3), redo.embedding = TRUE, which.dim.reduc = c("tsne", "phate"))
-#' ReclusterCells(seurat.object, which.clust = list(0, 3, 5), n.variable.genes = 3000, do.plot = TRUE)
+#' ReclusterCells(seurat.object, resolution.vals = c(.1, .2, .5))
+#' ReclusterCells(seurat.object, which.dim.reduc = c("tsne", "phate"))
+#' ReclusterCells(seurat.object, which.clust = list(0, 3, 5), do.plot = TRUE)
 
 ReclusterCells <- function(seurat.object = NULL,
+                           which.clust = NULL,
+                           merge.clusters = FALSE,
                            n.variable.genes = 4000,
                            n.PC = 10,
                            which.dim.reduc = c("tsne", "umap"),
                            redo.embedding = TRUE,
-                           which.clust = NULL,
                            resolution.vals = c(.05, .1, .2, .35),
                            k.vals = c(10, 25, 50),
                            do.plot = FALSE,
@@ -35,9 +36,14 @@ ReclusterCells <- function(seurat.object = NULL,
   # run function
   if (!is.null(which.clust)) {
     reclust_list <- list()
-    # recluster for a single cluster
-    if (length(which.clust) == 1) {
-      temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[1]])
+    # recluster for a single cluster or multiple clusters merged into one
+    if (length(which.clust) == 1 | merge.clusters == TRUE) {
+      # create subset
+      if (length(which.clust) == 1) {
+        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[1]])
+      } else if (merge.clusters == TRUE) {
+        temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
+      }
       temp_obj <- SCTransform(temp_obj,
                               vars.to.regress = "percent_MT",
                               seed.use = random.seed,
@@ -188,7 +194,7 @@ ReclusterCells <- function(seurat.object = NULL,
       reclust_list[[1]] <- temp_obj
 
       # recluster for multiple clusters
-    } else if (length(which.clust) > 1) {
+    } else if (length(which.clust) > 1 & merge.clusters == FALSE) {
       for (clust in seq(which.clust)) {
         temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
         temp_obj <- SCTransform(temp_obj,
