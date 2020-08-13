@@ -8,7 +8,8 @@
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.
-#' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
+#' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
+#' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
 #' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
 #' @param do.plot (Optional) Should the function print a t-SNE plot of your cells to the graphics viewer? Defaults to FALSE.
@@ -24,6 +25,7 @@ PrepareData <- function(seurat.object = NULL,
                         n.variable.genes = 4000,
                         n.PC = 30,
                         which.dim.reduc = c("tsne", "umap"),
+                        perplexity = 30,
                         initial.resolution = .3,
                         k.val = NULL,
                         do.plot = FALSE,
@@ -88,13 +90,13 @@ PrepareData <- function(seurat.object = NULL,
 
   # run t-SNE
   if ("tsne" %in% which.dim.reduc) {
-    print(sprintf("Running t-SNE on %s principal components with perplexity = 30", n.PC))
+    print(sprintf("Running t-SNE on %s principal components with perplexity = %s", n.PC, perplexity))
     seurat.object <- RunTSNE(seurat.object,
                              reduction = "pca",
                              dims = 1:n.PC,
                              dim.embed = 2,
                              seed.use = random.seed,
-                             perplexity = 30)
+                             perplexity = perplexity)
   }
 
   # run UMAP

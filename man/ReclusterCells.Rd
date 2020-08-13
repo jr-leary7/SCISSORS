@@ -6,19 +6,25 @@
 \usage{
 ReclusterCells(
   seurat.object = NULL,
+  which.clust = NULL,
+  merge.clusters = FALSE,
   n.variable.genes = 4000,
   n.PC = 10,
   which.dim.reduc = c("tsne", "umap"),
   redo.embedding = TRUE,
-  which.clust = NULL,
   resolution.vals = c(0.05, 0.1, 0.2, 0.35),
   k.vals = c(10, 25, 50),
+  cutoff.score = 0.25,
   do.plot = FALSE,
   random.seed = 629
 )
 }
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
+
+\item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list.}
+
+\item{merge.clusters}{(Optional). If multiple clusters are specified, should the clusters be re-clustered as one? Defaults to FALSE.}
 
 \item{n.variable.genes}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
 
@@ -28,11 +34,11 @@ ReclusterCells(
 
 \item{redo.embedding}{(Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.}
 
-\item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list.}
-
 \item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).}
 
-\item{k.vals}{(Optional) The parameters \emph{k} to be tested .}
+\item{k.vals}{(Optional) The parameters \emph{k} to be tested.}
+
+\item{cutoff.score}{(Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are (.15, .3).}
 
 \item{do.plot}{(Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.}
 

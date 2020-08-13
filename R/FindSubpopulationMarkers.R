@@ -9,7 +9,7 @@
 #' @param reclust.data A specific`Seurat` object from the list of objects returned by `ReclusterCells`.
 #' @param which.compare Should subpopulation marker genes be determined in the context of the entire sample, or solely the single cluster? Defaults to "all cells"; choose "within cluster" to determine biomarkers at the cluster level.
 #' @param diff.exp.test The test used to calculate differential expression using `FindMarkers`. Defaults to "wilcox".
-#' @param logfc.thresh The lo2 fold-change cutoff used when performing differential expression analysis. Defaults to 2.
+#' @param logfc.thresh The log2 fold-change cutoff used when performing differential expression analysis. Defaults to 2.
 #' @param random.seed (Optional) The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
@@ -45,6 +45,7 @@ FindSubpopulationMarkers <- function(seurat.object = NULL,
                             logfc.threshold = logfc.thresh,
                             verbose = FALSE,
                             test.use = "wilcox",
+                            only.pos = TRUE,
                             random.seed = random.seed)
       markers$cluster <- unique_clusts[i]
       markers$gene <- rownames(markers)

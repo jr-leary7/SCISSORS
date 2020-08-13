@@ -22,7 +22,7 @@ FindSubpopulationMarkers(
 
 \item{diff.exp.test}{The test used to calculate differential expression using \code{FindMarkers}. Defaults to "wilcox".}
 
-\item{logfc.thresh}{The lo2 fold-change cutoff used when performing differential expression analysis. Defaults to 2.}
+\item{logfc.thresh}{The log2 fold-change cutoff used when performing differential expression analysis. Defaults to 2.}
 
 \item{random.seed}{(Optional) The seed used to control stochasticity in several functions. Defaults to 629.}
 }

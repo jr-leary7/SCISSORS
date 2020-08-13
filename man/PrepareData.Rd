@@ -9,6 +9,7 @@ PrepareData(
   n.variable.genes = 4000,
   n.PC = 30,
   which.dim.reduc = c("tsne", "umap"),
+  perplexity = 30,
   initial.resolution = 0.3,
   k.val = NULL,
   do.plot = FALSE,
@@ -22,7 +23,9 @@ PrepareData(
 
 \item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.}
 
-\item{which.dim.reduc}{(Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have \code{phateR} installed.}
+\item{which.dim.reduc}{(Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have \code{phateR} installed.}
+
+\item{perplexity}{(Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.}
 
 \item{initial.resolution}{The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.3.}
 
