@@ -1,5 +1,5 @@
 ---
-title: "Elyada *et al* 2017 Analysis using SCISSORS"
+title: "Cancer-Associated Fibroblast Analysis using SCISSORS"
 author: "Jack Leary"
 date: "`r Sys.Date()`"
 output:
@@ -13,26 +13,30 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
                       message = FALSE, 
-                      warning = FALSE)
+                      warning = FALSE, 
+                      results = "wait")
 ```
 
 # Introduction
 In 2017, The Tuveson lab at Cold Spring Harbor Cancer Center published a paper written by @elyada2017 that detailed the discovery of cancer-associated fibroblasts (CAFs) in mice. The subtypes were then validated in human samples affected with PDAC. Here we will use SCISSORS to identify the CAF subtypes within the larger fibroblast population. 
 
 # Libraries
+The `SCISSORS` package contains our reclustering method. `Seurat` is needed to contain and process our single cell data and was created by @stuart2019. `decoderr` implements an NMF-based *de novo* deconvolution method as detailed in @peng2019. `SingleR` allows for the automatic identification of cell types when compared to a reference dataset as shown in @aran2019. @frost2020 created the `VAM` package to allow for GSEA across single cells. The `dplyr` package is used to aid in the addition of metadata to our `Seurat` objects. Finally, we use `ggplot2` and `patchwork` to generate good-looking figures. 
 ```{r}
-library(Seurat)
 library(SCISSORS)
+library(Seurat)
+library(decoderr)
+library(SingleR)
+library(VAM)
+library(dplyr)
 library(ggplot2)
 library(patchwork)
-library(VAM)
-library(SingleR)
-library(dplyr)
 ```
 
 # Data
 First we load in the $\text{gene} \times \text{cell}$ counts matrix, then create a `Seurat` object to hold it in. Next, we add a samplename identifier taken from the publically available metadata concerning the nine samples, along with sample type and patient sex indicators. 
 ```{r}
+fig_path <- "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Figures/Elyada/"
 raw_counts <- Read10X(data.dir = "~/Desktop/filtered_feature_bc_matrix/")
 pdac <- CreateSeuratObject(raw_counts, 
                            project = "ElyadaAggr", 
@@ -46,7 +50,7 @@ pdac@meta.data$sample <- case_when(grepl("-1", rownames(pdac@meta.data)) ~ "SRR9
                                    grepl("-6", rownames(pdac@meta.data)) ~ "SRR9274541", 
                                    grepl("-7", rownames(pdac@meta.data)) ~ "SRR9274542", 
                                    grepl("-8", rownames(pdac@meta.data)) ~ "SRR9274543", 
-                                   sgrepl("-9", rownames(pdac@meta.data)) ~ "SRR9274544")
+                                   grepl("-9", rownames(pdac@meta.data)) ~ "SRR9274544")
 pdac@meta.data$condition <- case_when(grepl("-1", rownames(pdac@meta.data)) ~ "PDAC", 
                                       grepl("-2", rownames(pdac@meta.data)) ~ "PDAC", 
                                       grepl("-3", rownames(pdac@meta.data)) ~ "PDAC", 
@@ -67,13 +71,17 @@ pdac@meta.data$sex <- case_when(grepl("-1", rownames(pdac@meta.data)) ~ "female"
                                 grepl("-9", rownames(pdac@meta.data)) ~ "female")
 ```
 
+```{r, echo=FALSE}
+rm(raw_counts)
+```
+
 # Preprocessing
 ```{r, warning=FALSE}
 pdac <- PrepareData(pdac, 
                     n.variable.genes = 4000, 
                     n.PC = 30, 
                     which.dim.reduc = "tsne", 
-                    initial.resolution = .4, 
+                    initial.resolution = .5, 
                     do.plot = FALSE, 
                     random.seed = 629)
 p0 <- DimPlot(pdac) + 
@@ -102,29 +110,47 @@ p1 <- DimPlot(pdac, group.by = "SingleR.labels.sc") +
 p1
 ```
 
-# Fibroblast Analysis
-The fibroblast marker genes provided by Elyada *et al* match the `SingleR` results defining cluster 7 as containing fibroblasts. 
+# Save Figures
 ```{r}
-FeaturePlot(pdac, features = "COL1A1") + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  labs(title = "COL1A1") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(pdac, features = "COL3A1") + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  labs(title = "COL3A1") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(pdac, features = "LUM") + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  labs(title = "LUM") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(pdac, features = "DCN") + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  labs(title = "DCN") + 
-  theme(axis.ticks = element_blank())
+ggsave(plot = p0, 
+       filename = paste0(fig_path, "All Cells/Initial_Clustering.png"), 
+       device = "png", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p1, 
+       filename = paste0(fig_path, "All Cells/SingleR_All_Cells.png"), 
+       device = "png", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+```
+
+# Fibroblast Analysis
+The fibroblast marker genes provided by @elyada2017 match the `SingleR` results defining cluster 7 as containing fibroblasts. 
+```{r}
+p2 <- FeaturePlot(pdac, features = "COL1A1") + 
+      xlab("t-SNE 1") + 
+      ylab("t-SNE 2") + 
+      labs(title = "COL1A1") + 
+      theme(axis.ticks = element_blank())
+p3 <- FeaturePlot(pdac, features = "COL3A1") + 
+      xlab("t-SNE 1") + 
+      ylab("t-SNE 2") + 
+      labs(title = "COL3A1") + 
+      theme(axis.ticks = element_blank())
+p4 <- FeaturePlot(pdac, features = "LUM") + 
+      xlab("t-SNE 1") + 
+      ylab("t-SNE 2") + 
+      labs(title = "LUM") + 
+      theme(axis.ticks = element_blank())
+p5 <- FeaturePlot(pdac, features = "DCN") + 
+      xlab("t-SNE 1") + 
+      ylab("t-SNE 2") + 
+      labs(title = "DCN") + 
+      theme(axis.ticks = element_blank())
+p6 <- p2 + p3 + p4 + p5 + plot_layout(ncol = 2, nrow = 2, byrow = TRUE)
+p6
 ```
 
 ## Reclustering
@@ -140,11 +166,12 @@ fibro_reclust <- ReclusterCells(pdac,
                                 redo.embedding = TRUE, 
                                 do.plot = FALSE)
 fibro <- fibro_reclust[[1]]
-DimPlot(fibro) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  labs(title = "SCISSORS on cluster 7") + 
-  theme(axis.ticks = element_blank())
+p7 <- DimPlot(fibro) + 
+      xlab("t-SNE 1") + 
+      ylab("t-SNE 2") + 
+      labs(title = "SCISSORS on cluster 7") + 
+      theme(axis.ticks = element_blank())
+p7
 ```
 
 ## Subtype Identification
@@ -164,7 +191,7 @@ fibro <- vamForSeurat(fibro, gene.set.collection = gene_sets)
 DefaultAssay(fibro) <- "VAM.cdf"
 ```
 
-### Visualization
+## Visualization
 First, we examine Pan-CAF gene set enrichment. We can see that only the bottom two clusters are highly enriched for the CAF marker genes. 
 ```{r}
 FeaturePlot(fibro, features = "Pan-CAF") + 
@@ -220,7 +247,7 @@ p7 <- FeaturePlot(fibro, features = "RGS5") +
 (p5 | p6 | p7) / p4 + plot_annotation(title = "Perivascular Cells")
 ```
 
-Next, we use the gene markers PLVAP and VWF (again provided in the Elyada paper) to identify cluster 3 as the endothelial cells. 
+Next, we use the gene markers PLVAP and VWF (again provided in @elyada2017) to identify cluster 3 as the endothelial cells. 
 ```{r}
 p8 <- FeaturePlot(fibro, features = "PLVAP") + 
   NoLegend() + 
@@ -250,22 +277,52 @@ DimPlot(fibro, group.by = "label") +
   theme(axis.ticks = element_blank())
 ```
 
+## Save Figures
+```{r}
+ggsave(plot = p6, 
+       filename = paste0(fig_path, "Fibroblasts/Fibro_Markers.png"), 
+       device = "png", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+260366
+ggsave(plot = p7, 
+       filename = paste0(fig_path, "Fibroblasts/SCISSORS_results.png"), 
+       device = "png", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+```
+
 # T Cell Analysis 
-Going back to the main `Seurat` object, we obviously have a large population of T cells that warrants further investigation. 
+Going back to the main `Seurat` object, we obviously have a large population of T cells that warrants further investigation. Using the marker genes from @elyada2017, we can easily identify cluster 1 as the natural killer population, so we'' hypotehsize that cluster 3 contains our T cells. We already see some good separation, so reclustering the cells should have good results. 
 ```{r}
 p0
 p0 + NoLegend() + p1
+FeaturePlot(pdac, features = c("CD3D")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(pdac, features = c("CD2")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(pdac, features = c("NKG7")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
 ```
 
+## Reclustering
 Here we run `ReclusterCells()`, while treating all three putative T cell clusters as one large group. This will hopefully allow use to elucidate T cell subtypes, as well as separate the NK from the T cells. 
 ```{r}
 t_reclust <- ReclusterCells(pdac, 
-                            which.clust = list(1, 3, 6), 
-                            merge.clusters = TRUE, 
+                            which.clust = list(3), 
                             n.variable.genes = 4000, 
                             n.PC = 20, 
                             which.dim.reduc = "tsne", 
-                            redo.embedding = FALSE)
+                            redo.embedding = TRUE, 
+                            random.seed = 629)
 tcells <- t_reclust[[1]]
 DimPlot(tcells) + 
   xlab("t-SNE 1") + 
@@ -273,3 +330,77 @@ DimPlot(tcells) +
   theme(axis.ticks = element_blank())
 ```
 
+## Cell Type Identification
+## Natural Killers
+```{r}
+FeaturePlot(tcells, features = c("NKG7")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(tcells, features = c("GZMB")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(tcells, features = c("PRF1")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(tcells, features = c("IFNG")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+```
+
+### CD8 T
+```{r}
+FeaturePlot(tcells, features = c("CD8A")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+```
+
+### CD4 T
+```{r}
+FeaturePlot(tcells, features = c("CD69")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+```
+
+### T-regs
+```{r}
+FeaturePlot(tcells, features = c("IL2RA")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(tcells, features = c("FOXP3")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(tcells, features = c("CTLA4")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(tcells, features = c("TIGIT")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+```
+
+### Proliferating T-regs
+```{r}
+FeaturePlot(tcells, features = c("TOP2A")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+FeaturePlot(pdac, features = c("TOP2A")) + 
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") + 
+  theme(axis.ticks = element_blank())
+```
+
+NK markers -> NKG7, GZMB, PRF1, IFNG
+CD8 markers -> CD8A
+CD4 marekrs -> CD69 (barely)
+Treg markers -> IL2RA, FOXP3, CTLA4, TIGIT
+Proliferating Treg markers -> TOP2A
