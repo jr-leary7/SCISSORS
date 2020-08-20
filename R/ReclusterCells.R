@@ -11,7 +11,7 @@
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
 #' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).
-#' @param k.vals (Optional) The parameters *k* to be tested.
+#' @param k.vals (Optional) The parameters *k* to be tested. Defaults to c(10, 25, 50).
 #' @param cutoff.score (Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are (.15, .3).
 #' @param do.plot (Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
@@ -135,7 +135,6 @@ ReclusterCells <- function(seurat.object = NULL,
                                    random.seed = random.seed,
                                    algorithm = 1,
                                    verbose = FALSE)
-          print(DimPlot(temp_obj) + labs(title = sprintf("k = %s, res = %s", k.vals[k], resolution.vals[r])))
           if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
             sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
             mean_sil <- mean(sil_res)
@@ -178,10 +177,11 @@ ReclusterCells <- function(seurat.object = NULL,
                                  verbose = FALSE)
         if (do.plot) {
           if (length(which.clust) == 1) {
-            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
-                                                                               which.clust[[1]],
-                                                                               best_k,
-                                                                               best_res)))
+            print(DimPlot(temp_obj, reduction = which.dim.reduc[1]) +
+                    labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
+                                         which.clust[[1]],
+                                         best_k,
+                                         best_res)))
           } else {
             clust_labs <- c()
             for (i in seq(which.clust)) {
@@ -192,10 +192,11 @@ ReclusterCells <- function(seurat.object = NULL,
               }
             }
 
-            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of clusters %s using k = %s & resolution = %s",
-                                                                               clust_labs,
-                                                                               best_k,
-                                                                               best_res)))
+            print(DimPlot(temp_obj, reduction = which.dim.reduc[1]) +
+                    labs(title = sprintf("Reclustering of clusters %s using k = %s & resolution = %s",
+                                         clust_labs,
+                                         best_k,
+                                         best_res)))
           }
         }
       } else {
@@ -374,5 +375,9 @@ ReclusterCells <- function(seurat.object = NULL,
       names(reclust_list) <- as.character(unlist(which.clust))
     }
   }
-  return(reclust_list)
+  if (length(reclust_list) == 1) {
+    return(reclust_list[[1]])
+  } else {
+    return(reclust_list)
+  }
 }

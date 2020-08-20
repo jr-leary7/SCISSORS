@@ -14,29 +14,43 @@ output:
 knitr::opts_chunk$set(echo = TRUE, 
                       message = FALSE, 
                       warning = FALSE, 
-                      results = "wait")
+                      results = "hold")
 ```
 
 # Introduction
 In 2017, The Tuveson lab at Cold Spring Harbor Cancer Center published a paper written by @elyada2017 that detailed the discovery of cancer-associated fibroblasts (CAFs) in mice. The subtypes were then validated in human samples affected with PDAC. Here we will use SCISSORS to identify the CAF subtypes within the larger fibroblast population. 
 
 # Libraries
-The `SCISSORS` package contains our reclustering method. `Seurat` is needed to contain and process our single cell data and was created by @stuart2019. `decoderr` implements an NMF-based *de novo* deconvolution method as detailed in @peng2019. `SingleR` allows for the automatic identification of cell types when compared to a reference dataset as shown in @aran2019. @frost2020 created the `VAM` package to allow for GSEA across single cells. The `dplyr` package is used to aid in the addition of metadata to our `Seurat` objects. Finally, we use `ggplot2` and `patchwork` to generate good-looking figures. 
+The `SCISSORS` package contains our reclustering method. `Seurat` is needed to contain and process our single cell data and was created by @stuart2019. `decoderr` implements an NMF-based *de novo* deconvolution method as detailed in @peng2019. `SingleR` allows for the automatic identification of cell types when compared to a reference dataset as shown in @aran2019. `CONICSmat` uses Gaussian mixture models to estimate copy number variations and identify malignant cells; details can be found in @muller2018. @frost2020 created the `VAM` package to allow for GSEA across single cells. The `dplyr` package is used to aid in the addition of metadata to our `Seurat` objects. Finally, we use `ggplot2` and `patchwork` to generate good-looking figures. 
 ```{r}
 library(SCISSORS)
 library(Seurat)
 library(decoderr)
 library(SingleR)
 library(VAM)
+library(CONICSmat)
 library(dplyr)
 library(ggplot2)
 library(patchwork)
+library(reticulate)
+```
+
+# Visualization Theme
+We define a `ggplot2` theme to be used in all our dimension-reduced plots, with goals of minimalism and lack of chart junk. 
+```{r}
+theme_yehlab <- function() {
+  theme(axis.ticks = element_blank(), 
+        axis.text = element_blank(), 
+        axis.line = element_blank(), 
+        panel.grid = element_blank(), 
+        panel.background = element_blank(), 
+        panel.border = element_rect(colour = "black", linetype = 1, size = 1))
+}
 ```
 
 # Data
 First we load in the $\text{gene} \times \text{cell}$ counts matrix, then create a `Seurat` object to hold it in. Next, we add a samplename identifier taken from the publically available metadata concerning the nine samples, along with sample type and patient sex indicators. 
 ```{r}
-fig_path <- "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Figures/Elyada/"
 raw_counts <- Read10X(data.dir = "~/Desktop/filtered_feature_bc_matrix/")
 pdac <- CreateSeuratObject(raw_counts, 
                            project = "ElyadaAggr", 
@@ -79,82 +93,278 @@ rm(raw_counts)
 ```{r, warning=FALSE}
 pdac <- PrepareData(pdac, 
                     n.variable.genes = 4000, 
-                    n.PC = 30, 
+                    n.PC = 20, 
                     which.dim.reduc = "tsne", 
                     initial.resolution = .5, 
-                    do.plot = FALSE, 
                     random.seed = 629)
 p0 <- DimPlot(pdac) + 
       xlab("t-SNE 1") + 
       ylab("t-SNE 2") + 
-      theme(axis.ticks = element_blank())
+      theme_yehlab()
 p0
 ```
 
-# SingleR Cell Type Identification
-Here we use the `SingleR` package to identify broad cell types. The dataset we load is an `sctransform` normalized version of the raw counts available in `scRNAseq::BaronPancreasData()` from @baron2016. 
+## Optimize Dimension Reduction
+I think the two-dimensional visualization of the cells could be improved. We'll try using UMAP and the Fourier transform-accelerated Fit-SNE (as implemented in the `openTSNE` library) to improve the embedding. 
+
+### UMAP
+It seems like UMAP does a good job of clearly separating our clusters and preserving the global strucutre of the data. However, clusert 6 is still separated, and it's difficult to see local structure within some of the clusters due to the density of the cell embeddings. 
 ```{r}
-sc_ref <- readRDS("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/Seurat/single_cell_ref_normalized.Rds")
-res <- SingleR(test = data.frame(pdac@assays$SCT@data), 
-               ref = sc_ref, 
-               labels = sc_ref$label, 
-               method = "cluster", 
-               clusters = pdac$seurat_clusters, 
-               de.method = "wilcox")
-pdac[["SingleR.labels.sc"]] <- res$labels[match(pdac[[]][["seurat_clusters"]], 
-                                                rownames(res))]
-p1 <- DimPlot(pdac, group.by = "SingleR.labels.sc") + 
-      xlab("t-SNE 1") + 
-      ylab("t-SNE 2") + 
-      theme(axis.ticks = element_blank())
+pdac <- RunUMAP(pdac, 
+                reduction = "pca", 
+                dims = 1:20, 
+                umap.method = "uwot", 
+                n.components = 2, 
+                n.epochs = 750, 
+                n.neighbors = 35, 
+                metric = "cosine", 
+                seed.use = 629, 
+                verbose = FALSE)
+p1 <- DimPlot(pdac, reduction = "umap") + 
+      xlab("UMAP 1") + 
+      ylab("UMAP 2") + 
+      theme_yehlab()
 p1
 ```
 
-# Save Figures
+### Fit-SNE
+For information on how to install the `openTSNE` implementation of Fit-SNE and how to run the algorithm, please visit the excellent [GitHub repository of Pavlin Policar ](https://github.com/pavlin-policar/openTSNE). 
+
+First we'll run a simple, standard Fit-SNE embedding. It's necessary to make the PCA embeddings accessible by Python. 
 ```{r}
-ggsave(plot = p0, 
-       filename = paste0(fig_path, "All Cells/Initial_Clustering.png"), 
-       device = "png", 
-       width = 8, 
-       height = 6, 
-       units = "in")
-ggsave(plot = p1, 
-       filename = paste0(fig_path, "All Cells/SingleR_All_Cells.png"), 
-       device = "png", 
-       width = 8, 
-       height = 6, 
-       units = "in")
+pc_df <- data.frame(Embeddings(pdac, reduction = "pca"))
 ```
 
-# Fibroblast Analysis
-The fibroblast marker genes provided by @elyada2017 match the `SingleR` results defining cluster 7 as containing fibroblasts. 
+```{python}
+# libraries
+import numpy as np
+import pandas as pd
+from openTSNE import TSNEEmbedding
+from openTSNE import initialization
+from openTSNE.callbacks import ErrorLogger
+from openTSNE.affinity import PerplexityBasedNN
+# import data
+pc_df = r.pc_df
+pc_df = np.array(pc_df)
+# run Fit-SNE
+affinities = PerplexityBasedNN(pc_df, perplexity=50, metric="cosine", random_state=629)
+init = initialization.pca(pc_df, random_state=629)
+tsne_advanced_op = TSNEEmbedding(init, affinities, negative_gradient_method="fft",  callbacks=ErrorLogger())
+embed_advanced = tsne_advanced_op.optimize(n_iter=250, exaggeration=12, momentum=0.5) 
+embed_advanced_2 = embed_advanced.optimize(n_iter=750, momentum=0.8)
+```
+
+The results look good, but the subclusters within cluster 6 are still clearly separated, and a small part of cluster 7 is far away from the rest of the cells in the cluster. 
 ```{r}
-p2 <- FeaturePlot(pdac, features = "COL1A1") + 
-      xlab("t-SNE 1") + 
-      ylab("t-SNE 2") + 
-      labs(title = "COL1A1") + 
-      theme(axis.ticks = element_blank())
-p3 <- FeaturePlot(pdac, features = "COL3A1") + 
-      xlab("t-SNE 1") + 
-      ylab("t-SNE 2") + 
-      labs(title = "COL3A1") + 
-      theme(axis.ticks = element_blank())
-p4 <- FeaturePlot(pdac, features = "LUM") + 
-      xlab("t-SNE 1") + 
-      ylab("t-SNE 2") + 
-      labs(title = "LUM") + 
-      theme(axis.ticks = element_blank())
-p5 <- FeaturePlot(pdac, features = "DCN") + 
-      xlab("t-SNE 1") + 
-      ylab("t-SNE 2") + 
-      labs(title = "DCN") + 
-      theme(axis.ticks = element_blank())
-p6 <- p2 + p3 + p4 + p5 + plot_layout(ncol = 2, nrow = 2, byrow = TRUE)
+embed <- as.matrix(py$embed_advanced_2)
+rownames(embed) <- colnames(pdac)
+pdac@reductions$fitsne <- CreateDimReducObject(embeddings = embed, 
+                                               key = "FitSNE_", 
+                                               assay = "SCT", 
+                                               global = TRUE)
+p2 <- DimPlot(pdac, reduction = "fitsne") + 
+      xlab("Fit-SNE 1") + 
+      ylab("Fit-SNE 2") + 
+      theme_yehlab()
+p2
+```
+
+We use the ability of Fit-SNE to consider multiple perplexities in an attempt to provide a more accurate representation of both local and global structure in our data. 
+```{python}
+affin_anneal = PerplexityBasedNN(pc_df, perplexity=300, metric="cosine", random_state=629)
+init = initialization.pca(pc_df, random_state=629)
+embed_op = TSNEEmbedding(init, affin_anneal, negative_gradient_method="fft")
+embed1 = embed_op.optimize(n_iter=250, exaggeration=12, momentum=.05)
+embed2 = embed1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+affin_anneal.set_perplexity(30)
+embed3 = embed2.optimize(n_iter=500, momentum=0.8)
+```
+
+The issue with clusters 6 and 7 have been mostly fixed! The subclusters of each cluster are all in the same general area. However, all the clusters are fairly close together. This implies that there is some global structure that Fit-SNE is not correctly preserving in the transition from high to low-dimensional embedding. 
+```{r}
+embed2 <- as.matrix(py$embed3)
+rownames(embed2) <- colnames(pdac)
+pdac@reductions$fitsne_multi <- CreateDimReducObject(embeddings = embed2, 
+                                                     key = "FitSNE_", 
+                                                     assay = "SCT", 
+                                                     global = TRUE)
+p3 <- DimPlot(pdac, reduction = "fitsne_multi") + 
+      xlab("Fit-SNE 1") + 
+      ylab("Fit-SNE 2") + 
+      theme_yehlab()
+p3
+```
+
+Finally, we'll use a multiscale kernel to represent the data in the high-dimensional space instead of the default Gaussian. This in tandem with the multiple perplexity values will preserve as much as possible of both local and global structure. 
+```{python}
+from openTSNE.affinity import Multiscale
+affin_multi = Multiscale(pc_df, perplexities=[40, 400], metric="cosine", random_state=629)
+init = initialization.pca(pc_df, random_state=629)
+embed_multi_op = TSNEEmbedding(init, affin_multi, negative_gradient_method="fft")
+embed5 = embed_multi_op.optimize(n_iter=250, exaggeration=12, momentum=0.5)
+embed_multi = embed5.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+```
+
+We can see that our clusters have become more visually separated, and are denser without encountering the problem of local structure loss that we saw in the UMAP embedding. We'll use this embedding going forward. 
+```{r}
+embed3 <- as.matrix(py$embed_multi)
+rownames(embed3) <- colnames(pdac)
+pdac@reductions$fitsne_kern<- CreateDimReducObject(embeddings = embed3, 
+                                                   key = "FitSNE_", 
+                                                   assay = "SCT", 
+                                                   global = TRUE)
+
+p4 <- DimPlot(pdac, reduction = "fitsne_kern") + 
+      xlab("Fit-SNE 1") + 
+      ylab("Fit-SNE 2") + 
+      theme_yehlab()
+p4
+```
+
+Due to the way SCISSORS is written, we'll need to replace our orginal t-SNE dimension reduction in our `Seurat` object with the new Fit-SNE version. We'll keep the original one under a separate name.
+```{r}
+tsne_old <- pdac@reductions$tsne
+pdac@reductions$tsne <- pdac@reductions$fitsne_kern
+pdac@reductions$tsne_orig <- tsne_old
+```
+
+```{r, echo=FALSE}
+rm(embed, embed2, embed3, pc_df)
+```
+
+# SingleR Cell Type Identification
+Here we use the `SingleR` package to identify broad cell types. 
+## Single Cell RNA-seq Reference Data
+The dataset we load is an `sctransform` normalized version of the raw counts available in `scRNAseq::BaronPancreasData()` from @baron2016, which consists of normal pancreas cells that were sequenced and annotated by the researchers.  
+```{r}
+sc_ref <- readRDS("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/Seurat/single_cell_ref_normalized.Rds")
+sc_preds <- SingleR(test = data.frame(pdac@assays$SCT@data), 
+                    ref = sc_ref, 
+                    labels = sc_ref$label, 
+                    method = "cluster", 
+                    clusters = pdac$seurat_clusters, 
+                    de.method = "wilcox")
+pdac[["SingleR.labels.sc"]] <- sc_preds$labels[match(pdac[[]][["seurat_clusters"]], 
+                                                     rownames(sc_preds))]
+p5 <- DimPlot(pdac, 
+              reduction = "tsne", 
+              group.by = "SingleR.labels.sc") + 
+      xlab("Fit-SNE 1") + 
+      ylab("Fit-SNE 2") + 
+      annotate(geom = "label", label = "Acinar", x = 75, y = 30) + 
+      annotate(geom = "label",label = "Ductal", x = 33, y = 60) + 
+      annotate(geom = "label",label = "Activated Stellate", x = 70, y = -20) + 
+      annotate(geom = "label",label = "Macrophage", x = -25, y = -30) + 
+      annotate(geom = "label",label = "T", x = 10, y = 10) + 
+      theme_yehlab() + 
+      NoLegend()
+p5
+```
+
+## Bulk Tissue RNA-seq Reference Data
+This dataset is composed of labelled bulk RNA-seq samples from the Human Primary Cell Atlas. 
+```{r}
+bulk_ref <- HumanPrimaryCellAtlasData()
+bulk_preds <- SingleR(test = data.frame(pdac@assays$SCT@data), 
+                      ref = bulk_ref, 
+                      labels = bulk_ref$label.main, 
+                      method = "cluster", 
+                      clusters = pdac$seurat_clusters, 
+                      de.method = "wilcox")
+pdac[["SingleR.labels.bulk"]] <- bulk_preds$labels[match(pdac[[]][["seurat_clusters"]], 
+                                                         rownames(bulk_preds))]
+p6 <- DimPlot(pdac, 
+              reduction = "tsne", 
+              group.by = "SingleR.labels.bulk")  + 
+      xlab("Fit-SNE 1") + 
+      ylab("Fit-SNE 2") + 
+      annotate(geom = "label", label = "B", x = -45, y = 30) + 
+      annotate(geom = "label",label = "Epithelial", x = 33, y = 60) + 
+      annotate(geom = "label",label = "Macrophage", x = -40, y = -20) + 
+      annotate(geom = "label",label = "Monocyte", x = 10, y = -50) + 
+      annotate(geom = "label",label = "MSC", x = 70, y = -20) + 
+      annotate(geom = "label",label = "Pre-B CD34-", x = 0, y = 45) + 
+      annotate(geom = "label",label = "T", x = 25, y = 10) + 
+      theme_yehlab() + 
+      NoLegend()
 p6
 ```
 
-## Reclustering
-Here we use `ReclusterCells()` to identify subclusters within cluster 7. We find five distinct subclusters, which are clearly visible on the t-SNE re-embedding. 
+# CONICSmat CNV Estimation
+```{r}
+chrom_regions <- read.table("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/chrom_arm_positions.txt", 
+                            sep = "\t", 
+                            row.names = 1, 
+                            header = TRUE)
+gene_pos <- getGenePositions(rownames(pdac))
+norm_factor <- calcNormFactors(as.matrix(pdac@assays$SCT@data))
+cnv_est <- plotAll(as.matrix(pdac@assays$SCT@data), 
+                   normFactor = norm_factor, 
+                   regions = chrom_regions, 
+                   gene_pos = gene_pos, 
+                   fname = "Elyada_CNVs")
+bic_table <- read.table("./Elyada_CNVs_BIC_LR.txt", 
+                        sep = "\t", 
+                        row.names = 1, 
+                        header = TRUE, 
+                        check.names = FALSE)
+cand_regions <- rownames(bic_table[bic_table$`BIC difference` > 500 & bic_table$`LRT adj. p-val` < .01, ])
+hist1 <- plotHistogram(cnv_est[, cand_regions], 
+                       as.matrix(pdac@assays$SCT@data), 
+                       clusters = 2, 
+                       zscoreThreshold = 3, 
+                       patients = pdac$sample)
+```
+
+# DECODER
+```{r}
+
+```
+
+
+# SCISSORS
+Now that we have rough labels from `SingleR`, we'll start looking for subpopulations within our cell types using `ReclusterCells()`. 
+
+## Fibroblasts
+The fibroblast marker genes provided by @elyada2017 match the `SingleR` results defining cluster 7 as containing fibroblasts. 
+```{r}
+p7 <- FeaturePlot(pdac, 
+                  reduction = "tsne", 
+                  features = "COL1A1") + 
+      labs(title = "COL1A1") + 
+      theme_yehlab() + 
+      NoLegend() + 
+      theme(axis.title = element_blank())
+p8 <- FeaturePlot(pdac, 
+                  reduction = "tsne", 
+                  features = "COL3A1") + 
+      labs(title = "COL3A1") + 
+      theme_yehlab() + 
+      NoLegend() + 
+      theme(axis.title = element_blank())
+p9 <- FeaturePlot(pdac, 
+                  reduction = "tsne", 
+                  features = "LUM") + 
+      labs(title = "LUM") + 
+      theme_yehlab() + 
+      NoLegend() + 
+      theme(axis.title = element_blank())
+p10 <- FeaturePlot(pdac, 
+                  reduction = "tsne", 
+                  features = "DCN") + 
+       labs(title = "DCN") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p11 <- p4 + 
+       theme(legend.key.size = unit(.5, "line")) + 
+       guides(color = guide_legend(ncol = 2, override.aes = list(size = 2)))
+p12 <- (p7 | p8 | p9) / p11
+p12
+```
+
+### Reclustering
+Here we use `ReclusterCells()` to identify subclusters within cluster 7. We find five distinct subclusters, which are clearly visible on the t-SNE re-embedding.
 ```{r, warning=FALSE}
 fibro_reclust <- ReclusterCells(pdac, 
                                 which.clust = list(7),
@@ -163,18 +373,17 @@ fibro_reclust <- ReclusterCells(pdac,
                                 resolution.vals = c(.1, .2, .3), 
                                 k.vals = c(10, 20, 30, 50), 
                                 which.dim.reduc = "tsne", 
-                                redo.embedding = TRUE, 
+                                redo.embedding = FALSE, 
                                 do.plot = FALSE)
 fibro <- fibro_reclust[[1]]
-p7 <- DimPlot(fibro) + 
-      xlab("t-SNE 1") + 
-      ylab("t-SNE 2") + 
-      labs(title = "SCISSORS on cluster 7") + 
-      theme(axis.ticks = element_blank())
-p7
+p13 <- DimPlot(fibro, reduction = "tsne") + 
+       xlab("Fit-SNE 1") + 
+       ylab("Fit-SNE 2") + 
+       theme_yehlab()
+p13
 ```
 
-## Subtype Identification
+### Subtype Identification
 Next, we use the `VAM` method of single cell gene set enrichment analysis to determine which clusters are enriched for the iCAF and myCAF marker genes. 
 ```{r}
 icaf_genes <- c("IL6", "PDGFRA", "CXCL12", "CFD", "LMNA", 
@@ -191,77 +400,118 @@ fibro <- vamForSeurat(fibro, gene.set.collection = gene_sets)
 DefaultAssay(fibro) <- "VAM.cdf"
 ```
 
-## Visualization
-First, we examine Pan-CAF gene set enrichment. We can see that only the bottom two clusters are highly enriched for the CAF marker genes. 
+### Visualization
+First, we examine Pan-CAF gene set enrichment. We can see that only clusters 0 and 1 are highly enriched for the CAF marker genes. This indicates that the other three clusters are composed of cells that are not fiborblasts, but that have similar gene expression patterns to fibroblasts.
 ```{r}
-FeaturePlot(fibro, features = "Pan-CAF") + 
-  NoLegend() + 
-  labs(title = "Pan-CAF Enrichment") + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
+p14 <- FeaturePlot(fibro, 
+                   reduction = "tsne", 
+                   features = "Pan-CAF") + 
+       NoLegend() + 
+       labs(title = "Pan-CAF Enrichment") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p15 <- p14 + p13
+p15
 ```
 
-We can see from our enrichment plots that clusters 3 and 4 are clearly not composed of CAF cells. Similarly, we can easily define cluster 0 as the myCAF population, and cluster 2 as the smaller iCAF population. Finally, though cluster 1 shows some enrichment for both pathways, it doesn't have a consistent enough pattern to label it another CAF cluster. 
+We can easily define cluster 0 as the myCAF population, and cluster 2 as the slightly smaller iCAF population. Finally, though cluster 1 shows some enrichment for both pathways, it doesn't have a consistent enough pattern to label it another CAF cluster.
 ```{r}
-p2 <- FeaturePlot(fibro, features = "iCAF") + 
-  NoLegend() +
-  labs(title = "iCAF Enrichment") + 
-  theme(axis.ticks = element_blank(), 
-        axis.title = element_blank(), 
-        axis.text = element_blank())
-p3 <- FeaturePlot(fibro, features = "myCAF") + 
-  NoLegend() + 
-  labs(title = "myCAF Enrichment") + 
-  theme(axis.ticks = element_blank(), 
-        axis.title = element_blank(), 
-        axis.text = element_blank())
-p4 <- DimPlot(fibro_reclust[[1]], reduction = "tsne") + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-(p2 | p3) / p4 + plot_annotation(title = "CAF Cells")
+p16 <- FeaturePlot(fibro, 
+                   reduction = "tsne", 
+                   features = "iCAF") + 
+       NoLegend() + 
+       labs(title = "iCAF Enrichment") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p17 <- FeaturePlot(fibro, 
+                   reduction = "tsne",
+                   features = "myCAF") + 
+       NoLegend() + 
+       labs(title = "myCAF Enrichment") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p18 <- (p16 | p17) / p13
+p18
 ```
 
-By examining the marker genes provided in the Elyada paper, we define cluster 1 as being composed of perivascular cells. This intuitively makes sense, as the perivascular cells were positioned near to the fibroblast cells in the paper's main t-SNE figure. 
+By examining the marker genes provided in the Elyada paper, we define cluster 1 as being composed of perivascular cells. This intuitively makes sense, as the perivascular cells were positioned near to the fibroblast cells in the  main t-SNE figure from @elyada2017. 
 ```{r}
 DefaultAssay(fibro) <- "SCT"
-p5 <- FeaturePlot(fibro, features = "IGFBP7") + 
-  NoLegend() +
-  labs(title = "IGFBP7") + 
-  theme(axis.ticks = element_blank(), 
-        axis.title = element_blank(), 
-        axis.text = element_blank())
-p6 <- FeaturePlot(fibro, features = "ACTA2") + 
-  NoLegend() +
-  labs(title = "ACTA2") + 
-  theme(axis.ticks = element_blank(), 
-        axis.title = element_blank(), 
-        axis.text = element_blank())
-p7 <- FeaturePlot(fibro, features = "RGS5") + 
-  NoLegend() +
-  labs(title = "RGS5") + 
-  theme(axis.ticks = element_blank(), 
-        axis.title = element_blank(), 
-        axis.text = element_blank())
-(p5 | p6 | p7) / p4 + plot_annotation(title = "Perivascular Cells")
+p19 <- FeaturePlot(fibro, 
+                   reduction = "tsne", 
+                   features = "IGFBP7") + 
+       NoLegend() +
+       labs(title = "IGFBP7") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p20 <- FeaturePlot(fibro, 
+                   reduction = "tsne", 
+                   features = "ACTA2") + 
+       NoLegend() +
+       labs(title = "ACTA2") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p21 <- FeaturePlot(fibro, 
+                   reduction = "tsne", 
+                   features = "RGS5") + 
+       NoLegend() +
+       labs(title = "RGS5") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p22 <- (p19 | p20 | p21) / p13
+p22
 ```
 
 Next, we use the gene markers PLVAP and VWF (again provided in @elyada2017) to identify cluster 3 as the endothelial cells. 
 ```{r}
-p8 <- FeaturePlot(fibro, features = "PLVAP") + 
-  NoLegend() + 
-  labs(title = "PLVAP") + 
-  theme(axis.ticks = element_blank(), 
-        axis.title = element_blank(), 
-        axis.text = element_blank())
-p9 <- FeaturePlot(fibro, features = "VWF") + 
-  NoLegend() + 
-  labs(title = "VWF") + 
-  theme(axis.ticks = element_blank(), 
-        axis.title = element_blank(), 
-        axis.text = element_blank())
-(p8 | p9) / p4 + plot_annotation(title = "Endothelial Cells")
+p23 <- FeaturePlot(fibro, 
+                   reduction = "tsne", 
+                   features = "PLVAP") + 
+       NoLegend() + 
+       labs(title = "PLVAP") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p24 <- FeaturePlot(fibro, 
+                   reduction = "tsne", 
+                   features = "VWF") + 
+       NoLegend() + 
+       labs(title = "VWF") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p25 <- (p23 | p24) / p13
+p25
+```
+
+Interestingly, we have a small cluster of 22 cells that does not appear to express any of the fibroblast, CAF, perivascular, or endothelial markers. We'll use differential expression testing to find out what makes it unique, and hopefully assign it a celltype label. After performing differential expression analysis, we found that the top 3 markers for cluster 4 are CLU, CD74, and CRYAB. Interestingly, CLU and CD74 were found to be differentially expressed in the apCAF population discovered in the KPC mouse models of CAFs in @elyada2017. 
+```{r}
+fibro_markers <- FindAllMarkers(fibro, 
+                                assay = "SCT", 
+                                logfc.threshold = 2, 
+                                test.use = "wilcox", 
+                                only.pos = TRUE, 
+                                random.seed = 629)
+fibro_markers[fibro_markers$cluster == 4, ]
+```
+
+We re-run GSEA, again using the `VAM` package and the differentially expressed genes for the apCAF population as defined in @elyada2017 (with the mouse gene names converted to HGNC symbols). We can see that the apCAF pathway is strongly enriched in cluster 4 as compared to the other CAF clusters. 
+```{r}
+apcaf_genes <- c("HLA-DQB1", "CD74", "SAA3P", "SLPI")
+gene_sets <- list(icaf_genes, mycaf_genes, apcaf_genes, pan_caf_genes)
+names(gene_sets) <- c("iCAF", "myCAF", "apCAF", "Pan-CAF")
+for (i in seq(gene_sets)) {
+  gene_sets[[i]] <- gene_sets[[i]][gene_sets[[i]] %in% rownames(fibro)]
+}
+fibro <- vamForSeurat(fibro, gene.set.collection = gene_sets)
+DefaultAssay(fibro) <- "VAM.cdf"
+p26 <- FeaturePlot(fibro, 
+                   reduction = "tsne",
+                   features = "apCAF") + 
+       NoLegend() + 
+       labs(title = "apCAF Enrichment") + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p27 <- (p16 | p17 | p26) / p13
+p26
 ```
 
 Finally, we add cell labels to our identified clusters. 
@@ -270,96 +520,65 @@ fibro@meta.data$label <- case_when(fibro@meta.data$seurat_clusters == 0 ~ "myCAF
                                    fibro@meta.data$seurat_clusters == 1 ~ "Perivascular", 
                                    fibro@meta.data$seurat_clusters == 2 ~ "iCAF", 
                                    fibro@meta.data$seurat_clusters == 3 ~ "Endothelial", 
-                                   fibro@meta.data$seurat_clusters == 4 ~ "Unknown")
-DimPlot(fibro, group.by = "label") + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
+                                   fibro@meta.data$seurat_clusters == 4 ~ "apCAF")
+p28 <- DimPlot(fibro, 
+        reduction = "tsne", 
+        group.by = "label") + 
+        xlab("Fit-SNE 1") + 
+        ylab("Fit-SNE 2") + 
+        theme_yehlab()
+p28
 ```
 
-## Save Figures
+## T Cells
+Going back to the main `Seurat` object, we have a large population of T and NK cells that warrants further investigation. Using NKG7 expression we can easily identify cluster 0 as the natural killer population, so we hypotehsize that clusters 3 and 9 contain our T cells. We already see some good separation, so reclustering the cells should have good results. 
 ```{r}
-ggsave(plot = p6, 
-       filename = paste0(fig_path, "Fibroblasts/Fibro_Markers.png"), 
-       device = "png", 
-       width = 8, 
-       height = 6, 
-       units = "in")
-260366
-ggsave(plot = p7, 
-       filename = paste0(fig_path, "Fibroblasts/SCISSORS_results.png"), 
-       device = "png", 
-       width = 8, 
-       height = 6, 
-       units = "in")
+nkt <- subset(pdac, subset = seurat_clusters %in% c(0, 3, 9))
+p29 <- FeaturePlot(nkt, 
+                   reduction = "tsne", 
+                   features = "NKG7") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p30 <- DimPlot(nkt, reduction = "tsne") + 
+       xlab("Fit-SNE 1") + 
+       ylab("Fit-SNE 2") + 
+       theme_yehlab()
+p31 <- p29 / p30
+p31
 ```
 
-# T Cell Analysis 
-Going back to the main `Seurat` object, we obviously have a large population of T cells that warrants further investigation. Using the marker genes from @elyada2017, we can easily identify cluster 1 as the natural killer population, so we'' hypotehsize that cluster 3 contains our T cells. We already see some good separation, so reclustering the cells should have good results. 
-```{r}
-p0
-p0 + NoLegend() + p1
-FeaturePlot(pdac, features = c("CD3D")) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(pdac, features = c("CD2")) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(pdac, features = c("NKG7")) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-```
-
-## Reclustering
-Here we run `ReclusterCells()`, while treating all three putative T cell clusters as one large group. This will hopefully allow use to elucidate T cell subtypes, as well as separate the NK from the T cells. 
+### Reclustering
+Here we run `ReclusterCells()`, while treating both putative T cell clusters as one large group. This will hopefully allow use to elucidate T cell subtypes. 
 ```{r}
 t_reclust <- ReclusterCells(pdac, 
-                            which.clust = list(3), 
+                            which.clust = list(3, 9), 
+                            merge.clusters = TRUE, 
                             n.variable.genes = 4000, 
                             n.PC = 20, 
                             which.dim.reduc = "tsne", 
                             redo.embedding = TRUE, 
                             random.seed = 629)
 tcells <- t_reclust[[1]]
-DimPlot(tcells) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
+p32 <- DimPlot(tcells, reduction = "tsne") + 
+       xlab("t-SNE 1") + 
+       ylab("t-SNE 2") + 
+       theme_yehlab()
+p32
 ```
 
-## Cell Type Identification
-## Natural Killers
+### Cell Type Identification
+#### CD8+ T
 ```{r}
-FeaturePlot(tcells, features = c("NKG7")) + 
+FeaturePlot(tcells, 
+            reduction = "tsne", 
+            features = "CD8A") + 
   xlab("t-SNE 1") + 
   ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(tcells, features = c("GZMB")) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(tcells, features = c("PRF1")) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-FeaturePlot(tcells, features = c("IFNG")) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
+  theme_yehlab()
 ```
 
-### CD8 T
-```{r}
-FeaturePlot(tcells, features = c("CD8A")) + 
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") + 
-  theme(axis.ticks = element_blank())
-```
-
-### CD4 T
+#### CD4+ T
 ```{r}
 FeaturePlot(tcells, features = c("CD69")) + 
   xlab("t-SNE 1") + 
@@ -367,7 +586,7 @@ FeaturePlot(tcells, features = c("CD69")) +
   theme(axis.ticks = element_blank())
 ```
 
-### T-regs
+#### T-regs
 ```{r}
 FeaturePlot(tcells, features = c("IL2RA")) + 
   xlab("t-SNE 1") + 
@@ -387,7 +606,7 @@ FeaturePlot(tcells, features = c("TIGIT")) +
   theme(axis.ticks = element_blank())
 ```
 
-### Proliferating T-regs
+#### Proliferating T-regs
 ```{r}
 FeaturePlot(tcells, features = c("TOP2A")) + 
   xlab("t-SNE 1") + 
@@ -399,8 +618,117 @@ FeaturePlot(pdac, features = c("TOP2A")) +
   theme(axis.ticks = element_blank())
 ```
 
-NK markers -> NKG7, GZMB, PRF1, IFNG
-CD8 markers -> CD8A
-CD4 marekrs -> CD69 (barely)
-Treg markers -> IL2RA, FOXP3, CTLA4, TIGIT
-Proliferating Treg markers -> TOP2A
+# Save Figures & Data
+This section isn't worth reading; it's here solely to prove that the figures we present in our publicated were dynamically generated during the knitting of this document. 
+```{r}
+fig_path <- "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Figures/Elyada All/"
+saveRDS(pdac, 
+        file = "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Seurat Objects/Elyada All/Elyada.Rds")
+saveRDS(fibro, 
+        file = "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Seurat Objects/Elyada All/Elyada_fibro.Rds")
+saveRDS(duct, 
+        file = "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Seurat Objects/Elyada All/Elyada_duct.Rds")
+saveRDS(nkt, 
+        file = "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Seurat Objects/Elyada All/Elyada_nk_t.Rds")
+
+fig_path <- "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Figures/PBMC3k/"
+ggsave(plot = p0, 
+       filename = "All Cells/Orig_clusts_tSNE.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p1, 
+       filename = "All Cells/Orig_clusts_UMAP.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p4, 
+       filename = "All Cells/Orig_clusts_FitSNE.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p5, 
+       filename = "All Cells/SingleR_sc_ref.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p6, 
+       filename = "All Cells/SingleR_bulk_ref.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p12, 
+       filename = "Fibroblasts/Fibro_marker_genes.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p13, 
+       filename = "Fibroblasts/Fibro_SCISSORS.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p15, 
+       filename = "Fibroblasts/Pan-CAF_enrichment.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p12, 
+       filename = "Fibroblasts/Fibro_marker_genes.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p18, 
+       filename = "Fibroblasts/iCAF_myCAF_enrichment.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p22, 
+       filename = "Fibroblasts/Perivascular_cells.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p25, 
+       filename = "Fibroblasts/Endothelial_cells.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p26, 
+       filename = "Fibroblasts/apCAF_enrichment.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+ggsave(plot = p28, 
+       filename = "Fibroblasts/Final_cell_labels.pdf", 
+       path = fig_path, 
+       device = "pdf", 
+       width = 8, 
+       height = 6, 
+       units = "in")
+```
+

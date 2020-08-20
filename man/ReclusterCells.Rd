@@ -36,7 +36,7 @@ ReclusterCells(
 
 \item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).}
 
-\item{k.vals}{(Optional) The parameters \emph{k} to be tested.}
+\item{k.vals}{(Optional) The parameters \emph{k} to be tested. Defaults to c(10, 25, 50).}
 
 \item{cutoff.score}{(Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are (.15, .3).}
 
