@@ -2,7 +2,8 @@
 #'
 #' This function prepares a `Seurat` object for reclustering analysis.
 #' The input is a `Seurat` object in any stage of pre-processing, or even a `SingleCellExperiment` object that will be converted to `Seurat` format.
-#' The function checks which metadata features and assays are present (% mitochondrial DNA, normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
+#' The function checks which metadata features (% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings),
+#' then runs an initial graph-based clustering.
 #' @import Seurat
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @param seurat.object The object containing the cells you'd like to analyze.
@@ -75,6 +76,12 @@ PrepareData <- function(seurat.object = NULL,
                                    verbose = FALSE)
     }
   }
+
+  # add cell cycle scores to Seurat object
+  seurat.object <- CellCycleScoring(seurat.object,
+                                    s.features = cc.genes.updated.2019$s.genes,
+                                    g2m.features = cc.genes.updated.2019$g2m.genes,
+                                    set.ident = FALSE)
 
   # check if PCA components exist in Seurat object
   if (is.null(seurat.object@reductions$pca)) {

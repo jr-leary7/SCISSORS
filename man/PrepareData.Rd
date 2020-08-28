@@ -38,7 +38,8 @@ PrepareData(
 \description{
 This function prepares a \code{Seurat} object for reclustering analysis.
 The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format.
-The function checks which metadata features and assays are present (\% mitochondrial DNA, normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
+The function checks which metadata features (\% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings),
+then runs an initial graph-based clustering.
 }
 \examples{
 PrepareData(seurat.object, n.variable.genes = 5000, do.plot = TRUE)
