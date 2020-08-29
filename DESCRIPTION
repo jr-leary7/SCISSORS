@@ -1,6 +1,6 @@
 Package: SCISSORS
 Title: A workflow to identify cell subpopulations in single cell RNA-seq.
-Version: 0.0.1.0
+Version: 0.0.2.0
 Authors@R: 
     person(given = "Jack",
            family = "Leary",
