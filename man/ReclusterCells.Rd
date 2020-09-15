@@ -7,6 +7,7 @@
 ReclusterCells(
   seurat.object = NULL,
   which.clust = NULL,
+  auto = FALSE,
   merge.clusters = FALSE,
   n.variable.genes = 4000,
   n.PC = 10,
@@ -23,6 +24,8 @@ ReclusterCells(
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
 
 \item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list.}
+
+\item{auto}{Should the clusters to be reclustered be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.}
 
 \item{merge.clusters}{(Optional). If multiple clusters are specified, should the clusters be re-clustered as one? Defaults to FALSE.}
 

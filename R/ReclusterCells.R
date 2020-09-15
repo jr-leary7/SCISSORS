@@ -5,6 +5,7 @@
 #' @importFrom ggplot2 labs
 #' @param seurat.object The `Seurat` object containing cells and their assigned cluster IDs.
 #' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list.
+#' @param auto Should the clusters to be reclustered be determined automatically? If so, `which.clust` will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.
 #' @param merge.clusters (Optional). If multiple clusters are specified, should the clusters be re-clustered as one? Defaults to FALSE.
 #' @param n.variable.genes How many variable genes should be detected in each subcluster? Defaults to 4000.
 #' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Defaults to 10.
@@ -23,6 +24,7 @@
 
 ReclusterCells <- function(seurat.object = NULL,
                            which.clust = NULL,
+                           auto = FALSE,
                            merge.clusters = FALSE,
                            n.variable.genes = 4000,
                            n.PC = 10,
@@ -35,6 +37,11 @@ ReclusterCells <- function(seurat.object = NULL,
                            random.seed = 629) {
   # check inputs
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object as input!") }
+  if (auto) {
+    print("Choosing clusters automatically.")
+    scores <- ComputeSilhouetteScores(seurat.object)
+    which.clust <- which(scores < .5)
+  }
   # run function
   if (!is.null(which.clust)) {
     reclust_list <- list()
