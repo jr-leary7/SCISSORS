@@ -8,7 +8,7 @@
 #' @param auto Should the clusters to be reclustered be determined automatically? If so, `which.clust` will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.
 #' @param merge.clusters (Optional). If multiple clusters are specified, should the clusters be re-clustered as one? Defaults to FALSE.
 #' @param n.variable.genes How many variable genes should be detected in each subcluster? Defaults to 4000.
-#' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Defaults to 10.
+#' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by `ChoosePCs()`. Defaults to "auto".
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
 #' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).
@@ -27,7 +27,7 @@ ReclusterCells <- function(seurat.object = NULL,
                            auto = FALSE,
                            merge.clusters = FALSE,
                            n.variable.genes = 4000,
-                           n.PC = 10,
+                           n.PC = "auto",
                            which.dim.reduc = c("tsne", "umap"),
                            redo.embedding = TRUE,
                            resolution.vals = c(.05, .1, .2, .35),
@@ -58,11 +58,21 @@ ReclusterCells <- function(seurat.object = NULL,
                               seed.use = random.seed,
                               variable.features.n = n.variable.genes,
                               verbose = FALSE)
-      temp_obj <- RunPCA(temp_obj,
-                         npcs = n.PC,
-                         features = VariableFeatures(temp_obj),
-                         seed.use = random.seed,
-                         verbose = FALSE)
+      if (n.PC != "auto") {
+        temp_obj <- RunPCA(temp_obj,
+                           npcs = n.PC,
+                           features = VariableFeatures(temp_obj),
+                           seed.use = random.seed,
+                           verbose = FALSE)
+      } else {
+        temp_obj <- RunPCA(temp_obj,
+                           npcs = 30,
+                           features = VariableFeatures(temp_obj),
+                           seed.use = random.seed,
+                           verbose = FALSE)
+        n.PC <- ChoosePCs(temp_obj)
+      }
+
       # re-run nonlinear dimension reduction
       if (redo.embedding) {
         if (which.dim.reduc == "all") {
@@ -224,11 +234,20 @@ ReclusterCells <- function(seurat.object = NULL,
                                 seed.use = random.seed,
                                 variable.features.n = n.variable.genes,
                                 verbose = FALSE)
-        temp_obj <- RunPCA(temp_obj,
-                           npcs = n.PC,
-                           features = VariableFeatures(temp_obj),
-                           seed.use = 629,
-                           verbose = FALSE)
+        if (n.PC != "auto") {
+          temp_obj <- RunPCA(temp_obj,
+                             npcs = n.PC,
+                             features = VariableFeatures(temp_obj),
+                             seed.use = random.seed,
+                             verbose = FALSE)
+        } else {
+          temp_obj <- RunPCA(temp_obj,
+                             npcs = 30,
+                             features = VariableFeatures(temp_obj),
+                             seed.use = random.seed,
+                             verbose = FALSE)
+          n.PC <- ChoosePCs(temp_obj)
+        }
         # re-run nonlinear dimension reduction
         if (redo.embedding) {
           if (which.dim.reduc == "all") {

@@ -8,7 +8,7 @@
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
-#' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.
+#' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using `ChoosePCs()`. Defaults to "auto".
 #' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
@@ -24,7 +24,7 @@
 
 PrepareData <- function(seurat.object = NULL,
                         n.variable.genes = 4000,
-                        n.PC = 30,
+                        n.PC = "auto",
                         which.dim.reduc = c("tsne", "umap"),
                         perplexity = 30,
                         initial.resolution = .3,
@@ -85,14 +85,25 @@ PrepareData <- function(seurat.object = NULL,
 
   # check if PCA components exist in Seurat object
   if (is.null(seurat.object@reductions$pca)) {
-    print(sprintf("Running PCA with %s principal components using %s highly variable genes",
-                  n.PC,
-                  n.variable.genes))
-    seurat.object <- RunPCA(seurat.object,
-                            features = VariableFeatures(seurat.object),
-                            npcs = n.PC,
-                            verbose = FALSE,
-                            seed.use = random.seed)
+    if (n.PC != "auto") {
+      print(sprintf("Running PCA with %s principal components using %s highly variable genes",
+                    n.PC,
+                    n.variable.genes))
+      seurat.object <- RunPCA(seurat.object,
+                              features = VariableFeatures(seurat.object),
+                              npcs = n.PC,
+                              verbose = FALSE,
+                              seed.use = random.seed)
+    } else {
+      print(sprintf("Automatically choosing the best number of PCs."))
+      seurat.object <- RunPCA(seurat.object,
+                              features = VariableFeatures(seurat.object),
+                              npcs = 50,
+                              verbose = FALSE,
+                              seed.use = random.seed)
+      n.PC <- ChoosePCs(seurat.object, cutoff = .75)
+      print(sprintf("Please use %s PCs going forward.", n.PC))
+    }
   }
 
   # run t-SNE
@@ -139,7 +150,7 @@ PrepareData <- function(seurat.object = NULL,
 
   # initial clustering
   # set k if it wasn't user-defined
-  if (is.null(k.val)) {k.val <- round(sqrt(ncol(seurat.object)))}
+  if (is.null(k.val)) { k.val <- round(sqrt(ncol(seurat.object))) }
   print(sprintf("Clustering cells in PCA space using k ~ %s & resolution = %s", k.val, initial.resolution))
   seurat.object <- FindNeighbors(seurat.object,
                                  reduction = "pca",
@@ -153,7 +164,7 @@ PrepareData <- function(seurat.object = NULL,
   print(sprintf("Found %s unique clusters", length(unique(seurat.object$seurat_clusters))))
 
   # plot results, if user desires
-  if (do.plot == TRUE) {
+  if (do.plot) {
     print(DimPlot(seurat.object, reduction = "tsne"))
   }
 

@@ -7,7 +7,7 @@
 PrepareData(
   seurat.object = NULL,
   n.variable.genes = 4000,
-  n.PC = 30,
+  n.PC = "auto",
   which.dim.reduc = c("tsne", "umap"),
   perplexity = 30,
   initial.resolution = 0.3,
@@ -21,7 +21,7 @@ PrepareData(
 
 \item{n.variable.genes}{The number of variable genes to find at each step. Defaults to 4000.}
 
-\item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Defaults to 30.}
+\item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using \code{ChoosePCs()}. Defaults to "auto".}
 
 \item{which.dim.reduc}{(Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have \code{phateR} installed.}
 
