@@ -17,12 +17,13 @@ library(SeuratData)
 ```
 
 ## Preprocessing
-Next, we use the `PrepareData()` function to pre-process our data. This function calculates the percentage of mitochondrial DNA for each cell and uses `SCTransform` to select highly variable genes, normalize and scale the counts, and regress out the effect of the percentage of mitochondrial DNA. It then runs PCA & t-SNE using 20 PCs as an intialization for the t-SNE embedding. Finally, we create a SNN graph using the approximation $k = \sqrt{N}$ and generate a preliminary rough clustering of our cells using Louvain modularity optimization. Basically, the function performs all the necessary pre-processing steps commonly used in `Seurat`. 
+Next, we use the `PrepareData()` function to pre-process our data. This function calculates the percentage of mitochondrial DNA for each cell and uses `SCTransform` to select highly variable genes, normalize and scale the counts, and regress out the effect of the percentage of mitochondrial DNA. It then runs PCA, chooses an appropriate number of principal components using a cutoff value for the cumulative proportion of variance explained, and then performs t-SNE using the principal component matrix as an intialization for the cembedding. Finally, we create a SNN graph using the approximation $k = \sqrt{N}$ and generate a preliminary rough clustering of our cells using Louvain modularity optimization. Basically, the function performs all the necessary pre-processing steps commonly used in `Seurat`. 
 ```{r}
 pbmc <- SeuratData::LoadData("pbmc3k")
 pbmc <- PrepareData(seurat.object = pbmc3k, 
                     n.variable.genes = 4000, 
-                    n.PC = 20, 
+                    n.PC = "auto", 
+                    cutoff = .75, 
                     which.dim.reduc = "tsne", 
                     initial.resolution = .3, 
                     random.seed = 629)
@@ -34,6 +35,7 @@ The `ReclusterCells()` function performs the actual subpopulation-detection anal
 reclust_results <- ReclusterCells(seurat.object = pbmc3k, 
                                   which.clust = list(0, 1, 2), 
                                   merge.clusters = FALSE, 
+                                  n.PC = 10, 
                                   n.variable.genes = 4000, 
                                   which.dim.reduc = "tsne", 
                                   redo.embedding = TRUE, 
@@ -53,7 +55,7 @@ subpop_markers <- FindSubpopulationMarkers(seurat.object = pbmc3k,
                                            random.seed = 629))
 ```
 
-The subpopulation markers can be annotated using `biomaRt` or another gene ontology package, and can be used to determine, on a transcriptomic level, what about the molecular biology of your subpopulation makes it unique and special. Eventually, I'll finish the `AnnotateMarkerGenes()` function to perform this automatically on the results of `FindSubpopulationMarkers()`, but as of now that is a low-priority fix for the package. 
+The subpopulation markers can be annotated using `biomaRt` or another gene ontology package, and can be used to determine, on a transcriptomic level, what about the molecular biology of your subpopulation makes it unique. Eventually, I'll finish the `AnnotateMarkerGenes()` function to perform this automatically on the results of `FindSubpopulationMarkers()`, but as of now that is a low-priority fix for the package. 
 
 # Contact Information
 This package is based on the ideas of Xianlu Peng, PhD (Research Asst. Professor, Lineberger Comprehensive Cancer Center, UNC Chapel Hill). The code is written and maintained by Jack Leary (Research Collaborator, Lineberger Comprehensive Cancer Center, UNC Chapel Hill). Jack can be reached on GitHub as well as at jrleary@live.unc.edu for any questions, issues, or bugs. 
