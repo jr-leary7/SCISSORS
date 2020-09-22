@@ -8,7 +8,7 @@ devtools::install_github("jr-leary7/SCISSORS")
 ```
 
 # Getting Started
-Here's a basic tutorial on how to get `SCISSORS` up and running (and finding cool cell subrgroups for you!). 
+Here's a basic tutorial on how to get `SCISSORS` up and running (and finding cool cell subgroups for you!). 
 ## Libraries
 First, we load the necessary libraries, `Seurat` to contain our analyses and `SeuratData` for our example dataset.
 ```{r}
@@ -17,7 +17,7 @@ library(SeuratData)
 ```
 
 ## Preprocessing
-Next, we use the `PrepareData()` function to pre-process our data. This function calculates the percentage of mitochondrial DNA for each cell and uses `SCTransform` to select highly variable genes, normalize and scale the counts, and regress out the effect of the percentage of mitochondrial DNA. It then runs PCA, chooses an appropriate number of principal components using a cutoff value for the cumulative proportion of variance explained, and then performs t-SNE using the principal component matrix as an intialization for the cembedding. Finally, we create a SNN graph using the approximation $k = \sqrt{N}$ and generate a preliminary rough clustering of our cells using Louvain modularity optimization. Basically, the function performs all the necessary pre-processing steps commonly used in `Seurat`. 
+Next, we use the `PrepareData()` function to pre-process our data. This function calculates the percentage of mitochondrial DNA for each cell and uses `SCTransform` to select highly variable genes, normalize and scale the counts, and regress out the effect of the percentage of mitochondrial DNA. It then runs PCA, chooses an appropriate number of principal components using a cutoff value for the cumulative proportion of variance explained, and then performs t-SNE using the principal component matrix as an initialization for the cembedding. Finally, we create a SNN graph using the approximation $k = \sqrt{N}$ and generate a preliminary rough clustering of our cells using Louvain modularity optimization. Basically, the function performs all the necessary pre-processing steps commonly used in `Seurat`. 
 ```{r}
 pbmc <- SeuratData::LoadData("pbmc3k")
 pbmc <- PrepareData(seurat.object = pbmc3k, 
@@ -30,7 +30,7 @@ pbmc <- PrepareData(seurat.object = pbmc3k,
 ```
 
 ## Reclustering
-The `ReclusterCells()` function performs the actual subpopulation-detection analysis, which is based on tuning the parameters of the Louvain modularity optimization function with the goal of maximizing the mean silhouette score of a given set of parameters. In this case, after investigating the preliminary clustering results, we decide to identify subpopulations in clusters 0, 1, and 2. The `do.plot` argument allows the printing of the optimal reclustering results for eacgh cluster to the graphics viewer in RStudio. 
+The `ReclusterCells()` function performs the actual subpopulation-detection analysis, which is based on tuning the parameters of the Louvain modularity optimization function with the goal of maximizing the mean silhouette score of a given set of parameters. In this case, after investigating the preliminary clustering results, we decide to identify subpopulations in clusters 0, 1, and 2. The `do.plot` argument allows the printing of the optimal reclustering results for each cluster to the graphics viewer in RStudio. 
 ```{r}
 reclust_results <- ReclusterCells(seurat.object = pbmc3k, 
                                   which.clust = list(0, 1, 2), 
