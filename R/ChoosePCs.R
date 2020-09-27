@@ -19,7 +19,7 @@ ChoosePCs <- function(seurat.obj = NULL, cutoff = NULL) {
     cum_prop_var[i] <- sum(prop_var[1:i])
   }
   if (any(cum_prop_var) > cutoff) {
-    cutoff_PC <- min(which(cum_prop_var) > cutoff)
+    cutoff_PC <- min(which(cum_prop_var > cutoff))
     print(sprintf("Using %s Pincipal Components.", cutoff_PC))
   } else {
     print("Cumulative % of variance explained did not reach cutoff value.")
