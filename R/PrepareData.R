@@ -9,6 +9,7 @@
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using `ChoosePCs()`. Defaults to "auto".
+#' @param var.cutoff The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .6.
 #' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
@@ -25,6 +26,7 @@
 PrepareData <- function(seurat.object = NULL,
                         n.variable.genes = 4000,
                         n.PC = "auto",
+                        var.cutoff = .6,
                         which.dim.reduc = c("tsne", "umap"),
                         perplexity = 30,
                         initial.resolution = .3,
@@ -95,14 +97,12 @@ PrepareData <- function(seurat.object = NULL,
                               verbose = FALSE,
                               seed.use = random.seed)
     } else {
-      print(sprintf("Automatically choosing the best number of PCs."))
       seurat.object <- RunPCA(seurat.object,
                               features = VariableFeatures(seurat.object),
                               npcs = 50,
                               verbose = FALSE,
                               seed.use = random.seed)
-      n.PC <- ChoosePCs(seurat.object, cutoff = .75)
-      print(sprintf("Please use %s PCs going forward.", n.PC))
+      n.PC <- ChoosePCs(seurat.object, cutoff = var.cutoff)
     }
   }
 

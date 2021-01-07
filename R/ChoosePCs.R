@@ -9,10 +9,10 @@
 
 ChoosePCs <- function(seurat.obj = NULL, cutoff = NULL) {
   # check inputs
-  if (is.null(seurat.obj)) { stop(print("Please supply a Seurat object.")) }
-  if (is.null(cutoff)) { cutoff <- .75 }
+  if (is.null(seurat.obj)) stop("Please supply a Seurat object.")
+  if (is.null(cutoff)) cutoff <- .75
   # run function
-  eigenvals <- seurat.obj@reductions$pca@stdev^2
+  eigenvals <- Stdev(seurat.obj, reduction = "pca")^2
   prop_var <- eigenvals / sum(eigenvals)
   cum_prop_var <- c()
   for (i in seq(prop_var)) {
@@ -22,9 +22,8 @@ ChoosePCs <- function(seurat.obj = NULL, cutoff = NULL) {
     cutoff_PC <- min(which(cum_prop_var > cutoff))
     print(sprintf("Using %s Pincipal Components.", cutoff_PC))
   } else {
-    print("Cumulative % of variance explained did not reach cutoff value.")
+    print(sprintf("Cumulative % of variance explained did not reach cutoff value = %s.", cutoff))
     cutoff_PC <- length(eigenvals)
   }
-
   return(cutoff_PC)
 }
