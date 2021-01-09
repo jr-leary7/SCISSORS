@@ -9,7 +9,7 @@
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using `ChoosePCs()`. Defaults to "auto".
-#' @param var.cutoff The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .6.
+#' @param var.cutoff Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
 #' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
@@ -26,7 +26,7 @@
 PrepareData <- function(seurat.object = NULL,
                         n.variable.genes = 4000,
                         n.PC = "auto",
-                        var.cutoff = .6,
+                        var.cutoff = .15,
                         which.dim.reduc = c("tsne", "umap"),
                         perplexity = 30,
                         initial.resolution = .3,
@@ -70,7 +70,7 @@ PrepareData <- function(seurat.object = NULL,
     } else {
       # add % mito and regress out
       seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # non-specific to species
-      print("Normalizing counts using SCTransform negative-binomial regression")
+      print("Normalizing counts using SCTransform")
       seurat.object <- SCTransform(seurat.object,
                                    assay = "RNA",
                                    variable.features.n = n.variable.genes,
@@ -88,9 +88,6 @@ PrepareData <- function(seurat.object = NULL,
   # check if PCA components exist in Seurat object
   if (is.null(seurat.object@reductions$pca)) {
     if (n.PC != "auto") {
-      print(sprintf("Running PCA with %s principal components using %s highly variable genes",
-                    n.PC,
-                    n.variable.genes))
       seurat.object <- RunPCA(seurat.object,
                               features = VariableFeatures(seurat.object),
                               npcs = n.PC,
@@ -150,12 +147,13 @@ PrepareData <- function(seurat.object = NULL,
 
   # initial clustering
   # set k if it wasn't user-defined
-  if (is.null(k.val)) { k.val <- round(sqrt(ncol(seurat.object))) }
+  if (is.null(k.val)) k.val <- round(sqrt(ncol(seurat.object)))
   print(sprintf("Clustering cells in PCA space using k ~ %s & resolution = %s", k.val, initial.resolution))
   seurat.object <- FindNeighbors(seurat.object,
                                  reduction = "pca",
                                  dims = 1:n.PC,
-                                 k.param = k.val)
+                                 k.param = k.val,
+                                 annoy.metric = "cosine")
   seurat.object <- FindClusters(seurat.object,
                                 resolution = initial.resolution,
                                 algorithm = 1,

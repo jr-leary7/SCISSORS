@@ -13,7 +13,7 @@ ReclusterCells(
   n.PC = "auto",
   which.dim.reduc = c("tsne", "umap"),
   redo.embedding = TRUE,
-  resolution.vals = c(0.05, 0.1, 0.2, 0.35),
+  resolution.vals = c(0.1, 0.2, 0.3, 0.4),
   k.vals = c(10, 25, 50),
   cutoff.score = 0.25,
   do.plot = FALSE,
@@ -37,7 +37,7 @@ ReclusterCells(
 
 \item{redo.embedding}{(Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.}
 
-\item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).}
+\item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).}
 
 \item{k.vals}{(Optional) The parameters \emph{k} to be tested. Defaults to c(10, 25, 50).}
 

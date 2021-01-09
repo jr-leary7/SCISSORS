@@ -11,7 +11,7 @@
 #' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by `ChoosePCs()`. Defaults to "auto".
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
 #' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
-#' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.05, .1, .15, .2, .35).
+#' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).
 #' @param k.vals (Optional) The parameters *k* to be tested. Defaults to c(10, 25, 50).
 #' @param cutoff.score (Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are (.15, .3).
 #' @param do.plot (Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.
@@ -30,7 +30,7 @@ ReclusterCells <- function(seurat.object = NULL,
                            n.PC = "auto",
                            which.dim.reduc = c("tsne", "umap"),
                            redo.embedding = TRUE,
-                           resolution.vals = c(.05, .1, .2, .35),
+                           resolution.vals = c(.1, .2, .3, .4),
                            k.vals = c(10, 25, 50),
                            cutoff.score = .25,
                            do.plot = FALSE,
@@ -146,6 +146,7 @@ ReclusterCells <- function(seurat.object = NULL,
           temp_obj <- FindNeighbors(temp_obj,
                                     reduction = "pca",
                                     k.param = k.vals[k],
+                                    annoy.metric = "cosine",
                                     verbose = FALSE)
           temp_obj <- FindClusters(temp_obj,
                                    resolution = resolution.vals[r],
