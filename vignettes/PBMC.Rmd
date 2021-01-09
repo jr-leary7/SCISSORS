@@ -1,66 +1,568 @@
 ---
 title: "PBMC Analysis using SCISSORS"
-author: "Jack Leary"
+subtitle: "Jack Leary"
+author: 
+  - "University of North Carolina at Chapel Hill - Lineberger Comprehensive Cancer Center"
+  - "University of Florida - Department of Biostatistics"
 date: "`r Sys.Date()`"
 output:
-  pdf_document:
+  html_document:
     theme: paper
     highlight: tango
     df_print: kable
+    toc: true
+    toc_float: true
+    code_folding: show
+    code_download: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
                       message = FALSE, 
-                      warning = FALSE)
+                      warning = FALSE, 
+                      fig.align = "center")
+reticulate::use_virtualenv("~/Desktop/Python/science/venv/", required = TRUE)
 ```
 
 # Introduction
-This document will serve as a tutorial for using `SCISSORS`, with the added functionality of detailing *exactly* how the figures presented in our manuscript were generated. 
+
+This document will serve as a tutorial for using `SCISSORS`, with the added functionality of detailing exactly how the PBMC3k dataset figures presented in our manuscript were generated. We'll start from a 10X counts matrix and end with fully annotated cell clusters. In addition to R, in order to run all the code in this document you'll need a Python 3 installation with `openTSNE` and all its dependencies installed.
 
 # Libraries
+
 ```{r}
-library(SCISSORS)
-library(Seurat)
-library(SeuratData)
-library(ggplot2)
+library(pals)        # basic colors
+library(dplyr)       # tidy data manipulation
+library(Seurat)      # single cell infrastructure
+library(ggplot2)     # plots
+library(SCISSORS)    # our package 
+library(paletteer)   # advanced colors
+library(reticulate)  # Python interface
+library(SeuratData)  # PBMC3k dataset
 ```
 
 # Data
-We load a scRNA-seq dataset provided by 10X Genomics that consists of ~2,700 peripheral blood mononuclear cells from a healthy donor. 
+
+We load a scRNA-seq dataset provided by 10X Genomics that consists of 2,700 peripheral blood mononuclear cells (PBMCs) from a healthy donor.
+
 ```{r}
 pbmc <- LoadData("pbmc3k")
 ```
 
 # Preprocessing
-Here we use `PrepareData()` to normalize expression & select highly variable genes through `sctransform`, run PCA & t-SNE. and 
+
+Here we use `PrepareData()` to normalize expression & select highly variable genes through `sctransform`, run PCA & t-SNE. and cluster our cells. We utilize 15 principal components even though [the Satija Lab vignette]((https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html)) used 10, as we use `sctransform` normalization, which does a better job of retaining biological heterogeneity through normalization than standard log-normalization.
+
 ```{r, warning=FALSE, message=FALSE}
 pbmc <- PrepareData(pbmc, 
                     n.variable.genes = 4000, 
-                    n.PC = 30, 
-                    which.dim.reduc = "tsne", 
-                    initial.resolution = .3, 
-                    do.plot = TRUE, 
+                    n.PC = 15, 
+                    which.dim.reduc = "tsne",
+                    initial.resolution = .4, 
                     random.seed = 629)
+p0 <- DimPlot(pbmc, cols = cols25()) + 
+      labs(x = "t-SNE 1", y = "t-SNE 2") + 
+      theme_yehlab() + 
+      theme(legend.position = "bottom", 
+            legend.justification = "center", 
+            legend.direction = "horizontal") + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+p0
+```
+
+## Fit-SNE
+
+We'll also run the Fast Fourier Transform-accelerated version of t-SNE as implemented in the Python library `openTSNE`. First we'll need to get our PC matrix into a form accessible by our Python interpreter.
+
+```{r}
+pc_mat <- Embeddings(pbmc, reduction = "pca")
+```
+
+```{python}
+# import libraries
+import numpy as np
+import pandas as pd
+from openTSNE import TSNEEmbedding
+from openTSNE import initialization
+from openTSNE.affinity import Multiscale
+# import PC matrix
+pc_mat = np.array(r.pc_mat)
+# run Fit-SNE w/ multiscale kernel
+affin_multi = Multiscale(pc_mat, perplexities=[30, 150], metric='cosine', random_state=629)
+init = initialization.pca(pc_mat, random_state=629)
+tsne_obj = TSNEEmbedding(init, affin_multi, negative_gradient_method='fft')
+embed = tsne_obj.optimize(n_iter=300, exaggeration=12, momentum=0.6)
+embed_multi = embed.optimize(n_iter=600, exaggeration=1, momentum=0.8)
+```
+
+Now we pull the results back into R, and save them in our `Seurat` object.
+
+```{r}
+embed <- as.matrix(py$embed_multi)
+rownames(embed) <- colnames(pbmc)
+colnames(embed) <- c("Fit-SNE_1", "Fit-SNE_2")
+pbmc@reductions$tsne_old <- pbmc@reductions$tsne
+pbmc@reductions$tsne <- CreateDimReducObject(embeddings = embed, 
+                                             key = "FitSNE_", 
+                                             assay = "SCT", 
+                                             global = TRUE)
+```
+
+Visualizing the results shows pretty much the same global structure as with the default t-SNE implementation, albeit rotated a bit, but I like that Fit-SNE's clusters are a bit denser, so we'll use Fit-SNE going forward.
+
+```{r}
+p1 <- DimPlot(pbmc, cols = cols25()) + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      theme(legend.position = "bottom", 
+            legend.justification = "center", 
+            legend.direction = "horizontal") + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+p1
 ```
 
 # Reclustering
-```{r, warning=FALSE, message=FALSE}
-reclust_results <- ReclusterCells(pbmc, 
-                                  n.variable.genes = 4000, 
-                                  n.PC = 20, 
-                                  which.dim.reduc = "tsne", 
-                                  redo.embedding = TRUE, 
-                                  which.clust = list(0, 1, 2), 
-                                  do.plot = TRUE, 
-                                  random.seed = 629)
+
+Here we'll examine clusters 0, 1, and 2. Cluster 0 seems large enough, and has enough variability on the X-axis of the t-SNE embedding to appear as though it might harbor subgroups. Clusters 1 and 2 have small but visible subclusters. We can see after running `ReclusterCells()` that we've separated out one subgroup from each of clusters 1 and 2, and three from cluster 0.
+
+```{r, warning=FALSE, message=FALSE, results='hold'}
+reclust_res <- ReclusterCells(pbmc, 
+                              which.clust = list(0, 1, 2), 
+                              n.variable.genes = 4000,
+                              n.PC = 15, 
+                              k.vals = c(5, 10, 15, 20, 25), 
+                              resolution.vals = c(.1, .2, .3, .4), 
+                              which.dim.reduc = "tsne", 
+                              redo.embedding = TRUE, 
+                              random.seed = 629)
+p2 <- DimPlot(reclust_res[[1]], cols = paletteer_d("nationalparkcolors::Badlands")) + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      theme(legend.position = "bottom", 
+            legend.justification = "center", 
+            legend.direction = "horizontal") + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+p3 <- DimPlot(reclust_res[[2]], cols = paletteer_d("nationalparkcolors::Badlands")) + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      theme(legend.position = "bottom", 
+            legend.justification = "center", 
+            legend.direction = "horizontal") + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+p4 <- DimPlot(reclust_res[[3]], cols = paletteer_d("nationalparkcolors::Badlands")) + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      theme(legend.position = "bottom", 
+            legend.justification = "center", 
+            legend.direction = "horizontal") + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+p2
+p3
+p4
 ```
 
-# Marker Genes
-Next, we'll use a Wilcox test to determine which genes characterize our new subclusters. 
+Next, we'll reintegrate our new clusters into our original `Seurat` object - this requires some finagling as `Seurat` is a bit weird with how it stores cell-level metadata. Since we had six clusters originally, and we discovered five new subclusters, we'll end up with twelve total clusters.
+
+```{r, message=FALSE}
+clust_df <- data.frame(CellID = colnames(pbmc), 
+                       ClustID = as.numeric(pbmc@meta.data$seurat_clusters) - 1, 
+                       stringsAsFactors = FALSE)
+clust_6 <- rownames(reclust_res[[1]]@meta.data[reclust_res[[1]]@meta.data$seurat_clusters == 1, ])
+clust_7 <- rownames(reclust_res[[1]]@meta.data[reclust_res[[1]]@meta.data$seurat_clusters == 2, ])
+clust_8 <- rownames(reclust_res[[1]]@meta.data[reclust_res[[1]]@meta.data$seurat_clusters == 3, ])
+clust_9 <- rownames(reclust_res[[2]]@meta.data[reclust_res[[2]]@meta.data$seurat_clusters == 1, ])
+clust_10 <- rownames(reclust_res[[3]]@meta.data[reclust_res[[3]]@meta.data$seurat_clusters == 1, ])
+clust_11 <- rownames(reclust_res[[3]]@meta.data[reclust_res[[3]]@meta.data$seurat_clusters == 2, ])
+label <- case_when(clust_df$CellID %in% clust_6 ~ 6, 
+                   clust_df$CellID %in% clust_7 ~ 7, 
+                   clust_df$CellID %in% clust_8 ~ 8, 
+                   clust_df$CellID %in% clust_9 ~ 9, 
+                   clust_df$CellID %in% clust_10 ~ 10, 
+                   clust_df$CellID %in% clust_11 ~ 11, 
+                   TRUE ~ clust_df$ClustID)
+pbmc <- AddMetaData(pbmc, 
+                    col.name = "seurat_clusters", 
+                    metadata = as.factor(label))
+Idents(pbmc) <- "seurat_clusters"
+p5 <- DimPlot(pbmc, cols = cols25()) + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      theme(legend.position = "bottom", 
+            legend.justification = "center", 
+            legend.direction = "horizontal") + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+p5
+```
 
 # Identify Cell Types
-Lastly, we use the marker genes provided in the [Satija Lab's PBMC3k vignette](https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html) to assign a label to each of our clusters and subclusters. 
+
+Now that we've determined our subpopulations, we can assign cell types to each cluster using the marker genes provided in [the Satija Lab's PBMC3k vignette](https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html), as well as other canonical markers.
+
+## CD4+ T Cells
+
+We can quickly identify cluster 0 as the memory CD4+ T cells, and cluster 6 as the naive CD4+ population.
+
+```{r}
+p6 <- FeaturePlot(pbmc, 
+                  features = "IL7R", 
+                  cols = c("lightgrey", "firebrick3")) + 
+      NoLegend() + 
+      theme_yehlab() + 
+      theme(axis.title = element_blank())
+p7 <- FeaturePlot(pbmc, 
+                  features = "CCR7", 
+                  cols = c("lightgrey", "firebrick3")) + 
+      NoLegend() + 
+      theme_yehlab()  + 
+      theme(axis.title = element_blank())
+p8 <- FeaturePlot(pbmc, 
+                  features = "S100A4", 
+                  cols = c("lightgrey", "firebrick3")) + 
+      NoLegend() + 
+      theme_yehlab() + 
+      theme(axis.title = element_blank())
+p9 <- (p6 | p7 | p8) / p5
+p9
+```
+
+Cluster 7 is only subtly separated from . We'll use differential expression testing to determine if the cells in cluster 7 are a spurious cluster, or a real CD4+ T cell subtype. After running a Wilcox test we can see that several of the differentially expressed are associated with the interferon family of virus-related signaling proteins, and thus with anti-viral immune activity.
+
+```{r}
+clust7_markers <- FindMarkers(pbmc, 
+                              ident.1 = 7, 
+                              ident.2 = 0, 
+                              only.pos = TRUE, 
+                              logfc.threshold = .75, 
+                              assay = "SCT", 
+                              test.use = "wilcox", 
+                              verbose = FALSE, 
+                              random.seed = 629) %>% 
+                  subset(p_val_adj < .05)
+clust7_markers
+```
+
+Upon visual inspection of the top three marker genes (as determined by adjusted p-value), we can see that they do an equally good job of distinguishing the small cluster from the sample as a whole as they do at separating it from the memory CD4+ T cells. Due to their anti-viral characteristics , we'll define this group as being composed of Type 1 helper T cells (Th1).
+
+```{r}
+p10 <- FeaturePlot(pbmc, 
+                   features = "IFIT1", 
+                   cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p11 <- FeaturePlot(pbmc, 
+                  features = "IFIT3", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p12 <- FeaturePlot(pbmc, 
+                  features = "IFI6", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p13 <- (p10 | p11 | p12) / p5
+p13
+```
+
+## CD14+ Monocytes
+
+Cluster 1 clearly houses our CD14+ monocytes.
+
+```{r}
+p14 <- FeaturePlot(pbmc, 
+                   features = "CD14", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p15 <- FeaturePlot(pbmc, 
+                   features = "LYZ", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p16 <- (p14 | p15) / p5
+p16
+```
+
+## FCGR3A+ Monocytes
+
+It follows that the FCGR3A+ monocytes are positioned next to the CD14+ monocytes in cluster 4.
+
+```{r}
+p17 <- FeaturePlot(pbmc, 
+                   features = "FCGR3A", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p18 <- FeaturePlot(pbmc, 
+                   features = "MS4A7", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p19 <- (p17 | p18) / p5
+p19
+```
+
+## B Cells
+
+Expression of MS4A1 allows us to isolate the B cells as belonging to cluster 3.
+
+```{r}
+p20 <- FeaturePlot(pbmc, 
+                   features = "MS4A1", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p21 <- p20 / p5
+p21
+```
+
+## CD8+ T Cells
+
+The canonical marker CD8A swiftly identifies our CD8+ T cells in cluster 2.
+
+```{r}
+p22 <- FeaturePlot(pbmc, 
+                   features = "CD8A", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p23 <- p22 / p5
+p23
+```
+
+## Natural Killer Cells
+
+We can use NKG7 and GNLY to isolate the NK cells in cluster 5.
+
+```{r}
+p24 <- FeaturePlot(pbmc, 
+                   features = "NKG7", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p25 <- FeaturePlot(pbmc, 
+                   features = "GNLY", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p26 <- (p24 | p25) / p5
+p26
+```
+
+## Dendritic Cells
+
+The dendritic cell group is defined by expression of FCER1A and CST3 in cluster 9.
+
+```{r}
+p27 <- FeaturePlot(pbmc, 
+                   features = "FCER1A", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p28 <- FeaturePlot(pbmc, 
+                   features = "CST3", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p29 <- (p27 | p28) / p5
+p29
+```
+
+## Platelets
+
+The tiny platelet population of `r sum(pbmc$seurat_clusters == 10)` cells can be identified by its expression of PPBP in cluster 10.
+
+```{r}
+p30 <- FeaturePlot(pbmc, 
+                   features = "PPBP", 
+                  cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p31 <- p30 / p5
+p31
+```
+
+## Plasmacytoid Dendritic Cells
+
+A very small population of plasmacytoid dendritic cells - only `r sum(pbmc$seurat_clusters == 11)` cells - was teased out by `SCISSORS` and can be annotated using expression of MZB1.
+
+```{r}
+p32 <- FeaturePlot(pbmc, 
+                   features = "MZB1", 
+                   cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p33 <- p32 / p5
+p33
+```
+
+## Hematocytoblasts
+
+Lastly, we need to assign an identity to the unknown cluster 8 - another rare cell population, also composed of only `r sum(pbmc$seurat_clusters == 8)` cells. We'll use differential expression to compare it as we did earlier with the Th1 cells. The marker CYTL1 is over-expressed in hematopoetic stem cells (hematocytoblasts).
+
+```{r}
+clust8_markers <- FindAllMarkers(pbmc, 
+                                 test.use = "wilcox", 
+                                 only.pos = TRUE, 
+                                 logfc.threshold = .75, 
+                                 assay = "SCT", 
+                                 verbose = FALSE, 
+                                 random.seed = 629) %>% 
+                  subset(cluster == 8 & p_val_adj < .05)
+clust8_markers
+```
+
+```{r}
+p34 <- FeaturePlot(pbmc, 
+                   features = "CYTL1", 
+                   cols = c("lightgrey", "firebrick3")) + 
+       NoLegend() + 
+       theme_yehlab() + 
+       theme(axis.title = element_blank())
+p35 <- p34 / p5
+p35
+```
+
+## Final Figure
+
+Finally, we'll add cell labels to our original `Seurat` object and plot the results.
+
+```{r}
+pbmc@meta.data$label <- case_when(pbmc@meta.data$seurat_clusters == 0 ~ "Memory CD4+ T", 
+                                  pbmc@meta.data$seurat_clusters == 1 ~ "CD14+ Monocyte", 
+                                  pbmc@meta.data$seurat_clusters == 2 ~ "CD8+ T", 
+                                  pbmc@meta.data$seurat_clusters == 3 ~ "B", 
+                                  pbmc@meta.data$seurat_clusters == 4 ~ "FCGR3A+ Monocyte", 
+                                  pbmc@meta.data$seurat_clusters == 5 ~ "NK", 
+                                  pbmc@meta.data$seurat_clusters == 6 ~ "Naive CD4+ T", 
+                                  pbmc@meta.data$seurat_clusters == 7 ~ "Th1", 
+                                  pbmc@meta.data$seurat_clusters == 8 ~ "Hematocytoblast", 
+                                  pbmc@meta.data$seurat_clusters == 9 ~ "DC", 
+                                  pbmc@meta.data$seurat_clusters == 10 ~ "Platelet", 
+                                  pbmc@meta.data$seurat_clusters == 11 ~ "Plasmacytoid DC")
+```
+
+We redefine the final color palette to be used in order to have a better-looking figure. Note: if you're manually defining colors and want `Seurat` to assign a certain color to a certain cell type or cluster number, you need to name the vector of colors you provide. 
+
+```{r}
+final_pal <- c("paleturquoise4", "goldenrod1", "steelblue1", "lightseagreen", 
+               "sienna4", "mediumblue", "coral2", "magenta", "limegreen", 
+               "forestgreen", "darkorchid3", "orange2")
+names(final_pal) <- c("Memory CD4+ T", "CD14+ Monocyte", "CD8+ T", "B", 
+                      "FCGR3A+ Monocyte", "NK", "Naive CD4+ T", "Th1", 
+                      "Hematocytoblast", "DC", "Platelet", "Plasmacytoid DC")
+p36 <- DimPlot(pbmc, cols = final_pal, group.by = "label") + 
+       theme_yehlab() + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = NULL)
+p36
+```
 
 # Conclusions
-Did we do well?
+
+SCISSORS revealed tiny platelet and plasmacytoid dendritic cell clusters that were initially grouped with the CD8+ T cells, and it helped us to separate the dendritic cells from the larger CD14+ monocyte cluster. It also split up the naive and memory CD4+ T cells, and showed us a tiny Th1 cell subset that was not initially visible. The plasmacytoid DCs and Th1 cells were not annotated in [the original Satija Lab PBMC3k vignette](https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html). 
+
+We used the PBMC3k dataset because of 1) its immediate availability to anyone wishing to replicate our results and 2) the validity of its annotations, which allowed us to be confident in the results from SCISSORS, which was able to carve out rare cell groups from larger, broader cell types. In this case, the dendritic cell cluster was composed of 31 cells, the platelet cluster of 11 cells, the Th1 cluster of 25 cells, and the minuscule plasmacytoid DC cluster of just 4 cells. Respectively, these cell types made up 1.15%, 0.41%, 0.93%, and 0.15% of the entire sample. We thus believe we can confidently say that SCISSORS has been shown to accurately and swiftly identify rare cell types by considering the variance in gene expression within clusters and judging iterative reclustering using silhouette scores, rather than attempting to identify rare cell populations at the level of the entire dataset.
+
+# Save Data & Figures
+
+This part isn't really worth reading; it's just here to prove that all the figures were actually dynamically generated and saved upon knitting this document.
+
+```{r, eval=FALSE}
+pdrive_dir <- "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Seurat Objects/pbmc3k_202101.Rds"
+saveRDS(pbmc, file = pdrive_dir)
+```
+
+We'll create a quick convenience function to help us save the figures.
+
+```{r}
+saveSCISSORS <- function(plot = NULL, 
+                         name = NULL, 
+                         border = TRUE, 
+                         pub.ready = FALSE) {
+  if (is.null(plot) | is.null(name)) stop("You forgot some arguments.")
+  if (pub.ready) {
+    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/"
+    if (!border) {
+      plot <- plot + 
+              theme(panel.border = element_blank(), 
+                    axis.title = element_blank(), 
+                    legend.position = "none")
+    } else {
+      plot <- plot + 
+              theme(axis.title = element_blank(), 
+                    legend.position = "none")
+    }
+    ggsave(filename = paste0(name, ".pdf"), 
+           device = "pdf", 
+           units = "in",
+           path = dir, 
+           height = 8, 
+           width = 8) 
+  } else {
+    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/"
+    ggsave(filename = paste0(name, ".pdf"), 
+           device = "pdf", 
+           units = "in",
+           path = dir, 
+           height = 8, 
+           width = 8) 
+  }
+}
+```
+
+Lastly, we'll save the figures under `./vignettes/figures/`. 
+```{r}
+saveSCISSORS(plot = p0, name = "Seurat_Clusters", 
+             pub.ready = TRUE, border = FALSE)
+saveSCISSORS(plot = p1, name = "Seurat_Clusters_FitSNE", 
+             pub.ready = TRUE, border = FALSE)
+saveSCISSORS(plot = p2, name = "Clust0_Reclust", 
+             pub.ready = TRUE, border = FALSE)
+saveSCISSORS(plot = p3, name = "Clust1_Reclust", 
+             pub.ready = TRUE, border = FALSE)
+saveSCISSORS(plot = p4, name = "Clust2_Reclust", 
+             pub.ready = TRUE, border = FALSE)
+saveSCISSORS(plot = p5, name = "SCISSORS_Clusters", 
+             pub.ready = TRUE, border = FALSE)
+saveSCISSORS(plot = p6, name = "CD4T_IL7R")
+saveSCISSORS(plot = p7, name = "CD4T_CCR7")
+saveSCISSORS(plot = p8, name = "CD4T_S100A4")
+saveSCISSORS(plot = p10, name = "TH1_IFIT1")
+saveSCISSORS(plot = p11, name = "TH1_IFIT3")
+saveSCISSORS(plot = p12, name = "TH1_IFI6")
+saveSCISSORS(plot = p14, name = "Monocyte_CD14")
+saveSCISSORS(plot = p15, name = "Monocyte_LYZ")
+saveSCISSORS(plot = p17, name = "FCGR3A_Monocyte_FCGR3A")
+saveSCISSORS(plot = p18, name = "FCGR3A_Monocyte_MS4A7")
+saveSCISSORS(plot = p20, name = "B_MS4A1")
+saveSCISSORS(plot = p22, name = "CD8T_CD8A")
+saveSCISSORS(plot = p24, name = "NK_NKG7")
+saveSCISSORS(plot = p25, name = "NK_GNLY")
+saveSCISSORS(plot = p27, name = "DC_FCER1A")
+saveSCISSORS(plot = p28, name = "DC_CST3")
+saveSCISSORS(plot = p30, name = "Platelet_PPBP")
+saveSCISSORS(plot = p32, name = "Plasmacytoid_DC_MZB1")
+saveSCISSORS(plot = p34, name = "Hematocytoblasts_CYTL1")
+saveSCISSORS(plot = p36, name = "SCISSORS_Final_Annotations", 
+             pub.ready = TRUE, border = FALSE)
+```
+
+And of course:
+
+```{r}
+sessionInfo()
+```
