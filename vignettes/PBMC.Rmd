@@ -66,7 +66,7 @@ p0 <- DimPlot(pbmc, cols = cols25()) +
       theme(legend.position = "bottom", 
             legend.justification = "center", 
             legend.direction = "horizontal") + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p0
 ```
 
@@ -95,13 +95,13 @@ embed = tsne_obj.optimize(n_iter=300, exaggeration=12, momentum=0.6)
 embed_multi = embed.optimize(n_iter=600, exaggeration=1, momentum=0.8)
 ```
 
-Now we pull the results back into R, and save them in our `Seurat` object.
+Now we pull the results back into R, and save them in our `Seurat` object. We save the original embedding (made using the default Barnes-Hut t-SNE implementation) in `pbmc@reduction$bh_tsne` - we need to do this in order to make the Fit-SNE embedding the default embedding that will be retrieved in calls to functions such as `DimPlot()` or `FeaturePlot()`. 
 
 ```{r}
 embed <- as.matrix(py$embed_multi)
 rownames(embed) <- colnames(pbmc)
 colnames(embed) <- c("Fit-SNE_1", "Fit-SNE_2")
-pbmc@reductions$tsne_old <- pbmc@reductions$tsne
+pbmc@reductions$bh_tsne <- pbmc@reductions$tsne
 pbmc@reductions$tsne <- CreateDimReducObject(embeddings = embed, 
                                              key = "FitSNE_", 
                                              assay = "SCT", 
@@ -117,13 +117,13 @@ p1 <- DimPlot(pbmc, cols = cols25()) +
       theme(legend.position = "bottom", 
             legend.justification = "center", 
             legend.direction = "horizontal") + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p1
 ```
 
 # Reclustering
 
-Here we'll examine clusters 0, 1, and 2. Cluster 0 seems large enough, and has enough variability on the X-axis of the t-SNE embedding to appear as though it might harbor subgroups. Clusters 1 and 2 have small but visible subclusters. We can see after running `ReclusterCells()` that we've separated out one subgroup from each of clusters 1 and 2, and three from cluster 0.
+Here we'll examine clusters 0, 1, and 2. Cluster 0 seems large enough, and has enough variability on the X-axis of the t-SNE embedding to appear as though it might harbor subgroups. Clusters 1 and 2 have small but visible subclusters.
 
 ```{r, warning=FALSE, message=FALSE, results='hold'}
 reclust_res <- ReclusterCells(pbmc, 
@@ -135,33 +135,105 @@ reclust_res <- ReclusterCells(pbmc,
                               which.dim.reduc = "tsne", 
                               redo.embedding = TRUE, 
                               random.seed = 629)
-p2 <- DimPlot(reclust_res[[1]], cols = paletteer_d("nationalparkcolors::Badlands")) + 
+```
+
+Now we'll run Fit-SNE on each of the reclustered objects for consistencies sake. First we'll need to isolate the PC matrices and send them to Python. 
+
+```{r}
+pc_clust0 <- Embeddings(reclust_res[[1]], reduction = "pca")
+pc_clust1 <- Embeddings(reclust_res[[2]], reduction = "pca")
+pc_clust2 <- Embeddings(reclust_res[[3]], reduction = "pca")
+```
+
+Running Fit-SNE three times could probably be cleaned up and done in a for loop, but this was easiest to write out in a short time. We use different perplexity sets for each cluster, as they're all composed of differing numbers of cells.
+
+```{python}
+# import PC matrices
+pc_clust0 = np.array(r.pc_clust0)
+pc_clust1 = np.array(r.pc_clust1)
+pc_clust2 = np.array(r.pc_clust2)
+
+# run Fit-SNE w/ multiscale kernel - cluster 0
+affin_multi_clust0 = Multiscale(pc_clust0, perplexities=[15, 50], metric='cosine', random_state=629)
+init_clust0 = initialization.pca(pc_clust0, random_state=629)
+tsne_obj_clust0 = TSNEEmbedding(init_clust0, affin_multi_clust0, negative_gradient_method='fft')
+embed_clust0 = tsne_obj_clust0.optimize(n_iter=300, exaggeration=12, momentum=0.7)
+embed_multi_clust0 = embed_clust0.optimize(n_iter=850, exaggeration=1, momentum=0.8)
+
+# run Fit-SNE w/ multiscale kernel - cluster 1
+affin_multi_clust1 = Multiscale(pc_clust1, perplexities=[15, 30], metric='cosine', random_state=629)
+init_clust1 = initialization.pca(pc_clust1, random_state=629)
+tsne_obj_clust1 = TSNEEmbedding(init_clust1, affin_multi_clust1, negative_gradient_method='fft')
+embed_clust1 = tsne_obj_clust1.optimize(n_iter=300, exaggeration=12, momentum=0.6)
+embed_multi_clust1 = embed_clust1.optimize(n_iter=850, exaggeration=1, momentum=0.8)
+
+# run Fit-SNE w/ multiscale kernel - cluster 2
+affin_multi_clust2 = Multiscale(pc_clust2, perplexities=[10, 30], metric='cosine', random_state=629)
+init_clust2 = initialization.pca(pc_clust2, random_state=629)
+tsne_obj_clust2 = TSNEEmbedding(init_clust2, affin_multi_clust2, negative_gradient_method='fft')
+embed_clust2 = tsne_obj_clust2.optimize(n_iter=300, exaggeration=12, momentum=0.6)
+embed_multi_clust2 = embed_clust2.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+```
+
+Now we bring the results back in to R.
+
+```{r}
+embed0 <- as.matrix(py$embed_multi_clust0)
+rownames(embed0) <- colnames(reclust_res[[1]])
+colnames(embed0) <- c("Fit-SNE_1", "Fit-SNE_2")
+reclust_res[[1]]@reductions$bh_tsne <- reclust_res[[1]]@reductions$tsne
+reclust_res[[1]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed0, 
+                                                           key = "FitSNE_",
+                                                           assay = "SCT", 
+                                                           global = TRUE)
+embed1 <- as.matrix(py$embed_multi_clust1)
+rownames(embed1) <- colnames(reclust_res[[2]])
+colnames(embed1) <- c("Fit-SNE_1", "Fit-SNE_2")
+reclust_res[[2]]@reductions$bh_tsne <- reclust_res[[2]]@reductions$tsne
+reclust_res[[2]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed1,
+                                                           key = "FitSNE_",
+                                                           assay = "SCT",
+                                                           global = TRUE)
+embed2 <- as.matrix(py$embed_multi_clust2)
+rownames(embed2) <- colnames(reclust_res[[3]])
+colnames(embed2) <- c("Fit-SNE_1", "Fit-SNE_2")
+reclust_res[[3]]@reductions$bh_tsne <- reclust_res[[3]]@reductions$tsne
+reclust_res[[3]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed2,
+                                                           key = "FitSNE_",
+                                                           assay = "SCT",
+                                                           global = TRUE)
+```
+
+Here's what our reclusterings look like. There's clear visual separation between the main clusters and the subgroups we've discovered using `SCISSORS`.
+
+```{r}
+p2 <- DimPlot(reclust_res[[1]], cols = paletteer_d("ggsci::default_locuszoom")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       theme(legend.position = "bottom", 
             legend.justification = "center", 
             legend.direction = "horizontal") + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
-p3 <- DimPlot(reclust_res[[2]], cols = paletteer_d("nationalparkcolors::Badlands")) + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+p3 <- DimPlot(reclust_res[[2]], cols = paletteer_d("ggsci::default_locuszoom")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       theme(legend.position = "bottom", 
             legend.justification = "center", 
             legend.direction = "horizontal") + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
-p4 <- DimPlot(reclust_res[[3]], cols = paletteer_d("nationalparkcolors::Badlands")) + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+p4 <- DimPlot(reclust_res[[3]], cols = paletteer_d("ggsci::default_locuszoom")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       theme(legend.position = "bottom", 
             legend.justification = "center", 
             legend.direction = "horizontal") + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p2
 p3
 p4
 ```
 
-Next, we'll reintegrate our new clusters into our original `Seurat` object - this requires some finagling as `Seurat` is a bit weird with how it stores cell-level metadata. Since we had six clusters originally, and we discovered five new subclusters, we'll end up with twelve total clusters.
+Next, we'll reintegrate our new clusters into our original `Seurat` object - this requires some finagling as `Seurat` is a bit weird with how it stores cell-level metadata. Since we had six clusters originally, and we discovered six new subclusters, we'll end up with twelve total clusters.
 
 ```{r, message=FALSE}
 clust_df <- data.frame(CellID = colnames(pbmc), 
@@ -190,7 +262,7 @@ p5 <- DimPlot(pbmc, cols = cols25()) +
       theme(legend.position = "bottom", 
             legend.justification = "center", 
             legend.direction = "horizontal") + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 2)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p5
 ```
 
@@ -225,19 +297,17 @@ p9 <- (p6 | p7 | p8) / p5
 p9
 ```
 
-Cluster 7 is only subtly separated from . We'll use differential expression testing to determine if the cells in cluster 7 are a spurious cluster, or a real CD4+ T cell subtype. After running a Wilcox test we can see that several of the differentially expressed are associated with the interferon family of virus-related signaling proteins, and thus with anti-viral immune activity.
+Cluster 7 is only subtly separated from the CD4+ T cell clusters. We'll use differential expression testing to determine if the cells in cluster 7 are a spurious cluster or a real T cell subtype. After running a Wilcox test we can see that several of the differentially expressed are associated with the interferon family of cytokines and with anti-viral immune responses.
 
 ```{r}
-clust7_markers <- FindMarkers(pbmc, 
-                              ident.1 = 7, 
-                              ident.2 = 0, 
-                              only.pos = TRUE, 
-                              logfc.threshold = .75, 
-                              assay = "SCT", 
-                              test.use = "wilcox", 
-                              verbose = FALSE, 
-                              random.seed = 629) %>% 
-                  subset(p_val_adj < .05)
+clust7_markers <- FindAllMarkers(pbmc, 
+                                 assay = "SCT", 
+                                 logfc.threshold = .5, 
+                                 only.pos = TRUE, 
+                                 test.use = "wilcox", 
+                                 verbose = FALSE, 
+                                 random.seed = 629) %>% 
+                  subset(cluster  == 7 & p_val_adj < .05) 
 clust7_markers
 ```
 
@@ -459,14 +529,18 @@ pbmc@meta.data$label <- case_when(pbmc@meta.data$seurat_clusters == 0 ~ "Memory 
 We redefine the final color palette to be used in order to have a better-looking figure. Note: if you're manually defining colors and want `Seurat` to assign a certain color to a certain cell type or cluster number, you need to name the vector of colors you provide. 
 
 ```{r}
-final_pal <- c("paleturquoise4", "goldenrod1", "steelblue1", "lightseagreen", 
-               "sienna4", "mediumblue", "coral2", "magenta", "limegreen", 
-               "forestgreen", "darkorchid3", "orange2")
+final_pal <- c("paleturquoise4", "goldenrod", "steelblue1", "lightseagreen", 
+               "sienna4", "mediumblue", "coral3", "magenta", "limegreen", 
+               "forestgreen", "darkorchid3", "orange")
 names(final_pal) <- c("Memory CD4+ T", "CD14+ Monocyte", "CD8+ T", "B", 
                       "FCGR3A+ Monocyte", "NK", "Naive CD4+ T", "Th1", 
                       "Hematocytoblast", "DC", "Platelet", "Plasmacytoid DC")
 p36 <- DimPlot(pbmc, cols = final_pal, group.by = "label") + 
        theme_yehlab() + 
+       theme(legend.position = "bottom", 
+             legend.justification = "center", 
+             legend.text = element_text(size = 11)) + 
+       guides(color = guide_legend(nrow = 3, override.aes = list(size = 3))) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = NULL)
 p36
 ```
@@ -495,7 +569,7 @@ saveSCISSORS <- function(plot = NULL,
                          pub.ready = FALSE) {
   if (is.null(plot) | is.null(name)) stop("You forgot some arguments.")
   if (pub.ready) {
-    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/"
+    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC"
     if (!border) {
       plot <- plot + 
               theme(panel.border = element_blank(), 
@@ -513,7 +587,7 @@ saveSCISSORS <- function(plot = NULL,
            height = 8, 
            width = 8) 
   } else {
-    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/"
+    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/PBMC"
     ggsave(filename = paste0(name, ".pdf"), 
            device = "pdf", 
            units = "in",
@@ -525,6 +599,7 @@ saveSCISSORS <- function(plot = NULL,
 ```
 
 Lastly, we'll save the figures under `./vignettes/figures/`. 
+
 ```{r}
 saveSCISSORS(plot = p0, name = "Seurat_Clusters", 
              pub.ready = TRUE, border = FALSE)
