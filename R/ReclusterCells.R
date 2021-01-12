@@ -403,8 +403,9 @@ ReclusterCells <- function(seurat.object = NULL,
     }
   }
   if (length(reclust_list) == 1) {
-    return(reclust_list[[1]])
+    val <- reclust_list[[1]]
   } else {
-    return(reclust_list)
+    val <- reclust_list
   }
+  return(val)
 }

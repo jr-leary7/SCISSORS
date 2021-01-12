@@ -165,6 +165,5 @@ PrepareData <- function(seurat.object = NULL,
   if (do.plot) {
     print(DimPlot(seurat.object, reduction = "tsne"))
   }
-
   return(seurat.object)
 }
