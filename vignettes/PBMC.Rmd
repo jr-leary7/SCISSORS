@@ -63,9 +63,6 @@ pbmc <- PrepareData(pbmc,
 p0 <- DimPlot(pbmc, cols = cols25()) + 
       labs(x = "t-SNE 1", y = "t-SNE 2") + 
       theme_yehlab() + 
-      theme(legend.position = "bottom", 
-            legend.justification = "center", 
-            legend.direction = "horizontal") + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p0
 ```
@@ -114,9 +111,6 @@ Visualizing the results shows pretty much the same global structure as with the 
 p1 <- DimPlot(pbmc, cols = cols25()) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      theme(legend.position = "bottom", 
-            legend.justification = "center", 
-            legend.direction = "horizontal") + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p1
 ```
@@ -210,23 +204,14 @@ Here's what our reclusterings look like. There's clear visual separation between
 p2 <- DimPlot(reclust_res[[1]], cols = paletteer_d("ggsci::default_locuszoom")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      theme(legend.position = "bottom", 
-            legend.justification = "center", 
-            legend.direction = "horizontal") + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p3 <- DimPlot(reclust_res[[2]], cols = paletteer_d("ggsci::default_locuszoom")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      theme(legend.position = "bottom", 
-            legend.justification = "center", 
-            legend.direction = "horizontal") + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p4 <- DimPlot(reclust_res[[3]], cols = paletteer_d("ggsci::default_locuszoom")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      theme(legend.position = "bottom", 
-            legend.justification = "center", 
-            legend.direction = "horizontal") + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p2
 p3
@@ -259,9 +244,6 @@ Idents(pbmc) <- "seurat_clusters"
 p5 <- DimPlot(pbmc, cols = cols25()) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      theme(legend.position = "bottom", 
-            legend.justification = "center", 
-            legend.direction = "horizontal") + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p5
 ```
@@ -537,9 +519,6 @@ names(final_pal) <- c("Memory CD4+ T", "CD14+ Monocyte", "CD8+ T", "B",
                       "Hematocytoblast", "DC", "Platelet", "Plasmacytoid DC")
 p36 <- DimPlot(pbmc, cols = final_pal, group.by = "label") + 
        theme_yehlab() + 
-       theme(legend.position = "bottom", 
-             legend.justification = "center", 
-             legend.text = element_text(size = 11)) + 
        guides(color = guide_legend(nrow = 3, override.aes = list(size = 3))) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = NULL)
 p36

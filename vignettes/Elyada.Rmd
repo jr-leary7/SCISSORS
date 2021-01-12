@@ -142,14 +142,13 @@ import numpy as np
 import pandas as pd
 from openTSNE import TSNEEmbedding
 from openTSNE import initialization
-from openTSNE.callbacks import ErrorLogger
 from openTSNE.affinity import PerplexityBasedNN
 # import data
 pc_df = np.array(r.pc_df)
 # run Fit-SNE
-affinities = PerplexityBasedNN(pc_df, perplexity=50, metric="cosine", random_state=629)
+affinities = PerplexityBasedNN(pc_df, perplexity=50, metric='cosine', random_state=629)
 init = initialization.pca(pc_df, random_state=629)
-tsne_advanced_op = TSNEEmbedding(init, affinities, negative_gradient_method="fft",  callbacks=ErrorLogger())
+tsne_advanced_op = TSNEEmbedding(init, affinities, negative_gradient_method='fft')
 embed_advanced = tsne_advanced_op.optimize(n_iter=250, exaggeration=12, momentum=0.5) 
 embed_advanced_2 = embed_advanced.optimize(n_iter=750, momentum=0.8)
 ```
@@ -173,9 +172,9 @@ p2
 We use the ability of Fit-SNE to consider multiple perplexities in an attempt to provide a more accurate representation of both local and global structure in our data.
 
 ```{python}
-affin_anneal = PerplexityBasedNN(pc_df, perplexity=300, metric="cosine", random_state=629)
+affin_anneal = PerplexityBasedNN(pc_df, perplexity=300, metric='cosine', random_state=629)
 init = initialization.pca(pc_df, random_state=629)
-embed_op = TSNEEmbedding(init, affin_anneal, negative_gradient_method="fft")
+embed_op = TSNEEmbedding(init, affin_anneal, negative_gradient_method='fft')
 embed1 = embed_op.optimize(n_iter=250, exaggeration=12, momentum=.05)
 embed2 = embed1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
 affin_anneal.set_perplexity(30)
@@ -202,9 +201,9 @@ Finally, we'll use a multiscale kernel to represent the data in the high-dimensi
 
 ```{python}
 from openTSNE.affinity import Multiscale
-affin_multi = Multiscale(pc_df, perplexities=[40, 400], metric="cosine", random_state=629)
+affin_multi = Multiscale(pc_df, perplexities=[40, 400], metric='cosine', random_state=629)
 init = initialization.pca(pc_df, random_state=629)
-embed_multi_op = TSNEEmbedding(init, affin_multi, negative_gradient_method="fft")
+embed_multi_op = TSNEEmbedding(init, affin_multi, negative_gradient_method='fft')
 embed5 = embed_multi_op.optimize(n_iter=250, exaggeration=12, momentum=0.5)
 embed_multi = embed5.optimize(n_iter=750, exaggeration=1, momentum=0.8)
 ```
