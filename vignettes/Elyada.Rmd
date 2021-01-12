@@ -19,6 +19,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE, 
                       results = "hold", 
                       fig.align = "center")
+reticulate::use_virtualenv("~/Desktop/Python/science/venv/", required = TRUE)
 ```
 
 # Introduction
@@ -101,11 +102,11 @@ p0
 
 ## Optimize Dimension Reduction
 
-I think the two-dimensional visualization of the cells could be improved. We'll try using UMAP and the Fourier transform-accelerated Fit-SNE (as implemented in the `openTSNE` library) to improve the embedding.
+I think the two-dimensional visualization of the cells could be improved. We'll try using UMAP and the Fast Fourier Transform-accelerated Fit-SNE (as implemented in the `openTSNE` library) to improve the embedding.
 
 ### UMAP
 
-It seems like UMAP does a good job of clearly separating our clusters and preserving the global strucutre of the data. However, clusert 6 is still separated, and it's difficult to see local structure within some of the clusters due to the density of the cell embeddings.
+It seems like UMAP does a good job of clearly separating our clusters and preserving the global structure of the data. However, cluster 4 is still separated, and it's difficult to see local structure within some of the clusters due to the density of the cell embeddings.
 
 ```{r}
 pdac <- RunUMAP(pdac, 
@@ -119,9 +120,9 @@ pdac <- RunUMAP(pdac,
                 seed.use = 629, 
                 verbose = FALSE)
 p1 <- DimPlot(pdac, reduction = "umap") + 
-      xlab("UMAP 1") + 
-      ylab("UMAP 2") + 
-      theme_yehlab()
+      labs(x = "UMAP 1", y = "UMAP 2") + 
+      theme_yehlab() + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p1
 ```
 
@@ -132,7 +133,7 @@ For information on how to install the `openTSNE` implementation of Fit-SNE and h
 First we'll run a simple, standard Fit-SNE embedding. It's necessary to make the PCA embeddings accessible by Python.
 
 ```{r}
-pc_df <- data.frame(Embeddings(pdac, reduction = "pca"))
+pc_df <- Embeddings(pdac, reduction = "pca")
 ```
 
 ```{python}
@@ -144,8 +145,7 @@ from openTSNE import initialization
 from openTSNE.callbacks import ErrorLogger
 from openTSNE.affinity import PerplexityBasedNN
 # import data
-pc_df = r.pc_df
-pc_df = np.array(pc_df)
+pc_df = np.array(r.pc_df)
 # run Fit-SNE
 affinities = PerplexityBasedNN(pc_df, perplexity=50, metric="cosine", random_state=629)
 init = initialization.pca(pc_df, random_state=629)
@@ -164,9 +164,9 @@ pdac@reductions$fitsne <- CreateDimReducObject(embeddings = embed,
                                                assay = "SCT", 
                                                global = TRUE)
 p2 <- DimPlot(pdac, reduction = "fitsne") + 
-      xlab("Fit-SNE 1") + 
-      ylab("Fit-SNE 2") + 
-      theme_yehlab()
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p2
 ```
 
@@ -192,9 +192,9 @@ pdac@reductions$fitsne_multi <- CreateDimReducObject(embeddings = embed2,
                                                      assay = "SCT", 
                                                      global = TRUE)
 p3 <- DimPlot(pdac, reduction = "fitsne_multi") + 
-      xlab("Fit-SNE 1") + 
-      ylab("Fit-SNE 2") + 
-      theme_yehlab()
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p3
 ```
 
@@ -220,9 +220,9 @@ pdac@reductions$fitsne_kern<- CreateDimReducObject(embeddings = embed3,
                                                    global = TRUE)
 
 p4 <- DimPlot(pdac, reduction = "fitsne_kern") + 
-      xlab("Fit-SNE 1") + 
-      ylab("Fit-SNE 2") + 
-      theme_yehlab()
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme_yehlab() + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p4
 ```
 
