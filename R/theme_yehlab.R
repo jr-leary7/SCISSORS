@@ -8,10 +8,13 @@
 #' DimPlot(pbmc, reduction = "tsne") + theme_yehlab()
 
 theme_yehlab <- function() {
-  theme(axis.ticks = element_blank(),
+  theme(legend.position = "bottom",
         axis.text = element_blank(),
         axis.line = element_blank(),
         panel.grid = element_blank(),
+        axis.ticks = element_blank(),
+        legend.direction = "horizontal",
+        legend.justification = "center",
         panel.background = element_blank(),
         panel.border = element_rect(colour = "black", linetype = 1, size = 1))
 }
