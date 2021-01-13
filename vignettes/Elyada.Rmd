@@ -1,6 +1,9 @@
 ---
-title: "Cancer-Associated Fibroblast Analysis using SCISSORS"
-author: "Jack Leary"
+title: "Reclustering Analysis of Cancer-Associated Fibroblast Using SCISSORS"
+subtitle: "Jack Leary"
+author: 
+  - "University of North Carolina at Chapel Hill - Lineberger Comprehensive Cancer Center"
+  - "University of Florida - Department of Biostatistics"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -36,7 +39,9 @@ library(ggplot2)     # plots
 library(SingleR)     # cell type assignment
 library(decoderr)    # de novo deconvolution 
 library(SCISSORS)    # our package
+library(mixtools)    # Gaussian mixture model estimation
 library(patchwork)   # plot grids
+library(paletteer)   # color palettes
 library(CONICSmat)   # CNV estimation
 library(reticulate)  # Python interface
 ```
@@ -46,9 +51,9 @@ library(reticulate)  # Python interface
 First we load in the $\text{gene} \times \text{cell}$ counts matrix, then create a `Seurat` object to hold it in. Next, we add samplename, tissue type, and patient sex metadata taken from the publicly available dataset.
 
 ```{r}
-raw_counts <- Read10X(data.dir = "~/Desktop/Data/Elyada Raw/All Cells/")
+raw_counts <- Read10X(data.dir = "~/Desktop/Data/Elyada Raw/All Human/")
 pdac <- CreateSeuratObject(raw_counts, 
-                           project = "ElyadaAggr", 
+                           project = "Elyada", 
                            min.cells = 3, 
                            min.features = 200)
 pdac@meta.data$sample <- case_when(grepl("-1", rownames(pdac@meta.data)) ~ "SRR9274536", 
@@ -86,6 +91,8 @@ rm(raw_counts)
 
 # Preprocessing
 
+We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. The t-SNE embedding looks OK, but could definitely be improved. Globally, the clusters are arranged in a blob, though the local structure seems to have been preserved fairly well. Cluster 4 is split in two, which we would prefer not to have happen. 
+
 ```{r, warning=FALSE}
 pdac <- PrepareData(pdac, 
                     n.variable.genes = 4000, 
@@ -96,7 +103,7 @@ pdac <- PrepareData(pdac,
 p0 <- DimPlot(pdac) + 
       labs(x = "t-SNE 1", y = "t-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
 p0
 ```
 
@@ -106,7 +113,7 @@ I think the two-dimensional visualization of the cells could be improved. We'll 
 
 ### UMAP
 
-It seems like UMAP does a good job of clearly separating our clusters and preserving the global structure of the data. However, cluster 4 is still separated, and it's difficult to see local structure within some of the clusters due to the density of the cell embeddings.
+It seems like UMAP does a good job of clearly separating our clusters and preserving the global structure of the data. However, clusters 4 and 7 are still separated, and it's difficult to see local structure within some of the clusters due to their density.
 
 ```{r}
 pdac <- RunUMAP(pdac, 
@@ -115,20 +122,20 @@ pdac <- RunUMAP(pdac,
                 umap.method = "uwot", 
                 n.components = 2, 
                 n.epochs = 750, 
-                n.neighbors = 35, 
+                n.neighbors = 50, 
                 metric = "cosine", 
                 seed.use = 629, 
                 verbose = FALSE)
 p1 <- DimPlot(pdac, reduction = "umap") + 
       labs(x = "UMAP 1", y = "UMAP 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
 p1
 ```
 
 ### Fit-SNE
 
-For information on how to install the `openTSNE` implementation of Fit-SNE and how to run the algorithm, please visit the excellent [GitHub repository of Pavlin Policar](https://github.com/pavlin-policar/openTSNE).
+For information on how to install the `openTSNE` implementation of Fit-SNE and how to run the algorithm, please visit [the excellent GitHub repository of Pavlin Policar](https://github.com/pavlin-policar/openTSNE).
 
 First we'll run a simple, standard Fit-SNE embedding. It's necessary to make the PCA embeddings accessible by Python.
 
@@ -146,17 +153,17 @@ from openTSNE.affinity import PerplexityBasedNN
 # import data
 pc_df = np.array(r.pc_df)
 # run Fit-SNE
-affinities = PerplexityBasedNN(pc_df, perplexity=50, metric='cosine', random_state=629)
+affin = PerplexityBasedNN(pc_df, perplexity=50, metric='cosine', random_state=629)
 init = initialization.pca(pc_df, random_state=629)
-tsne_advanced_op = TSNEEmbedding(init, affinities, negative_gradient_method='fft')
-embed_advanced = tsne_advanced_op.optimize(n_iter=250, exaggeration=12, momentum=0.5) 
-embed_advanced_2 = embed_advanced.optimize(n_iter=750, momentum=0.8)
+tsne1 = TSNEEmbedding(init, affin, negative_gradient_method='fft')
+embed1 = tsne1.optimize(n_iter=350, exaggeration=12, momentum=0.6) 
+embed2 = embed1.optimize(n_iter=1000, momentum=0.8)
 ```
 
-The results look good, but the subclusters within cluster 6 are still clearly separated, and a small part of cluster 7 is far away from the rest of the cells in the cluster.
+The embedding looks good, but the subclusters within cluster 4 are still clearly separated, and a small part of cluster 7 is far from the rest of the cells in the cluster.
 
 ```{r}
-embed <- as.matrix(py$embed_advanced_2)
+embed <- as.matrix(py$embed2)
 rownames(embed) <- colnames(pdac)
 pdac@reductions$fitsne <- CreateDimReducObject(embeddings = embed, 
                                                key = "FitSNE_", 
@@ -165,35 +172,34 @@ pdac@reductions$fitsne <- CreateDimReducObject(embeddings = embed,
 p2 <- DimPlot(pdac, reduction = "fitsne") + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
 p2
 ```
 
 We use the ability of Fit-SNE to consider multiple perplexities in an attempt to provide a more accurate representation of both local and global structure in our data.
 
 ```{python}
-affin_anneal = PerplexityBasedNN(pc_df, perplexity=300, metric='cosine', random_state=629)
-init = initialization.pca(pc_df, random_state=629)
-embed_op = TSNEEmbedding(init, affin_anneal, negative_gradient_method='fft')
-embed1 = embed_op.optimize(n_iter=250, exaggeration=12, momentum=.05)
-embed2 = embed1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+affin_anneal = PerplexityBasedNN(pc_df, perplexity=80, metric='cosine', random_state=629)
+tsne2 = TSNEEmbedding(init, affin_anneal, negative_gradient_method='fft')
+embed3 = tsne2.optimize(n_iter=350, exaggeration=12, momentum=0.5)
+embed4 = embed1.optimize(n_iter=1000, exaggeration=1, momentum=0.8)
 affin_anneal.set_perplexity(30)
-embed3 = embed2.optimize(n_iter=500, momentum=0.8)
+embed5 = embed4.optimize(n_iter=500, momentum=0.8)
 ```
 
-The issue with clusters 6 and 7 have been mostly fixed! The subclusters of each cluster are all in the same general area. However, all the clusters are fairly close together. This implies that there is some global structure that Fit-SNE is not correctly preserving in the transition from high to low-dimensional embedding.
+The perplexity annealing hasn't really improved the embedding much - cluster 4 is still scattered over the two-dimensional space, and the outlier subgroup in cluster 7 hasn't moved any closer to the rest of the cluster. 
 
 ```{r}
-embed2 <- as.matrix(py$embed3)
-rownames(embed2) <- colnames(pdac)
-pdac@reductions$fitsne_multi <- CreateDimReducObject(embeddings = embed2, 
+embed_multi <- as.matrix(py$embed5)
+rownames(embed_multi) <- colnames(pdac)
+pdac@reductions$fitsne_multi <- CreateDimReducObject(embeddings = embed_multi, 
                                                      key = "FitSNE_", 
                                                      assay = "SCT", 
                                                      global = TRUE)
 p3 <- DimPlot(pdac, reduction = "fitsne_multi") + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
 p3
 ```
 
@@ -201,19 +207,18 @@ Finally, we'll use a multiscale kernel to represent the data in the high-dimensi
 
 ```{python}
 from openTSNE.affinity import Multiscale
-affin_multi = Multiscale(pc_df, perplexities=[40, 400], metric='cosine', random_state=629)
-init = initialization.pca(pc_df, random_state=629)
-embed_multi_op = TSNEEmbedding(init, affin_multi, negative_gradient_method='fft')
-embed5 = embed_multi_op.optimize(n_iter=250, exaggeration=12, momentum=0.5)
-embed_multi = embed5.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+affin_multi = Multiscale(pc_df, perplexities=[30, 100], metric='cosine', random_state=629)
+tsne3 = TSNEEmbedding(init, affin_multi, negative_gradient_method='fft')
+embed6 = tsne3.optimize(n_iter=450, exaggeration=12, momentum=0.6)
+embed7 = embed6.optimize(n_iter=1200, exaggeration=1, momentum=0.8)
 ```
 
-We can see that our clusters have become more visually separated, and are denser without encountering the problem of local structure loss that we saw in the UMAP embedding. We'll use this embedding going forward.
+The multiscale trick doesn't really fix the embedding issues either, but it does clean up a bit of the noise in the plot, so even though clusters 4 & 7 are still split up, we'll use this embedding going forward and make sure to examine those clusters for subgroups using `SCISSORS`.
 
 ```{r}
-embed3 <- as.matrix(py$embed_multi)
-rownames(embed3) <- colnames(pdac)
-pdac@reductions$fitsne_kern<- CreateDimReducObject(embeddings = embed3, 
+embed_kern <- as.matrix(py$embed7)
+rownames(embed_kern) <- colnames(pdac)
+pdac@reductions$fitsne_kern<- CreateDimReducObject(embeddings = embed_kern, 
                                                    key = "FitSNE_", 
                                                    assay = "SCT", 
                                                    global = TRUE)
@@ -221,25 +226,26 @@ pdac@reductions$fitsne_kern<- CreateDimReducObject(embeddings = embed3,
 p4 <- DimPlot(pdac, reduction = "fitsne_kern") + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
 p4
 ```
 
-Due to the way SCISSORS is written, we'll need to replace our orginal t-SNE dimension reduction in our `Seurat` object with the new Fit-SNE version. We'll keep the original one under a separate name.
+Due to the way `Seurat` accesses cell embeddings, we'll need to replace our original t-SNE dimension reduction in our `Seurat` object with the new Fit-SNE version. We'll keep the original Barnes-Hut t-SNE embedding under a separate name.
 
 ```{r}
-tsne_old <- pdac@reductions$tsne
+pdac@reductions$bh_tsne <- pdac@reductions$tsne
 pdac@reductions$tsne <- pdac@reductions$fitsne_kern
-pdac@reductions$tsne_orig <- tsne_old
 ```
 
 ```{r, echo=FALSE}
-rm(embed, embed2, embed3, pc_df)
+rm(embed, embed_kern, embed_multi, pc_df)
 ```
 
 # SingleR Cell Type Identification
 
-Here we use the `SingleR` package to identify broad cell types. \#\# Single Cell RNA-seq Reference Data The dataset we load is an `sctransform` normalized version of the raw counts available in `scRNAseq::BaronPancreasData()` from @baron2016, which consists of normal pancreas cells that were sequenced and annotated by the researchers.
+## Single Cell RNA-seq Reference Data
+
+Here we use the `SingleR` package to identify broad cell types. The reference dataset we load is an `sctransform` normalized version of the raw counts available in `scRNAseq::BaronPancreasData()` from @baron2016, which consists of normal pancreas cells that were sequenced and annotated by the researchers.
 
 ```{r}
 sc_ref <- readRDS("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/Seurat/single_cell_ref_normalized.Rds")
@@ -251,24 +257,22 @@ sc_preds <- SingleR(test = data.frame(pdac@assays$SCT@data),
                     de.method = "wilcox")
 pdac[["SingleR.labels.sc"]] <- sc_preds$labels[match(pdac[[]][["seurat_clusters"]], 
                                                      rownames(sc_preds))]
-p5 <- DimPlot(pdac, 
-              reduction = "tsne", 
-              group.by = "SingleR.labels.sc") + 
-      xlab("Fit-SNE 1") + 
-      ylab("Fit-SNE 2") + 
-      annotate(geom = "label", label = "Acinar", x = 75, y = 30) + 
-      annotate(geom = "label",label = "Ductal", x = 33, y = 60) + 
-      annotate(geom = "label",label = "Activated Stellate", x = 70, y = -20) + 
-      annotate(geom = "label",label = "Macrophage", x = -25, y = -30) + 
-      annotate(geom = "label",label = "T", x = 10, y = 10) + 
-      theme_yehlab() + 
-      NoLegend()
+```
+
+We can see that there's a large immune population, as well as smaller ductal, fibroblast (denoted activated stellate in the reference dataset), and acinar groups. These broad cell types line up with what we expected to see given the authors' original cell cluster annotations. 
+
+```{r}
+p5 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.sc") + 
+      scale_color_manual(values = paletteer_d("ggsci::default_nejm")) +  
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme(plot.title = element_blank()) + 
+      theme_yehlab()
 p5
 ```
 
 ## Bulk Tissue RNA-seq Reference Data
 
-This dataset is composed of labelled bulk RNA-seq samples from the Human Primary Cell Atlas.
+This dataset is composed of labeled bulk RNA-seq samples from the Human Primary Cell Atlas.
 
 ```{r}
 bulk_ref <- HumanPrimaryCellAtlasData()
@@ -280,24 +284,24 @@ bulk_preds <- SingleR(test = data.frame(pdac@assays$SCT@data),
                       de.method = "wilcox")
 pdac[["SingleR.labels.bulk"]] <- bulk_preds$labels[match(pdac[[]][["seurat_clusters"]], 
                                                          rownames(bulk_preds))]
-p6 <- DimPlot(pdac, 
-              reduction = "tsne", 
-              group.by = "SingleR.labels.bulk")  + 
-      xlab("Fit-SNE 1") + 
-      ylab("Fit-SNE 2") + 
-      annotate(geom = "label", label = "B", x = -45, y = 30) + 
-      annotate(geom = "label",label = "Epithelial", x = 33, y = 60) + 
-      annotate(geom = "label",label = "Macrophage", x = -40, y = -20) + 
-      annotate(geom = "label",label = "Monocyte", x = 10, y = -50) + 
-      annotate(geom = "label",label = "MSC", x = 70, y = -20) + 
-      annotate(geom = "label",label = "Pre-B CD34-", x = 0, y = 45) + 
-      annotate(geom = "label",label = "T", x = 25, y = 10) + 
-      theme_yehlab() + 
-      NoLegend()
+```
+
+The bulk reference gives us a bit more granular labels for the immune cells, and confirms the identities of the ductal / epithelial and fibroblast (denoted mesenchymal stem cells here) clusters. 
+
+```{r}
+p6 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk")  + 
+      scale_color_manual(values = paletteer_d("ggsci::default_nejm")) +  
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme(plot.title = element_blank()) + 
+      theme_yehlab()
 p6
 ```
 
+One shouldn't use `SingleR` as the final authority for cell types, but we were able to confirm the identities of the ductal and fibroblast clusters, which is important for this dataset as the cells we are most interested in are the cancer-associated fibroblasts (CAFs). 
+
 # CONICSmat CNV Estimation
+
+Next we'll attempt to identify malignant cells using single-cell copy number variation estimation as implemented in the `CONCISmat` package. Details of the GMM methodology used can be found [at the Diaz Lab's GitHub repository](https://github.com/diazlab/CONICS). Note: this step is memory-intensive as a lot of Gaussian mixture models get estimated, and if your machine doesn't have a lot of RAM it might be best to skip this and manually annotate the malignant cells instead through the usage of known canonical markers or the `VAM` single-cell GSEA methodology. 
 
 ```{r}
 chrom_regions <- read.table("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/chrom_arm_positions.txt", 
@@ -305,34 +309,173 @@ chrom_regions <- read.table("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/ch
                             row.names = 1, 
                             header = TRUE)
 gene_pos <- getGenePositions(rownames(pdac))
-norm_factor <- calcNormFactors(as.matrix(pdac@assays$SCT@data))
-cnv_est <- plotAll(as.matrix(pdac@assays$SCT@data), 
+cpm <- t(t(as.matrix(pdac@assays$SCT@counts)) / colSums(as.matrix(pdac@assays$SCT@counts))) * 10^5
+cpm <- log2(cpm + 1)
+norm_factor <- calcNormFactors(cpm)
+cnv_est <- plotAll(mat = cpm, 
                    normFactor = norm_factor, 
                    regions = chrom_regions, 
                    gene_pos = gene_pos, 
                    fname = "Elyada_CNVs")
+```
+
+## Visualizing CNVs
+
+After estimating CNVs, we cluster the cells into $k = 3$ clusters, with the hope of finding one large cluster of normal cells and two smaller clusters composed of CAFs and PDAC cells. 
+
+```{r}
 bic_table <- read.table("./Elyada_CNVs_BIC_LR.txt", 
                         sep = "\t", 
                         row.names = 1, 
                         header = TRUE, 
                         check.names = FALSE)
-cand_regions <- rownames(bic_table[bic_table$`BIC difference` > 500 & bic_table$`LRT adj. p-val` < .01, ])
+cand_regions <- rownames(bic_table[bic_table$`BIC difference` > 300 & 
+                                     bic_table$`LRT adj. p-val` < .01, ])
 hist1 <- plotHistogram(cnv_est[, cand_regions], 
-                       as.matrix(pdac@assays$SCT@data), 
-                       clusters = 2, 
+                       cpm, 
+                       clusters = 3, 
                        zscoreThreshold = 3, 
                        patients = pdac$sample)
 ```
 
-# DECODER
+We add the normal vs. malignant cell labels in to our `Seurat` object's metadata, then visualize the results. As expected, the malignant cells are located in the clusters identified by `SingleR` as ductal cells and fibroblasts. This indicates that `CONICSmat` did a solid job of estimating the CNVs - no easy feat with sparse, noisy single-cell data. 
 
 ```{r}
+normal <- which(hist1 == 1)
+malignant <- which(hist1 != 1)
+pdac@meta.data$malig <- ifelse(rownames(pdac@meta.data) %in% names(normal), "Normal", "Malignant")
+p7 <- DimPlot(pdac, reduction = "tsne", group.by = "malig") + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      scale_color_manual(values = c("firebrick3", "lightsteelblue")) + 
+      theme(plot.title = element_blank()) + 
+      theme_yehlab()
+p7
+```
 
+
+
+# DECODER
+
+Next, we use [Dr. Xianlu Peng's DECODER](https://github.com/laurapeng/decoderr) in order to deconvolve the dataset using NMF and assign weights to each cell. We calculate basal & classical PDAC, normal & activated stroma, immune, and endocrine & exocrine pancreas compartment weights. 
+
+```{r}
+sample_wts_unscaled <- Decon_single_sample("TCGA_RNAseq_PAAD", 
+                                           pdac@assays$SCT@data, 
+                                           "geneSymbol")
+sample_wts <- Norm_PDAC_weights(sample_wts_unscaled)
+pdac <- AddMetaData(pdac, sample_wts$Immune, "immune")
+pdac <- AddMetaData(pdac, sample_wts$bcRatio, "bc_ratio")
+pdac <- AddMetaData(pdac, sample_wts$Exocrine, "exocrine")
+pdac <- AddMetaData(pdac, sample_wts$Endocrine, "endocrine")
+pdac <- AddMetaData(pdac, sample_wts_unscaled[, 9], "basal")
+pdac <- AddMetaData(pdac, sample_wts_unscaled[, 5], "classical")
+pdac <- AddMetaData(pdac, sample_wts$NormalStroma, "norm_stroma")
+pdac <- AddMetaData(pdac, sample_wts$ActivatedStroma, "act_stroma")
+```
+
+## Visualizing DECODER Weights
+
+### Basal PDAC
+
+The basal weights are highest in a subcluster of the ductal group identified through `SingleR`. This is interesting as the authors did not find evidence of the basal subtype in their paper. 
+
+```{r}
+p8 <- FeaturePlot(pdac, reduction = "tsne", features = "basal", 
+                  cols = c("lightsteelblue", "orange2")) + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme(plot.title = element_blank()) + 
+      theme_yehlab() + 
+      NoLegend()
+p8
+```
+
+### Classical PDAC
+
+The classical weights are highest in another subcluster of the ductal cluster, and cells with high classical weights do not collocate with those that have high basal weights. The putative classical and basal PDAC cells also align closely with the cells identified through `CONCISmat` as malignant. 
+
+```{r}
+p9 <- FeaturePlot(pdac, reduction = "tsne", features = "classical", 
+                  cols = c("lightsteelblue", "orange2")) + 
+      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+      theme(plot.title = element_blank()) + 
+      theme_yehlab() + 
+      NoLegend()
+p9
+```
+
+### Exocrine Pancreas
+
+The cluster identified through `SingleR` as acinar cells is the only cluster with high exocrine pancreas weights. 
+
+```{r}
+p10 <- FeaturePlot(pdac, reduction = "tsne", features = "exocrine", 
+                  cols = c("lightsteelblue", "orange2")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme(plot.title = element_blank()) + 
+       theme_yehlab() + 
+       NoLegend()
+p10
+```
+
+### Endocrine Pancreas
+
+No cells have high endocrine pancreas weights. 
+
+```{r}
+p11 <- FeaturePlot(pdac, reduction = "tsne", features = "endocrine", 
+                   cols = c("lightsteelblue", "orange2")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme(plot.title = element_blank()) + 
+       theme_yehlab() + 
+       NoLegend()
+p11
+```
+
+### Immune
+
+Once again, we confirm the largeness of the immune cell population in this dataset. 
+
+```{r}
+p12 <- FeaturePlot(pdac, reduction = "tsne", features = "immune", 
+                   cols = c("lightsteelblue", "orange2")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme(plot.title = element_blank()) + 
+       theme_yehlab() + 
+       NoLegend()
+p12
+```
+
+### Normal Stroma
+
+Cells with high normal stroma stroma weights are located in the cluster identified by `SingleR` as being composed of fibroblasts. 
+
+```{r}
+p13 <- FeaturePlot(pdac, reduction = "tsne", features = "norm_stroma", 
+                   cols = c("lightsteelblue", "orange2")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme(plot.title = element_blank()) + 
+       theme_yehlab() + 
+       NoLegend()
+p13
+```
+
+### Activated Stroma
+
+Cells with high activated stroma weights are also located in the fibroblast cluster, but do not intersect with the cells that have high normal stroma scores. This indicates that `SCISSORS` will most likely perform well on the fibroblast cluster and be able to quickly tease out the cell subtypes.
+
+```{r}
+p14 <- FeaturePlot(pdac, reduction = "tsne", features = "act_stroma", 
+                   cols = c("lightsteelblue", "orange2")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme(plot.title = element_blank()) + 
+       theme_yehlab() + 
+       NoLegend()
+p14
 ```
 
 # SCISSORS
 
-Now that we have rough labels from `SingleR`, we'll start looking for subpopulations within our cell types using `ReclusterCells()`.
+Now that we have rough labels from `SingleR`, CNVs from `CONICSmat`, and compartment weights from `DECODER`, we should have more than enough cell-level metadata to look for and annotate cell subtypes using `SCISSORS`. 
 
 ## Fibroblasts
 
