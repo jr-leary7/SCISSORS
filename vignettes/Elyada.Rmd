@@ -105,7 +105,7 @@ rm(raw_counts)
 
 # Preprocessing
 
-We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. The t-SNE embedding looks OK, but could definitely be improved. Globally, the clusters are arranged in a blob, though the local structure seems to have been preserved fairly well. Cluster 4 is split in two, which we would prefer not to have happen. 
+We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. The t-SNE embedding looks OK, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. Cluster 4 is split in two, which we would prefer not to have happen. 
 
 ```{r, warning=FALSE}
 pdac <- PrepareData(pdac, 
@@ -114,7 +114,7 @@ pdac <- PrepareData(pdac,
                     which.dim.reduc = "tsne", 
                     initial.resolution = .5, 
                     random.seed = 629)
-p0 <- DimPlot(pdac) + 
+p0 <- DimPlot(pdac, reduction = "tsne") + 
       scale_color_manual(values = unname(tableau20())) + 
       labs(x = "t-SNE 1", y = "t-SNE 2") + 
       theme_yehlab() + 
@@ -304,7 +304,7 @@ pdac[["SingleR.labels.bulk"]] <- bulk_preds$labels[match(pdac[[]][["seurat_clust
 The bulk reference gives us a bit more granular labels for the immune cells, and confirms the identities of the ductal / epithelial and fibroblast (denoted mesenchymal stem cells here) clusters. 
 
 ```{r}
-p6 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk")  + 
+p6 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk") + 
       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) +  
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
@@ -376,7 +376,7 @@ rm(cpm, bic_table, chrom_regions, cnv_est, gene_pos,
 
 # DECODER
 
-Next, we use [Dr. Xianlu Peng's DECODER](https://github.com/laurapeng/decoderr) in order to deconvolve the dataset and assign weights to each cell using non-negative matrix factorization. We calculate basal & classical PDAC, normal & activated stroma, immune, and endocrine & exocrine pancreas compartment weights. 
+Next, we use [Dr. Xianlu Peng's DECODER](https://github.com/laurapeng/decoderr) in order to deconvolve the dataset and assign weights to each cell using non-negative matrix factorization. We calculate basal & classical PDAC, normal & activated stroma, immune, and endocrine & exocrine pancreas compartment weights.
 
 ```{r}
 sample_wts_unscaled <- Decon_single_sample("TCGA_RNAseq_PAAD", 
@@ -1694,23 +1694,23 @@ dc_tumor_pc <- Embeddings(dc_tumor, "pca")
 
 ```{python}
 # import data
-# macro_pc = r.macro_tumor_pc
-# mono_pc = r.mono_tumor_pc
+macro_pc = r.macro_tumor_pc
+mono_pc = r.mono_tumor_pc
 dc_pc = r.dc_tumor_pc
 # Fit-SNE - macrophages
-# affin_macro = PerplexityBasedNN(macro_pc, perplexity=100, metric='cosine', random_state=629)
-# init = initialization.pca(macro_pc, random_state=629)
-# tsne_macro = TSNEEmbedding(init, affin_macro, negative_gradient_method='fft')
-# embed_mac1 = tsne_macro.optimize(n_iter=250, exaggeration=12, momentum=0.6)
-# embed_mac2 = embed_mac1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-# affin_macro.set_perplexity(30)
-# embed_mac3 = embed_mac2.optimize(n_iter=250)
+affin_macro = PerplexityBasedNN(macro_pc, perplexity=100, metric='cosine', random_state=629)
+init = initialization.pca(macro_pc, random_state=629)
+tsne_macro = TSNEEmbedding(init, affin_macro, negative_gradient_method='fft')
+embed_mac1 = tsne_macro.optimize(n_iter=250, exaggeration=12, momentum=0.6)
+embed_mac2 = embed_mac1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+affin_macro.set_perplexity(30)
+embed_mac3 = embed_mac2.optimize(n_iter=250)
 # Fit-SNE - monocytes
-# affin_mono = PerplexityBasedNN(mono_pc, perplexity=30, metric='cosine', random_state=629)
-# init = initialization.pca(mono_pc, random_state=629)
-# tsne_mono = TSNEEmbedding(init, affin_mono, negative_gradient_method='fft')
-# embed_mono1 = tsne_mono.optimize(n_iter=250, exaggeration=10, momentum=0.6)
-# embed_mono2 = embed_mono1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+affin_mono = PerplexityBasedNN(mono_pc, perplexity=30, metric='cosine', random_state=629)
+init = initialization.pca(mono_pc, random_state=629)
+tsne_mono = TSNEEmbedding(init, affin_mono, negative_gradient_method='fft')
+embed_mono1 = tsne_mono.optimize(n_iter=250, exaggeration=10, momentum=0.6)
+embed_mono2 = embed_mono1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
 # Fit-SNE - DC
 affin_dc = PerplexityBasedNN(dc_pc, perplexity=60, metric='cosine', random_state=629)
 init = initialization.pca(dc_pc, random_state=629)
@@ -1726,21 +1726,21 @@ We pull the results back into R and visualize them.
 ```{r}
 embed_macro <- as.matrix(py$embed_mac3)
 rownames(embed_macro) <- colnames(macro_tumor)
-# macro_tumor@reductions$bh_tsne <- macro_tumor@reductions$tsne
+macro_tumor@reductions$bh_tsne <- macro_tumor@reductions$tsne
 macro_tumor@reductions$tsne<- CreateDimReducObject(embeddings = embed_macro, 
                                                    key = "FitSNE_", 
                                                    assay = "SCT",
                                                    global = TRUE)
 embed_mono <- as.matrix(py$embed_mono2)
 rownames(embed_mono) <- colnames(mono_tumor)
-# mono_tumor@reductions$bh_tsne <- mono_tumor@reductions$tsne
+mono_tumor@reductions$bh_tsne <- mono_tumor@reductions$tsne
 mono_tumor@reductions$tsne<- CreateDimReducObject(embeddings = embed_mono, 
                                                   key = "FitSNE_", 
                                                   assay = "SCT",
                                                   global = TRUE)
 embed_dc <- as.matrix(py$embed_dc3)
 rownames(embed_dc) <- colnames(dc_tumor)
-# dc_tumor@reductions$bh_tsne <- dc_tumor@reductions$tsne
+dc_tumor@reductions$bh_tsne <- dc_tumor@reductions$tsne
 dc_tumor@reductions$tsne<- CreateDimReducObject(embeddings = embed_dc, 
                                                 key = "FitSNE_", 
                                                 assay = "SCT",
@@ -2346,8 +2346,6 @@ p138
 ```
 
 # Conclusions
-
-
 
 # Save Figures & Data
 
