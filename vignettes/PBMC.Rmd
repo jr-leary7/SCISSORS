@@ -174,7 +174,6 @@ Now we bring the results back in to R.
 ```{r}
 embed0 <- as.matrix(py$embed_multi_clust0)
 rownames(embed0) <- colnames(reclust_res[[1]])
-colnames(embed0) <- c("Fit-SNE_1", "Fit-SNE_2")
 reclust_res[[1]]@reductions$bh_tsne <- reclust_res[[1]]@reductions$tsne
 reclust_res[[1]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed0, 
                                                            key = "FitSNE_",
@@ -182,7 +181,6 @@ reclust_res[[1]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed0,
                                                            global = TRUE)
 embed1 <- as.matrix(py$embed_multi_clust1)
 rownames(embed1) <- colnames(reclust_res[[2]])
-colnames(embed1) <- c("Fit-SNE_1", "Fit-SNE_2")
 reclust_res[[2]]@reductions$bh_tsne <- reclust_res[[2]]@reductions$tsne
 reclust_res[[2]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed1,
                                                            key = "FitSNE_",
@@ -190,7 +188,6 @@ reclust_res[[2]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed1,
                                                            global = TRUE)
 embed2 <- as.matrix(py$embed_multi_clust2)
 rownames(embed2) <- colnames(reclust_res[[3]])
-colnames(embed2) <- c("Fit-SNE_1", "Fit-SNE_2")
 reclust_res[[3]]@reductions$bh_tsne <- reclust_res[[3]]@reductions$tsne
 reclust_res[[3]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed2,
                                                            key = "FitSNE_",
@@ -257,26 +254,22 @@ Now that we've determined our subpopulations, we can assign cell types to each c
 We can quickly identify cluster 0 as the memory CD4+ T cells, and cluster 6 as the naive CD4+ population.
 
 ```{r}
-p6 <- FeaturePlot(pbmc, 
-                  features = "IL7R", 
-                  cols = c("lightgrey", "firebrick3")) + 
-      NoLegend() + 
+p6 <- FeaturePlot(pbmc, features = "IL7R") + 
+      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
       theme_yehlab() + 
-      theme(axis.title = element_blank())
-p7 <- FeaturePlot(pbmc, 
-                  features = "CCR7", 
-                  cols = c("lightgrey", "firebrick3")) + 
       NoLegend() + 
+      theme(axis.title = element_blank())
+p7 <- FeaturePlot(pbmc, features = "CCR7") + 
+      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
       theme_yehlab()  + 
-      theme(axis.title = element_blank())
-p8 <- FeaturePlot(pbmc, 
-                  features = "S100A4", 
-                  cols = c("lightgrey", "firebrick3")) + 
       NoLegend() + 
-      theme_yehlab() + 
       theme(axis.title = element_blank())
-p9 <- (p6 | p7 | p8) / p5
-p9
+p8 <- FeaturePlot(pbmc, features = "S100A4") + 
+      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+      theme_yehlab() + 
+      NoLegend() + 
+      theme(axis.title = element_blank())
+(p6 | p7 | p8) / p5
 ```
 
 Cluster 7 is only subtly separated from the CD4+ T cell clusters. We'll use differential expression testing to determine if the cells in cluster 7 are a spurious cluster or a real T cell subtype. After running a Wilcox test we can see that several of the differentially expressed are associated with the interferon family of cytokines and with anti-viral immune responses.
@@ -296,26 +289,22 @@ clust7_markers
 Upon visual inspection of the top three marker genes (as determined by adjusted p-value), we can see that they do an equally good job of distinguishing the small cluster from the sample as a whole as they do at separating it from the memory CD4+ T cells. Due to their anti-viral characteristics , we'll define this group as being composed of Type 1 helper T cells (Th1).
 
 ```{r}
-p10 <- FeaturePlot(pbmc, 
-                   features = "IFIT1", 
-                   cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p9 <- FeaturePlot(pbmc, features = "IFIT1", pt.size = 1) + 
+      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+      theme_yehlab() + 
+      NoLegend() + 
+      theme(axis.title = element_blank())
+p10 <- FeaturePlot(pbmc, features = "IFIT3", pt.size = 1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
-       theme(axis.title = element_blank())
-p11 <- FeaturePlot(pbmc, 
-                  features = "IFIT3", 
-                  cols = c("lightgrey", "firebrick3")) + 
        NoLegend() + 
-       theme_yehlab() + 
        theme(axis.title = element_blank())
-p12 <- FeaturePlot(pbmc, 
-                  features = "IFI6", 
-                  cols = c("lightgrey", "firebrick3")) + 
+p11 <- FeaturePlot(pbmc, features = "IFI6", pt.size = 1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       theme_yehlab() + 
        NoLegend() + 
-       theme_yehlab() + 
        theme(axis.title = element_blank())
-p13 <- (p10 | p11 | p12) / p5
-p13
+(p9 | p10 | p11) / p5
 ```
 
 ## CD14+ Monocytes
@@ -323,20 +312,17 @@ p13
 Cluster 1 clearly houses our CD14+ monocytes.
 
 ```{r}
-p14 <- FeaturePlot(pbmc, 
-                   features = "CD14", 
-                  cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p12 <- FeaturePlot(pbmc, features = "CD14", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
-       theme(axis.title = element_blank())
-p15 <- FeaturePlot(pbmc, 
-                   features = "LYZ", 
-                  cols = c("lightgrey", "firebrick3")) + 
        NoLegend() + 
-       theme_yehlab() + 
        theme(axis.title = element_blank())
-p16 <- (p14 | p15) / p5
-p16
+p13 <- FeaturePlot(pbmc, features = "LYZ", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p12 | p13) / p5
 ```
 
 ## FCGR3A+ Monocytes
@@ -344,20 +330,17 @@ p16
 It follows that the FCGR3A+ monocytes are positioned next to the CD14+ monocytes in cluster 4.
 
 ```{r}
-p17 <- FeaturePlot(pbmc, 
-                   features = "FCGR3A", 
-                  cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p14 <- FeaturePlot(pbmc, features = "FCGR3A", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
-       theme(axis.title = element_blank())
-p18 <- FeaturePlot(pbmc, 
-                   features = "MS4A7", 
-                  cols = c("lightgrey", "firebrick3")) + 
        NoLegend() + 
-       theme_yehlab() + 
        theme(axis.title = element_blank())
-p19 <- (p17 | p18) / p5
-p19
+p15 <- FeaturePlot(pbmc, features = "MS4A7", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p14 | p15) / p5
 ```
 
 ## B Cells
@@ -365,14 +348,12 @@ p19
 Expression of MS4A1 allows us to isolate the B cells as belonging to cluster 3.
 
 ```{r}
-p20 <- FeaturePlot(pbmc, 
-                   features = "MS4A1", 
-                  cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p16 <- FeaturePlot(pbmc, features = "MS4A1", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
+       NoLegend() + 
        theme(axis.title = element_blank())
-p21 <- p20 / p5
-p21
+p16 / p5
 ```
 
 ## CD8+ T Cells
@@ -380,14 +361,12 @@ p21
 The canonical marker CD8A swiftly identifies our CD8+ T cells in cluster 2.
 
 ```{r}
-p22 <- FeaturePlot(pbmc, 
-                   features = "CD8A", 
-                  cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p17 <- FeaturePlot(pbmc, features = "CD8A", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
+       NoLegend() + 
        theme(axis.title = element_blank())
-p23 <- p22 / p5
-p23
+p17 / p5
 ```
 
 ## Natural Killer Cells
@@ -395,20 +374,17 @@ p23
 We can use NKG7 and GNLY to isolate the NK cells in cluster 5.
 
 ```{r}
-p24 <- FeaturePlot(pbmc, 
-                   features = "NKG7", 
-                  cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p18 <- FeaturePlot(pbmc, features = "NKG7", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
-       theme(axis.title = element_blank())
-p25 <- FeaturePlot(pbmc, 
-                   features = "GNLY", 
-                  cols = c("lightgrey", "firebrick3")) + 
        NoLegend() + 
-       theme_yehlab() + 
        theme(axis.title = element_blank())
-p26 <- (p24 | p25) / p5
-p26
+p19 <- FeaturePlot(pbmc, features = "GNLY", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p18 | p19) / p5
 ```
 
 ## Dendritic Cells
@@ -416,20 +392,17 @@ p26
 The dendritic cell group is defined by expression of FCER1A and CST3 in cluster 9.
 
 ```{r}
-p27 <- FeaturePlot(pbmc, 
-                   features = "FCER1A", 
-                  cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p20 <- FeaturePlot(pbmc, features = "FCER1A", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
-       theme(axis.title = element_blank())
-p28 <- FeaturePlot(pbmc, 
-                   features = "CST3", 
-                  cols = c("lightgrey", "firebrick3")) + 
        NoLegend() + 
-       theme_yehlab() + 
        theme(axis.title = element_blank())
-p29 <- (p27 | p28) / p5
-p29
+p21 <- FeaturePlot(pbmc, features = "CST3", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p20 | p21) / p5
 ```
 
 ## Platelets
@@ -437,14 +410,12 @@ p29
 The tiny platelet population of `r sum(pbmc$seurat_clusters == 10)` cells can be identified by its expression of PPBP in cluster 10.
 
 ```{r}
-p30 <- FeaturePlot(pbmc, 
-                   features = "PPBP", 
-                  cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p22 <- FeaturePlot(pbmc, features = "PPBP", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
+       NoLegend() + 
        theme(axis.title = element_blank())
-p31 <- p30 / p5
-p31
+p22 / p5
 ```
 
 ## Plasmacytoid Dendritic Cells
@@ -452,14 +423,12 @@ p31
 A very small population of plasmacytoid dendritic cells - only `r sum(pbmc$seurat_clusters == 11)` cells - was teased out by `SCISSORS` and can be annotated using expression of MZB1.
 
 ```{r}
-p32 <- FeaturePlot(pbmc, 
-                   features = "MZB1", 
-                   cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p23 <- FeaturePlot(pbmc, features = "MZB1", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
+       NoLegend() + 
        theme(axis.title = element_blank())
-p33 <- p32 / p5
-p33
+p23 / p5
 ```
 
 ## Hematocytoblasts
@@ -479,14 +448,12 @@ clust8_markers
 ```
 
 ```{r}
-p34 <- FeaturePlot(pbmc, 
-                   features = "CYTL1", 
-                   cols = c("lightgrey", "firebrick3")) + 
-       NoLegend() + 
+p24 <- FeaturePlot(pbmc, features = "CYTL1", pt.size = 1.1) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
+       NoLegend() + 
        theme(axis.title = element_blank())
-p35 <- p34 / p5
-p35
+p24 / p5
 ```
 
 ## Final Figure
@@ -517,11 +484,11 @@ final_pal <- c("paleturquoise4", "goldenrod", "steelblue1", "lightseagreen",
 names(final_pal) <- c("Memory CD4+ T", "CD14+ Monocyte", "CD8+ T", "B", 
                       "FCGR3A+ Monocyte", "NK", "Naive CD4+ T", "Th1", 
                       "Hematocytoblast", "DC", "Platelet", "Plasmacytoid DC")
-p36 <- DimPlot(pbmc, cols = final_pal, group.by = "label") + 
+p25 <- DimPlot(pbmc, cols = final_pal, group.by = "label", pt.size = 1.1) + 
        theme_yehlab() + 
        guides(color = guide_legend(nrow = 3, override.aes = list(size = 3))) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = NULL)
-p36
+p25
 ```
 
 # Conclusions
@@ -535,7 +502,7 @@ We used the PBMC3k dataset because of 1) its immediate availability to anyone wi
 This part isn't really worth reading; it's just here to prove that all the figures were actually dynamically generated and saved upon knitting this document.
 
 ```{r, eval=FALSE}
-pdrive_dir <- "/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/Reclustering Project/Seurat Objects/pbmc3k_202101.Rds"
+pdrive_dir <- "~/Desktop/pbmc.Rds"
 saveRDS(pbmc, file = pdrive_dir)
 ```
 
@@ -595,23 +562,23 @@ saveSCISSORS(plot = p5, name = "SCISSORS_Clusters",
 saveSCISSORS(plot = p6, name = "CD4T_IL7R")
 saveSCISSORS(plot = p7, name = "CD4T_CCR7")
 saveSCISSORS(plot = p8, name = "CD4T_S100A4")
-saveSCISSORS(plot = p10, name = "TH1_IFIT1")
-saveSCISSORS(plot = p11, name = "TH1_IFIT3")
-saveSCISSORS(plot = p12, name = "TH1_IFI6")
-saveSCISSORS(plot = p14, name = "Monocyte_CD14")
-saveSCISSORS(plot = p15, name = "Monocyte_LYZ")
-saveSCISSORS(plot = p17, name = "FCGR3A_Monocyte_FCGR3A")
-saveSCISSORS(plot = p18, name = "FCGR3A_Monocyte_MS4A7")
-saveSCISSORS(plot = p20, name = "B_MS4A1")
-saveSCISSORS(plot = p22, name = "CD8T_CD8A")
-saveSCISSORS(plot = p24, name = "NK_NKG7")
-saveSCISSORS(plot = p25, name = "NK_GNLY")
-saveSCISSORS(plot = p27, name = "DC_FCER1A")
-saveSCISSORS(plot = p28, name = "DC_CST3")
-saveSCISSORS(plot = p30, name = "Platelet_PPBP")
-saveSCISSORS(plot = p32, name = "Plasmacytoid_DC_MZB1")
-saveSCISSORS(plot = p34, name = "Hematocytoblasts_CYTL1")
-saveSCISSORS(plot = p36, name = "SCISSORS_Final_Annotations", 
+saveSCISSORS(plot = p9, name = "TH1_IFIT1")
+saveSCISSORS(plot = p10, name = "TH1_IFIT3")
+saveSCISSORS(plot = p11, name = "TH1_IFI6")
+saveSCISSORS(plot = p12, name = "Monocyte_CD14")
+saveSCISSORS(plot = p13, name = "Monocyte_LYZ")
+saveSCISSORS(plot = p14, name = "FCGR3A_Monocyte_FCGR3A")
+saveSCISSORS(plot = p15, name = "FCGR3A_Monocyte_MS4A7")
+saveSCISSORS(plot = p16, name = "B_MS4A1")
+saveSCISSORS(plot = p17, name = "CD8T_CD8A")
+saveSCISSORS(plot = p18, name = "NK_NKG7")
+saveSCISSORS(plot = p19, name = "NK_GNLY")
+saveSCISSORS(plot = p20, name = "DC_FCER1A")
+saveSCISSORS(plot = p21, name = "DC_CST3")
+saveSCISSORS(plot = p22, name = "Platelet_PPBP")
+saveSCISSORS(plot = p23, name = "Plasmacytoid_DC_MZB1")
+saveSCISSORS(plot = p24, name = "Hematocytoblasts_CYTL1")
+saveSCISSORS(plot = p25, name = "SCISSORS_Final_Annotations", 
              pub.ready = TRUE, border = FALSE)
 ```
 
