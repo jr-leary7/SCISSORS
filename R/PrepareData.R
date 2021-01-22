@@ -153,7 +153,9 @@ PrepareData <- function(seurat.object = NULL,
                                  reduction = "pca",
                                  dims = 1:n.PC,
                                  k.param = k.val,
-                                 annoy.metric = "cosine")
+                                 annoy.metic = "cosine",
+                                 nn.method = "annoy",
+                                 verbose = FALSE)
   seurat.object <- FindClusters(seurat.object,
                                 resolution = initial.resolution,
                                 algorithm = 1,

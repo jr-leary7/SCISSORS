@@ -145,8 +145,10 @@ ReclusterCells <- function(seurat.object = NULL,
         for (r in seq(resolution.vals)) {
           temp_obj <- FindNeighbors(temp_obj,
                                     reduction = "pca",
+                                    dims = 1:n.PC,
                                     k.param = k.vals[k],
                                     annoy.metric = "cosine",
+                                    nn.method = "annoy",
                                     verbose = FALSE)
           temp_obj <- FindClusters(temp_obj,
                                    resolution = resolution.vals[r],
@@ -186,6 +188,9 @@ ReclusterCells <- function(seurat.object = NULL,
                       round(max(sil_scores), 3)))
         temp_obj <- FindNeighbors(temp_obj,
                                   reduction = "pca",
+                                  dims = 1:n.PC,
+                                  annoy.metic = "cosine",
+                                  nn.method = "annoy",
                                   k.param = best_k,
                                   verbose = FALSE)
         temp_obj <- FindClusters(temp_obj,
@@ -314,10 +319,10 @@ ReclusterCells <- function(seurat.object = NULL,
           }
         }
         # set max k parameter
-        k_max <- round(sqrt(ncol(temp_obj)))
-        if (k_max > max(k.vals)) {
-          k.vals <- c(k.vals, k_max)
-        }
+        # k_max <- round(sqrt(ncol(temp_obj)))
+        # if (k_max > max(k.vals)) {
+        #   k.vals <- c(k.vals, k_max)
+        # }
         # iterate over resolution parameters and compute silhouette scores to find best re-clustering
         sil_scores <- c()
         i <- 1
@@ -325,6 +330,9 @@ ReclusterCells <- function(seurat.object = NULL,
           for (r in seq(resolution.vals)) {
             temp_obj <- FindNeighbors(temp_obj,
                                       reduction = "pca",
+                                      dims = 1:n.PC,
+                                      annoy.metic = "cosine",
+                                      nn.method = "annoy",
                                       k.param = k.vals[k],
                                       verbose = FALSE)
             temp_obj <- FindClusters(temp_obj,
@@ -365,6 +373,9 @@ ReclusterCells <- function(seurat.object = NULL,
                         round(max(sil_scores), 3)))
           temp_obj <- FindNeighbors(temp_obj,
                                     reduction = "pca",
+                                    dims = 1:n.PC,
+                                    annoy.metric = "cosine",
+                                    nn.method = "annoy",
                                     k.param = best_k,
                                     verbose = FALSE)
           temp_obj <- FindClusters(temp_obj,
