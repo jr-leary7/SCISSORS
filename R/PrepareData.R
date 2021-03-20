@@ -46,8 +46,13 @@ PrepareData <- function(seurat.object = NULL,
     seurat.object@meta.data$nCount_RNA <- RNA_counts
     seurat.object@meta.data$nFeature_RNA <- feature_counts
     seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")
+    # add cell cycle scores to Seurat object
+    seurat.object <- CellCycleScoring(seurat.object,
+                                      s.features = cc.genes.updated.2019$s.genes,
+                                      g2m.features = cc.genes.updated.2019$g2m.genes,
+                                      set.ident = FALSE)
     # normalize counts and find highly variable genes
-    print("Normalizing counts using SCTransform negative-binomial regression")
+    print("Normalizing counts using SCTransform")
     seurat.object <- SCTransform(seurat.object,
                                  assay = "RNA",
                                  vars.to.regress = "percent_MT",
@@ -56,11 +61,16 @@ PrepareData <- function(seurat.object = NULL,
                                  verbose = FALSE)
   }
   else if (is.null(seurat.object@assays$SCT) & length(VariableFeatures(seurat.object)) == 0) {
+    # add cell cycle scores to Seurat object
+    seurat.object <- CellCycleScoring(seurat.object,
+                                      s.features = cc.genes.updated.2019$s.genes,
+                                      g2m.features = cc.genes.updated.2019$g2m.genes,
+                                      set.ident = FALSE)
     # check if % mito DNA exists in Seurat object metadata & regress out if so
     if (any(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))) {
       col_loc <- which(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))
       col_name <- colnames(seurat.object@meta.data)[col_loc]
-      print("Normalizing counts using SCTransform negative-binomial regression")
+      print("Normalizing counts using SCTransform")
       seurat.object <- SCTransform(seurat.object,
                                    assay = "RNA",
                                    variable.features.n = n.variable.genes,
@@ -70,6 +80,11 @@ PrepareData <- function(seurat.object = NULL,
     } else {
       # add % mito and regress out
       seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # non-specific to species
+      # add cell cycle scores to Seurat object
+      seurat.object <- CellCycleScoring(seurat.object,
+                                        s.features = cc.genes.updated.2019$s.genes,
+                                        g2m.features = cc.genes.updated.2019$g2m.genes,
+                                        set.ident = FALSE)
       print("Normalizing counts using SCTransform")
       seurat.object <- SCTransform(seurat.object,
                                    assay = "RNA",
@@ -78,12 +93,6 @@ PrepareData <- function(seurat.object = NULL,
                                    verbose = FALSE)
     }
   }
-
-  # add cell cycle scores to Seurat object
-  seurat.object <- CellCycleScoring(seurat.object,
-                                    s.features = cc.genes.updated.2019$s.genes,
-                                    g2m.features = cc.genes.updated.2019$g2m.genes,
-                                    set.ident = FALSE)
 
   # check if PCA components exist in Seurat object
   if (is.null(seurat.object@reductions$pca)) {
