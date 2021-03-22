@@ -112,6 +112,7 @@ We run the typical single cell pre-processing steps on our cells - normalization
 pdac <- PrepareData(pdac, 
                     n.variable.genes = 4000, 
                     n.PC = 20, 
+                    cell.cycle = TRUE, 
                     which.dim.reduc = "tsne", 
                     initial.resolution = .5, 
                     random.seed = 629)

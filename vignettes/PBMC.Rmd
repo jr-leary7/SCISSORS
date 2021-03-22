@@ -68,6 +68,7 @@ Here we use `PrepareData()` to normalize expression & select highly variable gen
 ```{r, warning=FALSE, message=FALSE}
 pbmc <- PrepareData(pbmc, 
                     n.variable.genes = 4000, 
+                    cell.cycle = FALSE, 
                     n.PC = 15, 
                     which.dim.reduc = "tsne",
                     initial.resolution = .4, 

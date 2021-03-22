@@ -8,8 +8,9 @@
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @param seurat.object The object containing the cells you'd like to analyze.
 #' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
+#' @param cell.cycle Should cell cycle scores be computed & regressed out? Defaults to TRUE.
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using `ChoosePCs()`. Defaults to "auto".
-#' @param var.cutoff Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
+#' @param var.cutoff (Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
 #' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
@@ -25,6 +26,7 @@
 
 PrepareData <- function(seurat.object = NULL,
                         n.variable.genes = 4000,
+                        cell.cycle = TRUE,
                         n.PC = "auto",
                         var.cutoff = .15,
                         which.dim.reduc = c("tsne", "umap"),
@@ -47,10 +49,12 @@ PrepareData <- function(seurat.object = NULL,
     seurat.object@meta.data$nFeature_RNA <- feature_counts
     seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")
     # add cell cycle scores to Seurat object
-    seurat.object <- CellCycleScoring(seurat.object,
-                                      s.features = cc.genes.updated.2019$s.genes,
-                                      g2m.features = cc.genes.updated.2019$g2m.genes,
-                                      set.ident = FALSE)
+    if (cell.cycle) {
+      seurat.object <- CellCycleScoring(seurat.object,
+                                        s.features = cc.genes.updated.2019$s.genes,
+                                        g2m.features = cc.genes.updated.2019$g2m.genes,
+                                        set.ident = FALSE)
+    }
     # normalize counts and find highly variable genes
     print("Normalizing counts using SCTransform")
     seurat.object <- SCTransform(seurat.object,
@@ -61,11 +65,13 @@ PrepareData <- function(seurat.object = NULL,
                                  verbose = FALSE)
   }
   else if (is.null(seurat.object@assays$SCT) & length(VariableFeatures(seurat.object)) == 0) {
-    # add cell cycle scores to Seurat object
-    seurat.object <- CellCycleScoring(seurat.object,
-                                      s.features = cc.genes.updated.2019$s.genes,
-                                      g2m.features = cc.genes.updated.2019$g2m.genes,
-                                      set.ident = FALSE)
+    # add cell cycle scores to Seurat object if necessary
+    if (cell.cycle) {
+      seurat.object <- CellCycleScoring(seurat.object,
+                                        s.features = cc.genes.updated.2019$s.genes,
+                                        g2m.features = cc.genes.updated.2019$g2m.genes,
+                                        set.ident = FALSE)
+    }
     # check if % mito DNA exists in Seurat object metadata & regress out if so
     if (any(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))) {
       col_loc <- which(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))
@@ -80,15 +86,11 @@ PrepareData <- function(seurat.object = NULL,
     } else {
       # add % mito and regress out
       seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # non-specific to species
-      # add cell cycle scores to Seurat object
-      seurat.object <- CellCycleScoring(seurat.object,
-                                        s.features = cc.genes.updated.2019$s.genes,
-                                        g2m.features = cc.genes.updated.2019$g2m.genes,
-                                        set.ident = FALSE)
       print("Normalizing counts using SCTransform")
       seurat.object <- SCTransform(seurat.object,
                                    assay = "RNA",
                                    variable.features.n = n.variable.genes,
+                                   vars.to.regress = "percent_MT",
                                    seed.use = random.seed,
                                    verbose = FALSE)
     }
