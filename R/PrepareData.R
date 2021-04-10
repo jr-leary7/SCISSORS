@@ -7,15 +7,16 @@
 #' @import Seurat
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
 #' @param seurat.object The object containing the cells you'd like to analyze.
-#' @param n.variable.genes The number of variable genes to find at each step. Defaults to 4000.
-#' @param cell.cycle Should cell cycle scores be computed & regressed out? Defaults to TRUE.
+#' @param n.HVG The number of highly variable genes to compute. Defaults to 4000.
+#' @param regress.mt Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to TRUE.
+#' @param regress.cc Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using `ChoosePCs()`. Defaults to "auto".
 #' @param var.cutoff (Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
 #' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
 #' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
-#' @param do.plot (Optional) Should the function print a t-SNE plot of your cells to the graphics viewer? Defaults to FALSE.
+#' @param do.plot (Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
@@ -25,8 +26,9 @@
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 
 PrepareData <- function(seurat.object = NULL,
-                        n.variable.genes = 4000,
-                        cell.cycle = TRUE,
+                        n.HVG = 4000,
+                        regress.mt = TRUE,
+                        regress.cc = TRUE,
                         n.PC = "auto",
                         var.cutoff = .15,
                         which.dim.reduc = c("tsne", "umap"),
@@ -37,66 +39,44 @@ PrepareData <- function(seurat.object = NULL,
                         random.seed = 629) {
   # check inputs & assays present in Seurat object
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object!") }
-  # run function
+
+  # convert SCE object to Seurat if necessary
   if (class(seurat.object)[1] == "SingleCellExperiment") {
-    # convert object
     print("Converting user-supplied SingleCellExperiment object to Seurat object")
     seurat.object <- as.Seurat(seurat.object, data = NULL)
-    # add necessary metadata to calculate % mito & regress it out
+    # add necessary metadata for normalization
     RNA_counts <- colSums(x = seurat.object, slot = "counts")
     feature_counts <- colSums(x = GetAssayData(object = seurat.object, slot = "counts") > 0)
     seurat.object@meta.data$nCount_RNA <- RNA_counts
     seurat.object@meta.data$nFeature_RNA <- feature_counts
-    seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")
-    # add cell cycle scores to Seurat object
-    if (cell.cycle) {
+  }
+
+  # add cell metadata and normalize
+  if (is.null(seurat.object@assays$SCT) && length(VariableFeatures(seurat.object)) == 0) {
+    regression_vars <- c()
+    # add cell cycle scores
+    if (regress.cc) {
       seurat.object <- CellCycleScoring(seurat.object,
                                         s.features = cc.genes.updated.2019$s.genes,
                                         g2m.features = cc.genes.updated.2019$g2m.genes,
                                         set.ident = FALSE)
+      seurat.object$CC_difference <- seurat.object$S.Score - seurat.object$G2M.Score
+      regression_vars <- c(regression_vars, "S.Score", "G2M.score")
     }
-    # normalize counts and find highly variable genes
-    print("Normalizing counts using SCTransform")
+    # add % mitochondrial DNA
+    if (regress.mt) {
+      seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # works for human & mouse
+      regression_vars <- c(regression_vars, "percent_MT")
+    }
+    # normalize counts
     seurat.object <- SCTransform(seurat.object,
-                                 assay = "RNA",
-                                 vars.to.regress = "percent_MT",
-                                 variable.features.n = n.variable.genes,
+                                 variable.features.n = n.HVG,
+                                 vars.to.regress = ifelse(length(regression_vars) > 0, regression_vars, NULL),
                                  seed.use = random.seed,
                                  verbose = FALSE)
   }
-  else if (is.null(seurat.object@assays$SCT) & length(VariableFeatures(seurat.object)) == 0) {
-    # add cell cycle scores to Seurat object if necessary
-    if (cell.cycle) {
-      seurat.object <- CellCycleScoring(seurat.object,
-                                        s.features = cc.genes.updated.2019$s.genes,
-                                        g2m.features = cc.genes.updated.2019$g2m.genes,
-                                        set.ident = FALSE)
-    }
-    # check if % mito DNA exists in Seurat object metadata & regress out if so
-    if (any(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))) {
-      col_loc <- which(grepl("MT|mt|Mito|mito", colnames(seurat.object@meta.data)))
-      col_name <- colnames(seurat.object@meta.data)[col_loc]
-      print("Normalizing counts using SCTransform")
-      seurat.object <- SCTransform(seurat.object,
-                                   assay = "RNA",
-                                   variable.features.n = n.variable.genes,
-                                   vars.to.regress = col_name,
-                                   seed.use = random.seed,
-                                   verbose = FALSE)
-    } else {
-      # add % mito and regress out
-      seurat.object[["percent_MT"]] <- PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # non-specific to species
-      print("Normalizing counts using SCTransform")
-      seurat.object <- SCTransform(seurat.object,
-                                   assay = "RNA",
-                                   variable.features.n = n.variable.genes,
-                                   vars.to.regress = "percent_MT",
-                                   seed.use = random.seed,
-                                   verbose = FALSE)
-    }
-  }
 
-  # check if PCA components exist in Seurat object
+  # dimension reduction - PCA, t-SNE, UMAP, and/or PHATE
   if (is.null(seurat.object@reductions$pca)) {
     if (n.PC != "auto") {
       seurat.object <- RunPCA(seurat.object,
@@ -113,8 +93,6 @@ PrepareData <- function(seurat.object = NULL,
       n.PC <- ChoosePCs(seurat.object, cutoff = var.cutoff)
     }
   }
-
-  # run t-SNE
   if ("tsne" %in% which.dim.reduc) {
     print(sprintf("Running t-SNE on %s principal components with perplexity = %s", n.PC, perplexity))
     seurat.object <- RunTSNE(seurat.object,
@@ -124,8 +102,6 @@ PrepareData <- function(seurat.object = NULL,
                              seed.use = random.seed,
                              perplexity = perplexity)
   }
-
-  # run UMAP
   if ("umap" %in% which.dim.reduc) {
     print(sprintf("Running UMAP on %s principal components", n.PC))
     seurat.object <- RunUMAP(seurat.object,
@@ -136,9 +112,8 @@ PrepareData <- function(seurat.object = NULL,
                              verbose = FALSE,
                              seed.use = random.seed)
   }
-
-  # run PHATE
   if ("phate" %in% which.dim.reduc) {
+    require(phateR)
     print(sprintf("Running PHATE on %s principal components", n.PC))
     pca_df <- data.frame(Embeddings(seurat.object, reduction = "pca"))
     phate_res <- phate(pca_df,
@@ -157,9 +132,7 @@ PrepareData <- function(seurat.object = NULL,
   }
 
   # initial clustering
-  # set k if it wasn't user-defined
-  if (is.null(k.val)) k.val <- round(sqrt(ncol(seurat.object)))
-  print(sprintf("Clustering cells in PCA space using k ~ %s & resolution = %s", k.val, initial.resolution))
+  if (is.null(k.val)) k.val <- round(sqrt(ncol(seurat.object)))  # set k if not defined
   seurat.object <- FindNeighbors(seurat.object,
                                  reduction = "pca",
                                  dims = 1:n.PC,
@@ -170,13 +143,13 @@ PrepareData <- function(seurat.object = NULL,
   seurat.object <- FindClusters(seurat.object,
                                 resolution = initial.resolution,
                                 algorithm = 1,
-                                random.seed = 629,
+                                random.seed = random.seed,
                                 verbose = FALSE)
   print(sprintf("Found %s unique clusters", length(unique(seurat.object$seurat_clusters))))
 
-  # plot results, if user desires
-  if (do.plot) {
-    print(DimPlot(seurat.object, reduction = "tsne"))
-  }
+  # plot results if desired
+  if (!is.null(do.plot)) print(DimPlot(seurat.object, reduction = do.plot))
+
+  # return prepared object
   return(seurat.object)
 }

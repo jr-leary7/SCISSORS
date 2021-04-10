@@ -6,8 +6,9 @@
 \usage{
 PrepareData(
   seurat.object = NULL,
-  n.variable.genes = 4000,
-  cell.cycle = TRUE,
+  n.HVG = 4000,
+  regress.mt = TRUE,
+  regress.cc = TRUE,
   n.PC = "auto",
   var.cutoff = 0.15,
   which.dim.reduc = c("tsne", "umap"),
@@ -21,9 +22,11 @@ PrepareData(
 \arguments{
 \item{seurat.object}{The object containing the cells you'd like to analyze.}
 
-\item{n.variable.genes}{The number of variable genes to find at each step. Defaults to 4000.}
+\item{n.HVG}{The number of highly variable genes to compute. Defaults to 4000.}
 
-\item{cell.cycle}{Should cell cycle scores be computed & regressed out? Defaults to TRUE.}
+\item{regress.mt}{Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to TRUE.}
+
+\item{regress.cc}{Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.}
 
 \item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using \code{ChoosePCs()}. Defaults to "auto".}
 
@@ -37,7 +40,7 @@ PrepareData(
 
 \item{k.val}{(Optional) The parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \emph{k} ~ sqrt(\emph{n}).}
 
-\item{do.plot}{(Optional) Should the function print a t-SNE plot of your cells to the graphics viewer? Defaults to FALSE.}
+\item{do.plot}{(Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.}
 
 \item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 }

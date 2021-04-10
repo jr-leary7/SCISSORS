@@ -139,11 +139,6 @@ reclust_res <- ReclusterCells(pbmc,
                               which.dim.reduc = "tsne", 
                               redo.embedding = TRUE, 
                               random.seed = 629)
-DimPlot(reclust_res[[1]], reduction = "tsne")
-DimPlot(reclust_res[[2]], reduction = "tsne")
-FeaturePlot(reclust_res[[2]], reduction = "tsne", features = "HLA-DPB1")
-DimPlot(reclust_res[[3]], reduction = "tsne")
-FeaturePlot(reclust_res[[3]], reduction = "tsne", features = "CD14")
 ```
 
 Now we'll run Fit-SNE on each of the reclustered objects for consistencies sake. First we'll need to isolate the PC matrices and send them to Python. 
