@@ -2,418 +2,168 @@
 #'
 #' This function identifies subclusters of cell types by recalculating the *n* most highly variable genes for each cluster using `sctransform` as implemented in `Seurat`. The function returns a list of `Seurat` objects, one for each cluster the user wants to investigate.
 #' @import Seurat
-#' @importFrom ggplot2 labs
 #' @param seurat.object The `Seurat` object containing cells and their assigned cluster IDs.
-#' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list.
-#' @param auto Should the clusters to be reclustered be determined automatically? If so, `which.clust` will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.
-#' @param merge.clusters (Optional). If multiple clusters are specified, should the clusters be re-clustered as one? Defaults to FALSE.
-#' @param n.variable.genes How many variable genes should be detected in each subcluster? Defaults to 4000.
+#' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.
+#' @param auto Should the clusters on which to run SCISSORS be determined automatically? If so, `which.clust` will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.
+#' @param merge.clusters (Optional). If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.
+#' @param n.HVG How many variable genes should be detected in each subcluster? Defaults to 4000.
 #' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by `ChoosePCs()`. Defaults to "auto".
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
-#' @param which.dim.reduc (Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).
 #' @param k.vals (Optional) The parameters *k* to be tested. Defaults to c(10, 25, 50).
-#' @param cutoff.score (Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are (.15, .3).
-#' @param do.plot (Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.
+#' @param cutoff.score (Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are [2, .3].
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
-#' ReclusterCells(seurat.object, resolution.vals = c(.1, .2, .5))
-#' ReclusterCells(seurat.object, which.dim.reduc = c("tsne", "phate"))
-#' ReclusterCells(seurat.object, which.clust = list(0, 3, 5), do.plot = TRUE)
+#' ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))
+#' ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE
 
 ReclusterCells <- function(seurat.object = NULL,
                            which.clust = NULL,
                            auto = FALSE,
                            merge.clusters = FALSE,
-                           n.variable.genes = 4000,
+                           n.HVG = 4000,
                            n.PC = "auto",
-                           which.dim.reduc = c("tsne", "umap"),
                            redo.embedding = TRUE,
                            resolution.vals = c(.1, .2, .3, .4),
                            k.vals = c(10, 25, 50),
                            cutoff.score = .25,
-                           do.plot = FALSE,
                            random.seed = 629) {
   # check inputs
-  if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object as input!") }
+  if (any(sapply(c(seurat.object, which.clust), is.null))) stop("Please provide a Seurat object and clusters to investigate.")
+
+  # auto-choose clusters to investigate if desired
   if (auto) {
     print("Choosing clusters automatically.")
     scores <- ComputeSilhouetteScores(seurat.object)
     which.clust <- which(scores < .5)
   }
-  # run function
-  if (!is.null(which.clust)) {
-    reclust_list <- list()
-    # recluster for a single cluster or multiple clusters merged into one
-    if (length(which.clust) == 1 | merge.clusters == TRUE) {
-      # create subset
-      if (length(which.clust) == 1) {
-        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[1]])
-      } else if (merge.clusters == TRUE) {
-        temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
-      }
-      temp_obj <- SCTransform(temp_obj,
-                              vars.to.regress = "percent_MT",
-                              seed.use = random.seed,
-                              variable.features.n = n.variable.genes,
-                              verbose = FALSE)
-      if (n.PC != "auto") {
-        temp_obj <- RunPCA(temp_obj,
-                           npcs = n.PC,
-                           features = VariableFeatures(temp_obj),
-                           seed.use = random.seed,
-                           verbose = FALSE)
-      } else {
-        temp_obj <- RunPCA(temp_obj,
-                           npcs = 30,
-                           features = VariableFeatures(temp_obj),
-                           seed.use = random.seed,
-                           verbose = FALSE)
-        n.PC <- ChoosePCs(temp_obj)
-      }
 
-      # re-run nonlinear dimension reduction
-      if (redo.embedding) {
-        if (which.dim.reduc == "all") {
-          temp_obj <- RunTSNE(temp_obj,
-                              reduction = "pca",
-                              dims = 1:n.PC,
-                              dim.embed = 2,
-                              seed.use = random.seed)
-          temp_obj <- RunUMAP(temp_obj,
-                              reduction = "pca",
-                              dims = 1:n.PC,
-                              umap.method = "uwot",
-                              n.components = 2,
-                              metric = "cosine",
-                              seed.use = random.seed,
-                              verbose = FALSE)
-          pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
-          phate_res <- phate(pca_df,
-                             ndim = 2,
-                             mds.solver = "smacof",
-                             knn.dist.method = "cosine",
-                             mds.dist.method = "cosine",
-                             npca = NULL,
-                             seed = random.seed,
-                             verbose = FALSE)
-          phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
-                                            assay = "SCT",
-                                            key = "PHATE_",
-                                            global = TRUE)
-          temp_obj@reductions$phate <- phate_obj
-        }
-        if ("tsne" %in% which.dim.reduc) {
-          temp_obj <- RunTSNE(temp_obj,
-                              reduction = "pca",
-                              dims = 1:n.PC,
-                              dim.embed = 2,
-                              seed.use = random.seed)
-        }
-        if ("umap" %in% which.dim.reduc) {
-          temp_obj <- RunUMAP(temp_obj,
-                              reduction = "pca",
-                              dims = 1:n.PC,
-                              umap.method = "uwot",
-                              n.components = 2,
-                              metric = "cosine",
-                              seed.use = random.seed,
-                              verbose = FALSE)
-        }
-        if ("phate" %in% which.dim.reduc) {
-          pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
-          phate_res <- phate(pca_df,
-                             ndim = 2,
-                             mds.solver = "smacof",
-                             knn.dist.method = "cosine",
-                             mds.dist.method = "cosine",
-                             npca = NULL,
-                             seed = random.seed,
-                             verbose = FALSE)
-          phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
-                                            assay = "SCT",
-                                            key = "PHATE_",
-                                            global = TRUE)
-          temp_obj@reductions$phate <- phate_obj
-        }
-      }
-      # iterate over resolution parameters and compute silhouette scores to find best re-clustering
-      sil_scores <- c()
-      i <- 1
-      for (k in seq(k.vals)) {
-        for (r in seq(resolution.vals)) {
-          temp_obj <- FindNeighbors(temp_obj,
-                                    reduction = "pca",
-                                    dims = 1:n.PC,
-                                    k.param = k.vals[k],
-                                    annoy.metric = "cosine",
-                                    nn.method = "annoy",
-                                    verbose = FALSE)
-          temp_obj <- FindClusters(temp_obj,
-                                   resolution = resolution.vals[r],
-                                   random.seed = random.seed,
-                                   algorithm = 1,
-                                   verbose = FALSE)
-          if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
-            sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
-            mean_sil <- mean(sil_res)
-            sil_scores[i] <- mean_sil
-          } else {
-            # neutral placeholder value for the case when the number of identified clusters is 1
-            sil_scores[i] <- 0
-          }
-          names(sil_scores)[i] <- as.character(paste0("k", k.vals[k], "r", resolution.vals[r]))
-          i <- i + 1
-        }
-      }
-      # extract best parameters and save results
-      if (max(sil_scores) > cutoff.score) {
-        best_params <- names(sil_scores[sil_scores == max(sil_scores)])
-        if (length(best_params) > 1) {
-          best_param_index <- ceiling(length(best_params) / 2)
-          best_k <- strsplit(best_params[best_param_index], "r")[[1]][1]
-          best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
-          best_res <- as.numeric(strsplit(best_params[best_param_index], "r")[[1]][2])
+  # set up result list, account for case when clusters are to be merged, identify covariates
+  reclust_list <- list()
+  if (merge.clusters) {
+    temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
+    which.clust <- 1
+  }
+  regress_vars <- c()
+  regress_vars <- ifelse("percent_MT" %in% colnames(seurat.object@meta.data),
+                         c(regress_vars, "percent_MT"),
+                         regress_vars)
+  regress_vars <- ifelse("S.Score" %in% colnames(seurat.object@meta.data) && "G2M.Score" %in% colnames(seurat.object@meta.data),
+                         c(regress_vars, "S.Score", "G2M.Score"),
+                         regress_vars)
+  dim_red_algs <- NULL
+  dim_red_algs <- ifelse("tsne" %in% names(seurat.object@reductions), c(dim_red_algs, "tsne"), dim_red_algs)
+  dim_red_algs <- ifelse("umap" %in% names(seurat.object@reductions), c(dim_red_algs, "umap"), dim_red_algs)
+  dim_red_algs <- ifelse("phate" %in% names(seurat.object@reductions), c(dim_red_algs, "phate"), dim_red_algs)
+  # iterate and recluster cells
+  for (i in seq_along(which.clust)) {
+    if (!merge.clusters) {
+      temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[i]])
+    }
+    # reprocess data
+    temp_obj <- SCTransform(temp_obj,
+                            vars.to.regress = regress_vars,
+                            seed.use = random.seed,
+                            variable.features.n = n.HVG,
+                            verbose = FALSE)
+    temp_obj <- ReduceDimensions(temp_obj,
+                                 n.PC = n.PC,
+                                 which.algs = dim_red_algs,
+                                 seed = random.seed)
+
+    # silhouette score various clusterings to find best results
+    sil_scores <- c()
+    j <- 1
+    for (k in seq_along(k.vals)) {
+      for (r in seq_along(resolution.vals)) {
+        temp_obj <- FindNeighbors(temp_obj,
+                                  reduction = "pca",
+                                  dims = 1:n.PC,
+                                  k.param = k.vals[k],
+                                  annoy.metric = "cosine",
+                                  nn.method = "annoy",
+                                  verbose = FALSE)
+        temp_obj <- FindClusters(temp_obj,
+                                 resolution = resolution.vals[r],
+                                 random.seed = random.seed,
+                                 algorithm = 1,
+                                 verbose = FALSE)
+        if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
+          sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
+          mean_sil <- mean(sil_res)
+          sil_scores[j] <- mean_sil
         } else {
-          best_k <- strsplit(best_params, "r")[[1]][1]
-          best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
-          best_res <- as.numeric(strsplit(best_params, "r")[[1]][2])
+          # neutral placeholder value for the case when the number of identified clusters is 1
+          sil_scores[j] <- 0
         }
-        # cluster cells using best parameters
-        print(sprintf("Reclustering cells in cluster %s using k = %s & resolution = %s, which achieved silhouette score: %s",
+        names(sil_scores)[j] <- as.character(paste0("k", k.vals[k], "r", resolution.vals[r]))
+        j <- j + 1
+      }
+    }
+
+    # extract best parameter set
+    if (max(sil_scores) > cutoff.score) {
+      best_params <- names(sil_scores[sil_scores == max(sil_scores)])
+      if (length(best_params) > 1) {
+        best_param_index <- ceiling(length(best_params) / 2)
+        best_k <- strsplit(best_params[best_param_index], "r")[[1]][1]
+        best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
+        best_res <- as.numeric(strsplit(best_params[best_param_index], "r")[[1]][2])
+      } else {
+        best_k <- strsplit(best_params, "r")[[1]][1]
+        best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
+        best_res <- as.numeric(strsplit(best_params, "r")[[1]][2])
+      }
+      # cluster cells using best parameter set
+      if (merge.clusters) {
+        print(sprintf("Reclustering cells in clusters %s using k = %s & resolution = %s; S = %s",
+                      paste(which.clust, collapse = ", "),
+                      best_k,
+                      best_res,
+                      round(max(sil_scores), 3)))
+      } else {
+        print(sprintf("Reclustering cells in cluster %s using k = %s & resolution = %s; S = %s",
                       which.clust[[1]],
                       best_k,
                       best_res,
                       round(max(sil_scores), 3)))
-        temp_obj <- FindNeighbors(temp_obj,
-                                  reduction = "pca",
-                                  dims = 1:n.PC,
-                                  annoy.metric = "cosine",
-                                  nn.method = "annoy",
-                                  k.param = best_k,
-                                  verbose = FALSE)
-        temp_obj <- FindClusters(temp_obj,
-                                 resolution = best_res,
-                                 algorithm = 1,
-                                 random.seed = random.seed,
-                                 verbose = FALSE)
-        if (do.plot) {
-          if (length(which.clust) == 1) {
-            print(DimPlot(temp_obj, reduction = which.dim.reduc[1]) +
-                    labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
-                                         which.clust[[1]],
-                                         best_k,
-                                         best_res)))
-          } else {
-            clust_labs <- c()
-            for (i in seq(which.clust)) {
-              if (i == length(which.clust)) {
-                clust_labs <- paste0(clust_labs, which.clust[[i]])
-              } else {
-                clust_labs <- paste0(clust_labs, which.clust[[i]], ", ")
-              }
-            }
-
-            print(DimPlot(temp_obj, reduction = which.dim.reduc[1]) +
-                    labs(title = sprintf("Reclustering of clusters %s using k = %s & resolution = %s",
-                                         clust_labs,
-                                         best_k,
-                                         best_res)))
-          }
-        }
-      } else {
-        # replace new object w/ original one, as no subpopulations were found
-        print(sprintf("Did not find suffcient evidence of subclusters in cluster %s, as the max silhouette score was: %s",
-                      which.clust[[1]],
-                      round(max(sil_scores), 3)))
-        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[1]])
       }
-      reclust_list[[1]] <- temp_obj
-
-      # recluster for multiple clusters
-    } else if (length(which.clust) > 1 & merge.clusters == FALSE) {
-      for (clust in seq(which.clust)) {
-        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[clust]])
-        temp_obj <- SCTransform(temp_obj,
-                                vars.to.regress = "percent_MT",
-                                seed.use = random.seed,
-                                variable.features.n = n.variable.genes,
-                                verbose = FALSE)
-        if (n.PC != "auto") {
-          temp_obj <- RunPCA(temp_obj,
-                             npcs = n.PC,
-                             features = VariableFeatures(temp_obj),
-                             seed.use = random.seed,
-                             verbose = FALSE)
-        } else {
-          temp_obj <- RunPCA(temp_obj,
-                             npcs = 30,
-                             features = VariableFeatures(temp_obj),
-                             seed.use = random.seed,
-                             verbose = FALSE)
-          n.PC <- ChoosePCs(temp_obj)
-        }
-        # re-run nonlinear dimension reduction
-        if (redo.embedding) {
-          if (which.dim.reduc == "all") {
-            temp_obj <- RunTSNE(temp_obj,
+      temp_obj <- FindNeighbors(temp_obj,
                                 reduction = "pca",
                                 dims = 1:n.PC,
-                                dim.embed = 2,
-                                seed.use = random.seed)
-            temp_obj <- RunUMAP(temp_obj,
-                                reduction = "pca",
-                                umap.method = "uwot",
-                                n.components = 2,
-                                metric = "cosine",
-                                seed.use = random.seed,
+                                annoy.metric = "cosine",
+                                nn.method = "annoy",
+                                k.param = best_k,
                                 verbose = FALSE)
-            pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
-            phate_res <- phate(pca_df,
-                               ndim = 2,
-                               mds.solver = "smacof",
-                               knn.dist.method = "cosine",
-                               mds.dist.method = "cosine",
-                               npca = NULL,
-                               seed = random.seed,
+      temp_obj <- FindClusters(temp_obj,
+                               resolution = best_res,
+                               algorithm = 1,
+                               random.seed = random.seed,
                                verbose = FALSE)
-            phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
-                                              assay = "SCT",
-                                              key = "PHATE_",
-                                              global = TRUE)
-            temp_obj@reductions$phate <- phate_obj
-          }
-          if ("tsne" %in% which.dim.reduc) {
-            temp_obj <- RunTSNE(temp_obj,
-                                reduction = "pca",
-                                dims = 1:n.PC,
-                                dim.embed = 2,
-                                seed.use = random.seed)
-          }
-          if ("umap" %in% which.dim.reduc) {
-            temp_obj <- RunUMAP(temp_obj,
-                                reduction = "pca",
-                                dims = 1:n.PC,
-                                umap.method = "uwot",
-                                n.components = 2,
-                                metric = "cosine",
-                                seed.use = random.seed,
-                                verbose = FALSE)
-          }
-          if ("phate" %in% which.dim.reduc) {
-            pca_df <- data.frame(Embeddings(temp_obj, reduction = "pca"))
-            phate_res <- phate(pca_df,
-                               ndim = 2,
-                               mds.solver = "smacof",
-                               knn.dist.method = "cosine",
-                               mds.dist.method = "cosine",
-                               npca = NULL,
-                               seed = random.seed,
-                               verbose = FALSE)
-            phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
-                                              assay = "SCT",
-                                              key = "PHATE_",
-                                              global = TRUE)
-            temp_obj@reductions$phate <- phate_obj
-          }
-        }
-        # set max k parameter
-        # k_max <- round(sqrt(ncol(temp_obj)))
-        # if (k_max > max(k.vals)) {
-        #   k.vals <- c(k.vals, k_max)
-        # }
-        # iterate over resolution parameters and compute silhouette scores to find best re-clustering
-        sil_scores <- c()
-        i <- 1
-        for (k in seq(k.vals)) {
-          for (r in seq(resolution.vals)) {
-            temp_obj <- FindNeighbors(temp_obj,
-                                      reduction = "pca",
-                                      dims = 1:n.PC,
-                                      annoy.metric = "cosine",
-                                      nn.method = "annoy",
-                                      k.param = k.vals[k],
-                                      verbose = FALSE)
-            temp_obj <- FindClusters(temp_obj,
-                                     resolution = resolution.vals[r],
-                                     random.seed = random.seed,
-                                     algorithm = 1,
-                                     verbose = FALSE)
-            if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
-              sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
-              mean_sil <- mean(sil_res)
-              sil_scores[i] <- mean_sil
-            } else {
-              # neutral placeholder value for the case when the number of identified clusters is 1
-              sil_scores[i] <- 0
-            }
-            names(sil_scores)[i] <- as.character(paste0("k", k.vals[k], "r", resolution.vals[r]))
-            i <- i + 1
-          }
-        }
-        # extract best parameters and save results
-        if (max(sil_scores) > cutoff.score) {
-          best_params <- names(sil_scores[sil_scores == max(sil_scores)])
-          if (length(best_params) > 1) {
-            best_param_index <- ceiling(length(best_params) / 2)
-            best_k <- strsplit(best_params[best_param_index], "r")[[1]][1]
-            best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
-            best_res <- as.numeric(strsplit(best_params[best_param_index], "r")[[1]][2])
-          } else {
-            best_k <- strsplit(best_params, "r")[[1]][1]
-            best_k <- as.numeric(strsplit(best_k, "k")[[1]][2])
-            best_res <- as.numeric(strsplit(best_params, "r")[[1]][2])
-          }
-          # cluster cells using best parameters
-          print(sprintf("Reclustering cells in cluster %s using k = %s & resolution = %s, which achieved silhouette score: %s",
-                        which.clust[[clust]],
-                        best_k,
-                        best_res,
-                        round(max(sil_scores), 3)))
-          temp_obj <- FindNeighbors(temp_obj,
-                                    reduction = "pca",
-                                    dims = 1:n.PC,
-                                    annoy.metric = "cosine",
-                                    nn.method = "annoy",
-                                    k.param = best_k,
-                                    verbose = FALSE)
-          temp_obj <- FindClusters(temp_obj,
-                                   resolution = best_res,
-                                   algorithm = 1,
-                                   random.seed = random.seed,
-                                   verbose = FALSE)
-          if (do.plot) {
-            print(DimPlot(temp_obj, reduction = "tsne") + labs(title = sprintf("Reclustering of cluster %s using k = %s & resolution = %s",
-                                                                               which.clust[[clust]],
-                                                                               best_k,
-                                                                               best_res)))
-          }
-        } else {
-          # replace new object w/ original one, as no subpopulations were found
-          print(sprintf("Did not find suffcient evidence of subclusters in cluster %s, as the max silhouette score was: %s",
-                        which.clust[[clust]],
-                        round(max(sil_scores), 3)))
-          temp_obj <- subset(seurat.object, subset = seurat_clusters == clust)
-        }
-        reclust_list[[clust]] <- temp_obj
-      }
-    } else { stop("Please provide a list of clusters to analyze.") }
-    if (merge.clusters) {
-      clust_labs <- c()
-      for (i in seq(which.clust)) {
-        if (i == length(which.clust)) {
-          clust_labs <- paste0(clust_labs, which.clust[[i]])
-        } else {
-          clust_labs <- paste0(clust_labs, which.clust[[i]], ", ")
-        }
-      }
-      names(reclust_list) <- clust_labs
     } else {
-      names(reclust_list) <- as.character(unlist(which.clust))
+      # replace new object w/ original one, as no subclusters were found
+      if (merge.clusters) {
+        print(sprintf("Didn't find subclusters in merged clusters %s; max S = %s"),
+              paste(which.clust, collapse = ", "),
+              round(max(sil_scores), 3))
+        temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
+      } else {
+        print(sprintf("Didn't find subclusters in cluster %s; max S = %s"),
+              which.clust[[i]],
+              round(max(sil_scores), 3))
+        temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[i]])
+      }
     }
+    reclust_list[[i]] <- temp_obj
   }
-  if (length(reclust_list) == 1) {
+
+  # add names to list of Seurat objects
+  if (!merge.clusters && length(which.clust) > 1) {
+    names(reclust_list) <- as.character(unlist(which.clust))
+  }
+  # return single Seurat object or list of objects
+  if (length(which.clust) == 1 || merge.clusters) {
     val <- reclust_list[[1]]
   } else {
     val <- reclust_list

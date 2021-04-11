@@ -67,13 +67,14 @@ Here we use `PrepareData()` to normalize expression & select highly variable gen
 
 ```{r, warning=FALSE, message=FALSE}
 pbmc <- PrepareData(pbmc, 
-                    n.variable.genes = 4000, 
-                    cell.cycle = FALSE, 
-                    n.PC = 15, 
+                    n.HVG = 4000, 
+                    regress.cc = FALSE, 
+                    regress.mt = TRUE, 
+                    n.PC = 10, 
                     which.dim.reduc = "tsne",
                     initial.resolution = .4, 
                     random.seed = 629)
-p0 <- DimPlot(pbmc, cols = tableau20()) + 
+p0 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
       labs(x = "t-SNE 1", y = "t-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
@@ -118,12 +119,28 @@ pbmc@reductions$tsne <- CreateDimReducObject(embeddings = embed,
 Visualizing the results shows pretty much the same global structure as with the default t-SNE implementation, albeit rotated a bit, but I like that Fit-SNE's clusters are a bit denser, so we'll use Fit-SNE going forward.
 
 ```{r}
-p1 <- DimPlot(pbmc, cols = tableau20()) + 
+p1 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p1
 ```
+
+## Broad Cell Types
+
+Next we'll run a differential expression test in order to assign general labels to our clusters. These identities will help guide our reclustering. 
+
+```{r}
+pbmc_de <- FindAllMarkers(pbmc, 
+                          logfc.threshold = .75, 
+                          test.use = "wilcox", 
+                          only.pos = TRUE, 
+                          random.seed = 629, 
+                          verbose = FALSE)
+DotPlot()
+```
+
+
 
 # Reclustering
 
@@ -131,12 +148,12 @@ Here we'll examine clusters 0, 1, and 4. Cluster 0 seems large enough, and has e
 
 ```{r, warning=FALSE, message=FALSE, results='hold'}
 reclust_res <- ReclusterCells(pbmc, 
-                              which.clust = list(0, 1, 4), 
-                              n.variable.genes = 4000,
-                              n.PC = 15, 
+                              which.clust = list(1, 5), 
+                              merge.clusters = TRUE, 
+                              n.HVG = 4000,
+                              n.PC = 10, 
                               k.vals = c(5, 10, 15), 
                               resolution.vals = c(.2, .3, .4), 
-                              which.dim.reduc = "tsne", 
                               redo.embedding = TRUE, 
                               random.seed = 629)
 ```
@@ -248,7 +265,7 @@ pbmc <- AddMetaData(pbmc,
                     col.name = "seurat_clusters", 
                     metadata = as.factor(label))
 Idents(pbmc) <- "seurat_clusters"
-p5 <- DimPlot(pbmc, cols = tableau20()) + 
+p5 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))

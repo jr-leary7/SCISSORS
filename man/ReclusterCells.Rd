@@ -9,31 +9,27 @@ ReclusterCells(
   which.clust = NULL,
   auto = FALSE,
   merge.clusters = FALSE,
-  n.variable.genes = 4000,
+  n.HVG = 4000,
   n.PC = "auto",
-  which.dim.reduc = c("tsne", "umap"),
   redo.embedding = TRUE,
   resolution.vals = c(0.1, 0.2, 0.3, 0.4),
   k.vals = c(10, 25, 50),
   cutoff.score = 0.25,
-  do.plot = FALSE,
   random.seed = 629
 )
 }
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
 
-\item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list.}
+\item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.}
 
-\item{auto}{Should the clusters to be reclustered be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.}
+\item{auto}{Should the clusters on which to run SCISSORS be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.}
 
-\item{merge.clusters}{(Optional). If multiple clusters are specified, should the clusters be re-clustered as one? Defaults to FALSE.}
+\item{merge.clusters}{(Optional). If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.}
 
-\item{n.variable.genes}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
+\item{n.HVG}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
 
 \item{n.PC}{How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by \code{ChoosePCs()}. Defaults to "auto".}
-
-\item{which.dim.reduc}{(Optional). Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have \code{phateR} installed.}
 
 \item{redo.embedding}{(Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.}
 
@@ -41,9 +37,7 @@ ReclusterCells(
 
 \item{k.vals}{(Optional) The parameters \emph{k} to be tested. Defaults to c(10, 25, 50).}
 
-\item{cutoff.score}{(Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are (.15, .3).}
-
-\item{do.plot}{(Optional) Should t-SNE plots of the various reclusterings be plotted for visual inspection by the user? Defaults to FALSE.}
+\item{cutoff.score}{(Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are \link{2, .3}.}
 
 \item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 }
@@ -51,7 +45,6 @@ ReclusterCells(
 This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{sctransform} as implemented in \code{Seurat}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
 }
 \examples{
-ReclusterCells(seurat.object, resolution.vals = c(.1, .2, .5))
-ReclusterCells(seurat.object, which.dim.reduc = c("tsne", "phate"))
-ReclusterCells(seurat.object, which.clust = list(0, 3, 5), do.plot = TRUE)
+ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))
+ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE
 }

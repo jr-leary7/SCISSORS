@@ -10,7 +10,7 @@
 
 ComputeSilhouetteScores <- function(seurat.obj = NULL) {
   # check inputs
-  if (is.null(seurat.obj)) { stop("Somehow, you didn't supply a Seurat object ...") }
+  if (is.null(seurat.obj)) stop ("Somehow, you didn't supply a Seurat object ...")
   # run function
   # prepare input matrix
   pca_df <- data.frame(Embeddings(seurat.obj, reduction = "pca"))

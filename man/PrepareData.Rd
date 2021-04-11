@@ -15,7 +15,7 @@ PrepareData(
   perplexity = 30,
   initial.resolution = 0.3,
   k.val = NULL,
-  do.plot = FALSE,
+  do.plot = NULL,
   random.seed = 629
 )
 }
