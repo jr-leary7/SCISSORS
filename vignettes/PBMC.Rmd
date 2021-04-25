@@ -22,6 +22,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE, 
                       fig.align = "center")
 reticulate::use_virtualenv("~/Desktop/Python/science/venv/", required = TRUE)
+set.seed(629)
 ```
 
 # Introduction
@@ -33,7 +34,6 @@ This document will serve as a tutorial for using `SCISSORS`, with the added func
 ## R
 
 ```{r}
-library(pals)        # basic colors
 library(dplyr)       # tidy data manipulation
 library(Seurat)      # single cell infrastructure
 library(ggplot2)     # plots
@@ -94,22 +94,22 @@ pc_mat <- Embeddings(pbmc, reduction = "pca")
 pc_mat = np.array(r.pc_mat)
 # run Fit-SNE w/ multiscale kernel
 init = initialization.pca(pc_mat, random_state=629)
-affin_anneal = PerplexityBasedNN(pc_mat, perplexity=100, metric='cosine', random_state=629)
+affin_anneal = PerplexityBasedNN(pc_mat, perplexity=50, metric='cosine', random_state=629)
 tsne = TSNEEmbedding(init, affin_anneal, negative_gradient_method='fft')
 embed1 = tsne.optimize(n_iter=250, exaggeration=10, momentum=0.6)
 embed2 = embed1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-affin_anneal.set_perplexity(30)
-embed3 = embed2.optimize(n_iter=15, exaggeration=2, momentum=0.8)
-embed4 = embed3.optimize(n_iter=250)
+affin_anneal.set_perplexity(20)
+embed3 = embed2.optimize(n_iter=50, exaggeration=1, momentum=0.8)
+embed4 = embed3.optimize(n_iter=350)
 ```
 
-Now we pull the results back into R, and save them in our `Seurat` object. We save the original embedding (made using the default Barnes-Hut t-SNE implementation) in `pbmc@reduction$bh_tsne` - we need to do this in order to make the Fit-SNE embedding the default embedding that will be retrieved in calls to functions such as `DimPlot()` or `FeaturePlot()`. 
+Now we pull the results back into R, and save them in our `Seurat` object. We save the original embedding (made using the default Barnes-Hut approximate t-SNE implementation) in `pbmc@reduction$bh_tsne` - we need to do this in order to make the Fit-SNE embedding the default embedding that will be retrieved in calls to functions such as `DimPlot()` or `FeaturePlot()`. 
 
 ```{r}
 embed <- as.matrix(py$embed4)
 rownames(embed) <- colnames(pbmc)
 colnames(embed) <- c("Fit-SNE_1", "Fit-SNE_2")
-pbmc@reductions$bh_tsne <- pbmc@reductions$tsne
+# pbmc@reductions$bh_tsne <- pbmc@reductions$tsne
 pbmc@reductions$tsne <- CreateDimReducObject(embeddings = embed, 
                                              key = "FitSNE_", 
                                              assay = "SCT", 
@@ -132,112 +132,139 @@ Next we'll run a differential expression test in order to assign general labels 
 
 ```{r}
 pbmc_de <- FindAllMarkers(pbmc, 
-                          logfc.threshold = .75, 
+                          logfc.threshold = .5, 
                           test.use = "wilcox", 
                           only.pos = TRUE, 
                           random.seed = 629, 
                           verbose = FALSE)
-DotPlot()
+pbmc_de %>% 
+  group_by(cluster) %>% 
+  top_n(n = 5, wt = avg_log2FC) -> top_de
 ```
 
+From the top 5 differentially expressed genes for each cluster, we can deduce some basic cluster identities. Clusters 0, 2, and 3 look like T cells. Clusters 1 and 5 appear to be monocytes. Cluster 4 strongly expresses B cell markers. Lastly, Cluster 6 is pretty clearly identifiable as being composed of NK cells. When we recluster our cells, we'll keep the biological context of these broad cell types in mind. 
 
+```{r}
+p2 <- DotPlot(pbmc, features = unique(top_de$gene)) + 
+      scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+      labs(color = "Scaled Mean Expression", size = "% Expressed", x = "Marker Genes", y = "Cluster") + 
+      theme(axis.text.x = element_text(angle = 45, size = 7, vjust = 0.65), 
+            legend.position = "bottom", legend.justification = "center", 
+            panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+            axis.line = element_blank()) + 
+      guides(color = guide_colorbar(title.position = "top", barwidth = unit(6, units = "cm"), title.hjust = 0.5), 
+             size = guide_legend(title.position = "top", title.hjust = 0.5))
+p2
+```
 
 # Reclustering
 
-Here we'll examine clusters 0, 1, and 4. Cluster 0 seems large enough, and has enough variability on the X-axis of the t-SNE embedding to appear as though it might harbor subgroups. Clusters 1 and 4 have small but visible subclusters.
+We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 5 and 0, 2, & 3. 
 
 ```{r, warning=FALSE, message=FALSE, results='hold'}
-reclust_res <- ReclusterCells(pbmc, 
-                              which.clust = list(1, 5), 
-                              merge.clusters = TRUE, 
-                              n.HVG = 4000,
-                              n.PC = 10, 
-                              k.vals = c(5, 10, 15), 
-                              resolution.vals = c(.2, .3, .4), 
-                              redo.embedding = TRUE, 
-                              random.seed = 629)
+mono_reclust <- ReclusterCells(pbmc, 
+                               which.clust = list(1, 5), 
+                               merge.clusters = TRUE, 
+                               n.HVG = 4000,
+                               n.PC = 10, 
+                               k.vals = c(10, 20, 30), 
+                               resolution.vals = c(.2, .3, .4), 
+                               redo.embedding = TRUE, 
+                               random.seed = 629)
+DimPlot(mono_reclust)
+t_reclust <- ReclusterCells(pbmc, 
+                            which.clust = list(0, 2, 3), 
+                            merge.clusters = TRUE, 
+                            n.HVG = 4000, 
+                            n.PC = 10, 
+                            k.vals = c(30, 40, 50), 
+                            resolution.vals = c(.3, .4, .5), 
+                            redo.embedding = TRUE, 
+                            random.seed = 629)
+DimPlot(t_reclust)
 ```
 
 Now we'll run Fit-SNE on each of the reclustered objects for consistencies sake. First we'll need to isolate the PC matrices and send them to Python. 
 
 ```{r}
-pc_clust0 <- Embeddings(reclust_res[[1]], reduction = "pca")
-pc_clust1 <- Embeddings(reclust_res[[2]], reduction = "pca")
-pc_clust2 <- Embeddings(reclust_res[[3]], reduction = "pca")
+pc_mono <- Embeddings(mono_reclust, reduction = "pca")
+pc_t <- Embeddings(t_reclust, reduction = "pca")
 ```
 
 Running Fit-SNE three times could probably be cleaned up and done in a for loop, but this was easiest to write out in a short time. We use different perplexity sets for each cluster, as they're all composed of differing numbers of cells.
 
 ```{python}
 # import PC matrices
-pc_clust0 = np.array(r.pc_clust0)
-pc_clust1 = np.array(r.pc_clust1)
-pc_clust2 = np.array(r.pc_clust2)
+pc_mono = np.array(r.pc_mono)
+pc_t = np.array(r.pc_t)
 
-# run Fit-SNE w/ multiscale kernel - cluster 0
-affin_multi_clust0 = Multiscale(pc_clust0, perplexities=[15, 50], metric='cosine', random_state=629)
-init_clust0 = initialization.pca(pc_clust0, random_state=629)
-tsne_obj_clust0 = TSNEEmbedding(init_clust0, affin_multi_clust0, negative_gradient_method='fft')
-embed_clust0 = tsne_obj_clust0.optimize(n_iter=300, exaggeration=12, momentum=0.7)
-embed_multi_clust0 = embed_clust0.optimize(n_iter=850, exaggeration=1, momentum=0.8)
+# run Fit-SNE w/ perplexity annealing
+init_mono = initialization.pca(pc_mono, random_state=629)
+affin_anneal_mono = PerplexityBasedNN(pc_mono, perplexity=40, metric='cosine', random_state=629)
+tsne_mono = TSNEEmbedding(init_mono, affin_anneal_mono, negative_gradient_method='fft')
+embed1_mono = tsne_mono.optimize(n_iter=250, exaggeration=12, momentum=0.6)
+embed2_mono = embed1_mono.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+affin_anneal_mono.set_perplexity(20)
+embed3_mono = embed2_mono.optimize(n_iter=100, exaggeration=3, momentum=0.6)
+embed4_mono = embed3_mono.optimize(n_iter=250)
 
-# run Fit-SNE w/ multiscale kernel - cluster 1
-affin_multi_clust1 = Multiscale(pc_clust1, perplexities=[15, 30], metric='cosine', random_state=629)
-init_clust1 = initialization.pca(pc_clust1, random_state=629)
-tsne_obj_clust1 = TSNEEmbedding(init_clust1, affin_multi_clust1, negative_gradient_method='fft')
-embed_clust1 = tsne_obj_clust1.optimize(n_iter=300, exaggeration=12, momentum=0.6)
-embed_multi_clust1 = embed_clust1.optimize(n_iter=850, exaggeration=1, momentum=0.8)
+# run Fit-SNE w/ multiscale kernel - monocytes
+# affin_multi_mono = Multiscale(pc_mono, perplexities=[20, 50], metric='cosine', random_state=629)
+# init_mono = initialization.pca(pc_mono, random_state=629)
+# tsne_obj_mono = TSNEEmbedding(init_mono, affin_multi_mono, negative_gradient_method='fft')
+# embed_mono = tsne_obj_mono.optimize(n_iter=250, exaggeration=12, momentum=0.6)
+# embed_mono2 = embed_mono.optimize(n_iter=50, exaggeration = 2)
+# embed_multi_mono = embed_mono2.optimize(n_iter=750, exaggeration=1, momentum=0.8)
 
-# run Fit-SNE w/ multiscale kernel - cluster 4
-affin_multi_clust2 = Multiscale(pc_clust2, perplexities=[10, 30], metric='cosine', random_state=629)
-init_clust2 = initialization.pca(pc_clust2, random_state=629)
-tsne_obj_clust2 = TSNEEmbedding(init_clust2, affin_multi_clust2, negative_gradient_method='fft')
-embed_clust2 = tsne_obj_clust2.optimize(n_iter=300, exaggeration=12, momentum=0.6)
-embed_multi_clust2 = embed_clust2.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+# run Fit-SNE w/ multiscale kernel - T cells
+# affin_multi_t = Multiscale(pc_t, perplexities=[20, 50], metric='cosine', random_state=629)
+# init_t = initialization.pca(pc_t, random_state=629)
+# tsne_obj_t = TSNEEmbedding(init_t, affin_multi_t, negative_gradient_method='fft')
+# embed_t = tsne_obj_t.optimize(n_iter=250, exaggeration=12, momentum=0.6)
+# embed_t2 = embed_t.optimize(n_iter=50, exaggeration = 2)
+# embed_multi_t = embed_t2.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+
+# run Fit-SNE w/ perplexity annealing
+init_t = initialization.pca(pc_t, random_state=629)
+affin_anneal_t = PerplexityBasedNN(pc_t, perplexity=40, metric='cosine', random_state=629)
+tsne_t = TSNEEmbedding(init_t, affin_anneal_t, negative_gradient_method='fft')
+embed1_t = tsne_t.optimize(n_iter=250, exaggeration=12, momentum=0.6)
+embed2_t = embed1_t.optimize(n_iter=750, exaggeration=1, momentum=0.8)
+affin_anneal_t.set_perplexity(20)
+embed3_t = embed2_t.optimize(n_iter=100, exaggeration=3, momentum=0.6)
+embed4_t = embed3_t.optimize(n_iter=250)
 ```
 
 Now we bring the results back in to R.
 
 ```{r}
-embed0 <- as.matrix(py$embed_multi_clust0)
-rownames(embed0) <- colnames(reclust_res[[1]])
-reclust_res[[1]]@reductions$bh_tsne <- reclust_res[[1]]@reductions$tsne
-reclust_res[[1]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed0, 
-                                                           key = "FitSNE_",
-                                                           assay = "SCT", 
-                                                           global = TRUE)
-embed1 <- as.matrix(py$embed_multi_clust1)
-rownames(embed1) <- colnames(reclust_res[[2]])
-reclust_res[[2]]@reductions$bh_tsne <- reclust_res[[2]]@reductions$tsne
-reclust_res[[2]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed1,
-                                                           key = "FitSNE_",
-                                                           assay = "SCT",
-                                                           global = TRUE)
-embed2 <- as.matrix(py$embed_multi_clust2)
-rownames(embed2) <- colnames(reclust_res[[3]])
-reclust_res[[3]]@reductions$bh_tsne <- reclust_res[[3]]@reductions$tsne
-reclust_res[[3]]@reductions$fitsne <- CreateDimReducObject(embeddings = embed2,
-                                                           key = "FitSNE_",
-                                                           assay = "SCT",
-                                                           global = TRUE)
+embed_mono <- as.matrix(py$embed4_mono)
+rownames(embed_mono) <- colnames(mono_reclust)
+# mono_reclust@reductions$bh_tsne <- mono_reclust@reductions$tsne
+mono_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_mono, 
+                                                     key = "FitSNE_",
+                                                     assay = "SCT", 
+                                                     global = TRUE)
+embed_t <- as.matrix(py$embed4_t)
+rownames(embed_t) <- colnames(t_reclust)
+# t_reclust@reductions$bh_tsne <- t_reclust@reductions$tsne
+t_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_t,
+                                                  key = "FitSNE_",
+                                                  assay = "SCT",
+                                                  global = TRUE)
 ```
 
 Here's what our reclusterings look like. There's clear visual separation between the main clusters and the subgroups we've discovered using `SCISSORS`.
 
 ```{r}
-p2 <- DimPlot(reclust_res[[1]], cols = paletteer_d("miscpalettes::brightPastel")) + 
+p3 <- DimPlot(mono_reclust, cols = paletteer_d("ggsci::nrc_npg")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p3 <- DimPlot(reclust_res[[2]], cols = paletteer_d("miscpalettes::brightPastel")) + 
+p4 <- DimPlot(t_reclust, cols = paletteer_d("ggsci::nrc_npg")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p4 <- DimPlot(reclust_res[[3]], cols = paletteer_d("miscpalettes::brightPastel")) + 
-      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-      theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p2
 p3
 p4
 ```

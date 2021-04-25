@@ -53,20 +53,27 @@ ReclusterCells <- function(seurat.object = NULL,
                          c(regress_vars, "S.Score", "G2M.Score"),
                          regress_vars)
   dim_red_algs <- NULL
-  dim_red_algs <- ifelse("tsne" %in% names(seurat.object@reductions), c(dim_red_algs, "tsne"), dim_red_algs)
-  dim_red_algs <- ifelse("umap" %in% names(seurat.object@reductions), c(dim_red_algs, "umap"), dim_red_algs)
-  dim_red_algs <- ifelse("phate" %in% names(seurat.object@reductions), c(dim_red_algs, "phate"), dim_red_algs)
+  if ("tsne" %in% names(seurat.object@reductions)) {
+    dim_red_algs <- c(dim_red_algs, "tsne")
+  } else if ("umap" %in% names(seurat.object@reductions)) {
+    dim_red_algs <- c(dim_red_algs, "umap")
+  } else if ("phate" %in% names(seurat.object@reductions)) {
+    dim_red_algs <- c(dim_red_algs, "phate")
+  }
+
   # iterate and recluster cells
   for (i in seq_along(which.clust)) {
     if (!merge.clusters) {
       temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[i]])
     }
     # reprocess data
-    temp_obj <- SCTransform(temp_obj,
-                            vars.to.regress = regress_vars,
-                            seed.use = random.seed,
-                            variable.features.n = n.HVG,
-                            verbose = FALSE)
+    if (DefaultAssay(temp_obj) != "integrated") {
+      temp_obj <- SCTransform(temp_obj,
+                              vars.to.regress = regress_vars,
+                              seed.use = random.seed,
+                              variable.features.n = n.HVG,
+                              verbose = FALSE)
+    }
     temp_obj <- ReduceDimensions(temp_obj,
                                  n.PC = n.PC,
                                  which.algs = dim_red_algs,

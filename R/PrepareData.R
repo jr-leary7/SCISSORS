@@ -14,6 +14,7 @@
 #' @param var.cutoff (Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
 #' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
+#' @param umap.lr (Optional) What learning rate should be used for the UMAP embedding? Defaults to 0.05.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
 #' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
 #' @param do.plot (Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.
@@ -33,6 +34,7 @@ PrepareData <- function(seurat.object = NULL,
                         var.cutoff = .15,
                         which.dim.reduc = c("tsne", "umap"),
                         perplexity = 30,
+                        umap.lr = 0.05,
                         initial.resolution = .3,
                         k.val = NULL,
                         do.plot = NULL,
@@ -108,27 +110,16 @@ PrepareData <- function(seurat.object = NULL,
                              umap.method = "uwot",
                              dims = 1:n.PC,
                              n.components = 2,
+                             learning.rate = umap.lr,
                              reduction = "pca",
                              verbose = FALSE,
                              seed.use = random.seed)
   }
   if ("phate" %in% which.dim.reduc) {
-    require(phateR)
-    print(sprintf("Running PHATE on %s principal components", n.PC))
-    pca_df <- data.frame(Embeddings(seurat.object, reduction = "pca"))
-    phate_res <- phate(pca_df,
-                       ndim = 2,
-                       mds.solver = "smacof",
-                       knn.dist.method = "cosine",
-                       mds.dist.method = "cosine",
-                       npca = NULL,
-                       seed = random.seed,
-                       verbose = FALSE)
-    phate_obj <- CreateDimReducObject(embeddings = phate_res$embedding,
-                                      assay = "SCT",
-                                      key = "PHATE_",
-                                      global = TRUE)
-    seurat.object@reductions$phate <- phate_obj
+    seurat.object <- RunPHATE(seurat.object,
+                              n.components = 2,
+                              n.PC = n.PC,
+                              random.seed = random.seed)
   }
 
   # initial clustering
