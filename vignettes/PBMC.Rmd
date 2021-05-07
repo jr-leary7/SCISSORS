@@ -69,11 +69,16 @@ Here we use `PrepareData()` to normalize expression & select highly variable gen
 pbmc <- PrepareData(pbmc, 
                     n.HVG = 4000, 
                     regress.cc = FALSE, 
-                    regress.mt = TRUE, 
-                    n.PC = 10, 
+                    regress.mt = FALSE, 
+                    n.PC = 15, 
                     which.dim.reduc = "tsne",
                     initial.resolution = .4, 
                     random.seed = 629)
+```
+
+We see clear visual evidence of subclusters. 
+
+```{r}
 p0 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
       labs(x = "t-SNE 1", y = "t-SNE 2") + 
       theme_yehlab() + 
@@ -109,7 +114,7 @@ Now we pull the results back into R, and save them in our `Seurat` object. We sa
 embed <- as.matrix(py$embed4)
 rownames(embed) <- colnames(pbmc)
 colnames(embed) <- c("Fit-SNE_1", "Fit-SNE_2")
-# pbmc@reductions$bh_tsne <- pbmc@reductions$tsne
+pbmc@reductions$bh_tsne <- pbmc@reductions$tsne
 pbmc@reductions$tsne <- CreateDimReducObject(embeddings = embed, 
                                              key = "FitSNE_", 
                                              assay = "SCT", 
@@ -159,29 +164,27 @@ p2
 
 # Reclustering
 
-We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 5 and 0, 2, & 3. 
+We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 4 and 0, 2, & 3. 
 
 ```{r, warning=FALSE, message=FALSE, results='hold'}
 mono_reclust <- ReclusterCells(pbmc, 
-                               which.clust = list(1, 5), 
+                               which.clust = list(1, 4), 
                                merge.clusters = TRUE, 
                                n.HVG = 4000,
-                               n.PC = 10, 
+                               n.PC = 15, 
                                k.vals = c(10, 20, 30), 
                                resolution.vals = c(.2, .3, .4), 
                                redo.embedding = TRUE, 
                                random.seed = 629)
-DimPlot(mono_reclust)
 t_reclust <- ReclusterCells(pbmc, 
-                            which.clust = list(0, 2, 3), 
+                            which.clust = list(0, 2), 
                             merge.clusters = TRUE, 
                             n.HVG = 4000, 
-                            n.PC = 10, 
+                            n.PC = 15, 
                             k.vals = c(30, 40, 50), 
                             resolution.vals = c(.3, .4, .5), 
                             redo.embedding = TRUE, 
                             random.seed = 629)
-DimPlot(t_reclust)
 ```
 
 Now we'll run Fit-SNE on each of the reclustered objects for consistencies sake. First we'll need to isolate the PC matrices and send them to Python. 

@@ -43,15 +43,17 @@ ReclusterCells <- function(seurat.object = NULL,
   reclust_list <- list()
   if (merge.clusters) {
     temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
+    old_which_clust <- which.clust
     which.clust <- 1
   }
   regress_vars <- c()
-  regress_vars <- ifelse("percent_MT" %in% colnames(seurat.object@meta.data),
-                         c(regress_vars, "percent_MT"),
-                         regress_vars)
-  regress_vars <- ifelse("S.Score" %in% colnames(seurat.object@meta.data) && "G2M.Score" %in% colnames(seurat.object@meta.data),
-                         c(regress_vars, "S.Score", "G2M.Score"),
-                         regress_vars)
+  if ("percent_MT" %in% colnames(seurat.object@meta.data)) {
+    regress_vars <- c(regress_vars, "percent_MT")
+  }
+  if ("S.Score" %in% colnames(seurat.object@meta.data) && "G2M.Score" %in% colnames(seurat.object@meta.data)) {
+    regress_vars <- c(regress_vars, "S.Score", "G2M.Score")
+  }
+  # determine which dimension reduction algs to run
   dim_red_algs <- NULL
   if ("tsne" %in% names(seurat.object@reductions)) {
     dim_red_algs <- c(dim_red_algs, "tsne")
@@ -68,11 +70,18 @@ ReclusterCells <- function(seurat.object = NULL,
     }
     # reprocess data
     if (DefaultAssay(temp_obj) != "integrated") {
-      temp_obj <- SCTransform(temp_obj,
-                              vars.to.regress = regress_vars,
-                              seed.use = random.seed,
-                              variable.features.n = n.HVG,
-                              verbose = FALSE)
+      if (length(regress_vars) > 0) {
+        temp_obj <- SCTransform(temp_obj,
+                                vars.to.regress = regress_vars,
+                                variable.features.n = n.HVG,
+                                seed.use = random.seed,
+                                verbose = FALSE)
+      } else {
+        temp_obj <- SCTransform(temp_obj,
+                                variable.features.n = n.HVG,
+                                seed.use = random.seed,
+                                verbose = FALSE)
+      }
     }
     temp_obj <- ReduceDimensions(temp_obj,
                                  n.PC = n.PC,
@@ -125,7 +134,7 @@ ReclusterCells <- function(seurat.object = NULL,
       # cluster cells using best parameter set
       if (merge.clusters) {
         print(sprintf("Reclustering cells in clusters %s using k = %s & resolution = %s; S = %s",
-                      paste(which.clust, collapse = ", "),
+                      paste(old_which_clust, collapse = ", "),
                       best_k,
                       best_res,
                       round(max(sil_scores), 3)))
@@ -152,13 +161,13 @@ ReclusterCells <- function(seurat.object = NULL,
       # replace new object w/ original one, as no subclusters were found
       if (merge.clusters) {
         print(sprintf("Didn't find subclusters in merged clusters %s; max S = %s"),
-              paste(which.clust, collapse = ", "),
+              paste(old_which_clust, collapse = ", "),
               round(max(sil_scores), 3))
         temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
       } else {
-        print(sprintf("Didn't find subclusters in cluster %s; max S = %s"),
-              which.clust[[i]],
-              round(max(sil_scores), 3))
+        print(sprintf("Didn't find subclusters in cluster %s; max S = %s",
+                      which.clust[[i]],
+                      round(max(sil_scores), 3)))
         temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[i]])
       }
     }

@@ -71,11 +71,19 @@ PrepareData <- function(seurat.object = NULL,
       regression_vars <- c(regression_vars, "percent_MT")
     }
     # normalize counts
-    seurat.object <- SCTransform(seurat.object,
-                                 variable.features.n = n.HVG,
-                                 vars.to.regress = ifelse(length(regression_vars) > 0, regression_vars, NULL),
-                                 seed.use = random.seed,
-                                 verbose = FALSE)
+    if (length(regression_vars) > 0) {
+      seurat.object <- SCTransform(seurat.object,
+                                   variable.features.n = n.HVG,
+                                   vars.to.regress = regression_vars,
+                                   seed.use = random.seed,
+                                   verbose = FALSE)
+    } else {
+      seurat.object <- SCTransform(seurat.object,
+                                   variable.features.n = n.HVG,
+                                   seed.use = random.seed,
+                                   verbose = FALSE)
+    }
+
   }
 
   # dimension reduction - PCA, t-SNE, UMAP, and/or PHATE
