@@ -164,7 +164,7 @@ p2
 
 # Reclustering
 
-We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 4 and 0, 2, & 3. 
+We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 4 and 0 & 2. We use slightly different possible parameter sets as the T cell object is much larger than the Monocyte object. 
 
 ```{r, warning=FALSE, message=FALSE, results='hold'}
 mono_reclust <- ReclusterCells(pbmc, 
@@ -172,8 +172,8 @@ mono_reclust <- ReclusterCells(pbmc,
                                merge.clusters = TRUE, 
                                n.HVG = 4000,
                                n.PC = 15, 
-                               k.vals = c(10, 20, 30), 
-                               resolution.vals = c(.2, .3, .4), 
+                               k.vals = c(10, 15, 20, 25), 
+                               resolution.vals = c(.3, .4, .5), 
                                redo.embedding = TRUE, 
                                random.seed = 629)
 t_reclust <- ReclusterCells(pbmc, 
@@ -185,70 +185,49 @@ t_reclust <- ReclusterCells(pbmc,
                             resolution.vals = c(.3, .4, .5), 
                             redo.embedding = TRUE, 
                             random.seed = 629)
+DimPlot(mono_reclust)
 ```
 
-Now we'll run Fit-SNE on each of the reclustered objects for consistencies sake. First we'll need to isolate the PC matrices and send them to Python. 
+Now we'll run Fit-SNE on each of the reclustered objects for consistencies sake. First we'll need to create variables containing the PC matrices and send them to Python. 
 
 ```{r}
 pc_mono <- Embeddings(mono_reclust, reduction = "pca")
 pc_t <- Embeddings(t_reclust, reduction = "pca")
 ```
 
-Running Fit-SNE three times could probably be cleaned up and done in a for loop, but this was easiest to write out in a short time. We use different perplexity sets for each cluster, as they're all composed of differing numbers of cells.
+We run Fit-SNE. 
 
 ```{python}
 # import PC matrices
 pc_mono = np.array(r.pc_mono)
 pc_t = np.array(r.pc_t)
 
-# run Fit-SNE w/ perplexity annealing
+# run Fit-SNE w/ perplexity annealing - Monocytes
 init_mono = initialization.pca(pc_mono, random_state=629)
-affin_anneal_mono = PerplexityBasedNN(pc_mono, perplexity=40, metric='cosine', random_state=629)
+affin_anneal_mono = PerplexityBasedNN(pc_mono, perplexity=50, metric='cosine', random_state=629)
 tsne_mono = TSNEEmbedding(init_mono, affin_anneal_mono, negative_gradient_method='fft')
 embed1_mono = tsne_mono.optimize(n_iter=250, exaggeration=12, momentum=0.6)
-embed2_mono = embed1_mono.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-affin_anneal_mono.set_perplexity(20)
-embed3_mono = embed2_mono.optimize(n_iter=100, exaggeration=3, momentum=0.6)
-embed4_mono = embed3_mono.optimize(n_iter=250)
+embed2_mono = embed1_mono.optimize(n_iter=950, exaggeration=1, momentum=0.8)
 
-# run Fit-SNE w/ multiscale kernel - monocytes
-# affin_multi_mono = Multiscale(pc_mono, perplexities=[20, 50], metric='cosine', random_state=629)
-# init_mono = initialization.pca(pc_mono, random_state=629)
-# tsne_obj_mono = TSNEEmbedding(init_mono, affin_multi_mono, negative_gradient_method='fft')
-# embed_mono = tsne_obj_mono.optimize(n_iter=250, exaggeration=12, momentum=0.6)
-# embed_mono2 = embed_mono.optimize(n_iter=50, exaggeration = 2)
-# embed_multi_mono = embed_mono2.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-
-# run Fit-SNE w/ multiscale kernel - T cells
-# affin_multi_t = Multiscale(pc_t, perplexities=[20, 50], metric='cosine', random_state=629)
-# init_t = initialization.pca(pc_t, random_state=629)
-# tsne_obj_t = TSNEEmbedding(init_t, affin_multi_t, negative_gradient_method='fft')
-# embed_t = tsne_obj_t.optimize(n_iter=250, exaggeration=12, momentum=0.6)
-# embed_t2 = embed_t.optimize(n_iter=50, exaggeration = 2)
-# embed_multi_t = embed_t2.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-
-# run Fit-SNE w/ perplexity annealing
+# run Fit-SNE w/ perplexity annealing - T cells
 init_t = initialization.pca(pc_t, random_state=629)
-affin_anneal_t = PerplexityBasedNN(pc_t, perplexity=40, metric='cosine', random_state=629)
+affin_anneal_t = PerplexityBasedNN(pc_t, perplexity=50, metric='cosine', random_state=629)
 tsne_t = TSNEEmbedding(init_t, affin_anneal_t, negative_gradient_method='fft')
 embed1_t = tsne_t.optimize(n_iter=250, exaggeration=12, momentum=0.6)
-embed2_t = embed1_t.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-affin_anneal_t.set_perplexity(20)
-embed3_t = embed2_t.optimize(n_iter=100, exaggeration=3, momentum=0.6)
-embed4_t = embed3_t.optimize(n_iter=250)
+embed2_t = embed1_t.optimize(n_iter=950, exaggeration=1, momentum=0.8)
 ```
 
 Now we bring the results back in to R.
 
 ```{r}
-embed_mono <- as.matrix(py$embed4_mono)
+embed_mono <- as.matrix(py$embed2_mono)
 rownames(embed_mono) <- colnames(mono_reclust)
 # mono_reclust@reductions$bh_tsne <- mono_reclust@reductions$tsne
 mono_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_mono, 
                                                      key = "FitSNE_",
                                                      assay = "SCT", 
                                                      global = TRUE)
-embed_t <- as.matrix(py$embed4_t)
+embed_t <- as.matrix(py$embed2_t)
 rownames(embed_t) <- colnames(t_reclust)
 # t_reclust@reductions$bh_tsne <- t_reclust@reductions$tsne
 t_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_t,
@@ -275,26 +254,8 @@ p4
 Next, we'll reintegrate our new clusters into our original `Seurat` object - this requires some finagling as `Seurat` is a bit weird with how it stores cell-level metadata. Since we had six clusters originally, and we discovered six new subclusters, we'll end up with twelve total clusters.
 
 ```{r, message=FALSE}
-clust_df <- data.frame(CellID = colnames(pbmc), 
-                       ClustID = as.numeric(pbmc@meta.data$seurat_clusters) - 1, 
-                       stringsAsFactors = FALSE)
-clust_6 <- rownames(reclust_res[[1]]@meta.data[reclust_res[[1]]@meta.data$seurat_clusters == 1, ])
-clust_7 <- rownames(reclust_res[[1]]@meta.data[reclust_res[[1]]@meta.data$seurat_clusters == 2, ])
-clust_8 <- rownames(reclust_res[[2]]@meta.data[reclust_res[[2]]@meta.data$seurat_clusters == 1, ])
-clust_9 <- rownames(reclust_res[[2]]@meta.data[reclust_res[[2]]@meta.data$seurat_clusters == 2, ])
-clust_10 <- rownames(reclust_res[[3]]@meta.data[reclust_res[[3]]@meta.data$seurat_clusters == 1, ])
-clust_11 <- rownames(reclust_res[[3]]@meta.data[reclust_res[[3]]@meta.data$seurat_clusters == 2, ])
-label <- case_when(clust_df$CellID %in% clust_6 ~ 6, 
-                   clust_df$CellID %in% clust_7 ~ 7, 
-                   clust_df$CellID %in% clust_8 ~ 8, 
-                   clust_df$CellID %in% clust_9 ~ 9, 
-                   clust_df$CellID %in% clust_10 ~ 10, 
-                   clust_df$CellID %in% clust_11 ~ 11, 
-                   TRUE ~ clust_df$ClustID)
-pbmc <- AddMetaData(pbmc, 
-                    col.name = "seurat_clusters", 
-                    metadata = as.factor(label))
-Idents(pbmc) <- "seurat_clusters"
+pbmc <- IntegrateSubclusters(original.object = pbmc, 
+                             reclust.results = list(mono_reclust, t_reclust))
 p5 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
@@ -308,60 +269,25 @@ Now that we've determined our subpopulations, we can assign cell types to each c
 
 ## CD4+ T Cells
 
-We can quickly identify cluster 0 as the memory CD4+ T cells, and cluster 6 as the naive CD4+ population.
+We can quickly identify cluster 0 as the naive CD4+ T cells, and cluster 6 as the memory CD4+ population.
 
 ```{r}
 p6 <- FeaturePlot(pbmc, features = "IL7R") + 
-      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+      scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
       theme_yehlab() + 
       NoLegend() + 
       theme(axis.title = element_blank())
 p7 <- FeaturePlot(pbmc, features = "CCR7") + 
-      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+      scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
       theme_yehlab()  + 
       NoLegend() + 
       theme(axis.title = element_blank())
 p8 <- FeaturePlot(pbmc, features = "S100A4") + 
-      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+      scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
       theme_yehlab() + 
       NoLegend() + 
       theme(axis.title = element_blank())
 (p6 | p7 | p8) / p5
-```
-
-Cluster 7 is only subtly separated from the CD4+ T cell clusters. We'll use differential expression testing to determine if the cells in cluster 7 are a spurious cluster or a real T cell subtype. After running a Wilcox test we can see that several of the differentially expressed are associated with the interferon family of cytokines and with anti-viral immune responses.
-
-```{r}
-FindAllMarkers(pbmc, 
-               assay = "SCT",
-               logfc.threshold = .5, 
-               only.pos = TRUE, 
-               test.use = "wilcox", 
-               verbose = FALSE, 
-               random.seed = 629) %>% 
-  filter(cluster  == 7 & p_val_adj < .05) %>% 
-  slice_head(n = 5)
-```
-
-Upon visual inspection of the top three marker genes (as determined by adjusted p-value), we can see that they do an equally good job of distinguishing the small cluster from the sample as a whole as they do at separating it from the memory CD4+ T cells. Due to their anti-viral characteristics , we'll define this group as being composed of Type 1 helper T cells (Th1).
-
-```{r}
-p9 <- FeaturePlot(pbmc, features = "IFIT1") + 
-      scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-      theme_yehlab() + 
-      NoLegend() + 
-      theme(axis.title = element_blank())
-p10 <- FeaturePlot(pbmc, features = "IFIT3") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p11 <- FeaturePlot(pbmc, features = "IFI6") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-(p9 | p10 | p11) / p5
 ```
 
 ## CD14+ Monocytes
@@ -370,12 +296,12 @@ Cluster 1 clearly houses our CD14+ monocytes.
 
 ```{r}
 p12 <- FeaturePlot(pbmc, features = "CD14") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
 p13 <- FeaturePlot(pbmc, features = "LYZ") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -388,12 +314,12 @@ The FCGR3A+ monocytes are positioned near the CD14+ monocytes in cluster 4. Note
 
 ```{r}
 p14 <- FeaturePlot(pbmc, features = "FCGR3A") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
 p15 <- FeaturePlot(pbmc, features = "MS4A7") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -406,17 +332,17 @@ Lastly, it follows that between the CD14+ and FCGR3A+ monocytes are the intermed
 
 ```{r}
 p16 <- FeaturePlot(pbmc, features = "HLA-DPB1") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
 p17 <- FeaturePlot(pbmc, features = "CD74") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
 p18 <- FeaturePlot(pbmc, features = "HLA-DRA") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -430,7 +356,7 @@ Expression of MS4A1 allows us to isolate the B cells in cluster 3.
 
 ```{r}
 p19 <- FeaturePlot(pbmc, features = "MS4A1") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -443,7 +369,7 @@ The canonical marker CD8A swiftly identifies our CD8+ T cells in cluster 2.
 
 ```{r}
 p20 <- FeaturePlot(pbmc, features = "CD8A") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -456,12 +382,12 @@ We can use NKG7 and GNLY to isolate the NK cells in cluster 5.
 
 ```{r}
 p21 <- FeaturePlot(pbmc, features = "NKG7") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
 p22 <- FeaturePlot(pbmc, features = "GNLY") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -474,12 +400,12 @@ The dendritic cell group is defined by expression of FCER1A and CST3 in cluster 
 
 ```{r}
 p23 <- FeaturePlot(pbmc, features = "FCER1A") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
 p24 <- FeaturePlot(pbmc, features = "CST3") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -492,7 +418,7 @@ The tiny platelet population of `r sum(pbmc$seurat_clusters == 10)` cells can be
 
 ```{r}
 p25 <- FeaturePlot(pbmc, features = "PPBP") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -504,13 +430,13 @@ p25 / p5
 Finally, we'll add cell labels to our original `Seurat` object and plot the results.
 
 ```{r}
-pbmc$label <- case_when(pbmc$seurat_clusters == 0 ~ "Memory CD4+ T", 
+pbmc$label <- case_when(pbmc$seurat_clusters == 0 ~ "Naive CD4+ T", 
                         pbmc$seurat_clusters == 1 ~ "CD14+ Monocyte", 
                         pbmc$seurat_clusters == 2 ~ "CD8+ T", 
                         pbmc$seurat_clusters == 3 ~ "B", 
                         pbmc$seurat_clusters == 4 ~ "FCGR3A+ Monocyte", 
                         pbmc$seurat_clusters == 5 ~ "NK", 
-                        pbmc$seurat_clusters == 6 ~ "Naive CD4+ T", 
+                        pbmc$seurat_clusters == 6 ~ "Memory CD4+ T", 
                         pbmc$seurat_clusters == 7 ~ "Th1", 
                         pbmc$seurat_clusters == 8 ~ "Intermediate Monocyte", 
                         pbmc$seurat_clusters == 9 ~ "DC", 

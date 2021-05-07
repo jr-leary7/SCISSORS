@@ -14,7 +14,7 @@ IntegrateSubclusters <- function(original.object = NULL,
                                  reclust.results = NULL,
                                  do.plot = FALSE) {
   # check inputs
-  if (any(sapply(c(original.object, recluster.results), is.null))) stop("Please provide a Seurat object and list of reclustering results.")
+  if (any(sapply(c(original.object, reclust.results), is.null))) stop("Please provide a Seurat object and list of reclustering results.")
   if (class(reclust.results) != "list") stop("reclust.results must be a list.")
   if (any(sapply(reclust.results, class) != "Seurat")) stop("All elements of reclust.results must be Seurat objects.")
   max_clust <- max(as.numeric(original.object$seurat_clusters) - 1)
@@ -38,7 +38,24 @@ IntegrateSubclusters <- function(original.object = NULL,
   }
   # integrate new subclusters
   new_clusts <- unique(cell_df$ClustID)
+  original.object@meta.data$seurat_clusters_original <- original.object@meta.data$seurat_clusters
+  original.object@meta.data$seurat_clusters <- as.numeric(original.object@meta.data$seurat_clusters_original) - 1
   for (k in seq_along(new_clusts)) {
-    original.object@meta.data$seurat_clusters <- ifelse(rownames(original.object@meta.data) %in% )
+    clust_cells <- cell_df[cell_df$ClustID == new_clusts[k], ]$Cell
+    original.object@meta.data$seurat_clusters <- case_when(rownames(original.object@meta.data) %in% clust_cells ~ new_clusts[k],
+                                                           TRUE ~ original.object@meta.data$seurat_clusters)
   }
+  original.object@meta.data$seurat_clusters <- as.factor(original.object@meta.data$seurat_clusters)
+  Idents(original.object) <- "seurat_clusters"
+
+  # plot results if desired
+  if (do.plot) {
+    p <- DimPlot(original.object) +
+         labs(title = "Integrated Subclusters") +
+         theme_yehlab() +
+         theme(plot.title = element_text(hjust = 0.5))
+    print(p)
+  }
+
+  return(original.object)
 }
