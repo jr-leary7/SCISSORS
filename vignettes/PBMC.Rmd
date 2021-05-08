@@ -500,6 +500,12 @@ We used the PBMC3k dataset because of 1) its immediate availability to anyone wi
 
 This part isn't really worth reading; it's just here to prove that all the figures were actually dynamically generated and saved upon knitting this document.
 
+First we save the finalized `Seurat` object. 
+
+```{r}
+saveRDS(pbmc, file = "~/Desktop/Data/pbmc3k.Rds")
+```
+
 We'll create a quick convenience function to help us save the figures.
 
 ```{r}
@@ -566,4 +572,5 @@ And of course:
 
 ```{r}
 sessionInfo()
+getwd()
 ```
