@@ -55,15 +55,16 @@ from openTSNE.affinity import PerplexityBasedNN
 
 # Data
 
-We load a scRNA-seq dataset provided by 10X Genomics that consists of 2,700 peripheral blood mononuclear cells (PBMCs) from a healthy donor.
+We load a scRNA-seq dataset provided by 10X Genomics that consists of 2,700 peripheral blood mononuclear cells (PBMCs) from a healthy donor. We remove all cells with unique feature counts greater than 2,500 in order to prevent doublets/multiplets from being included in the dataset. 
 
 ```{r}
 pbmc <- LoadData("pbmc3k")
+pbmc <- subset(pbmc, subset = nFeature_RNA < 2500)
 ```
 
 # Preprocessing
 
-Here we use `PrepareData()` to normalize expression & select highly variable genes through `sctransform`, run PCA & t-SNE. and cluster our cells. We utilize 15 principal components even though [the Satija Lab vignette]((https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html)) used 10, as we use `sctransform` normalization, which does a better job of retaining biological heterogeneity through normalization than standard log-normalization.
+Here we use `PrepareData()` to normalize expression & select highly variable genes through `sctransform`, run PCA & t-SNE. and cluster our cells. We utilize 15 principal components even though [the Satija Lab vignette]((https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html)) used 10, as we're using `sctransform` normalization, which does a better job of retaining biological heterogeneity through normalization than standard log-normalization.
 
 ```{r, warning=FALSE, message=FALSE}
 pbmc <- PrepareData(pbmc, 
@@ -147,7 +148,7 @@ pbmc_de %>%
   top_n(n = 5, wt = avg_log2FC) -> top_de
 ```
 
-From the top 5 differentially expressed genes for each cluster, we can deduce some basic cluster identities. Clusters 0, 2, and 3 look like T cells. Clusters 1 and 5 appear to be monocytes. Cluster 4 strongly expresses B cell markers. Lastly, Cluster 6 is pretty clearly identifiable as being composed of NK cells. When we recluster our cells, we'll keep the biological context of these broad cell types in mind. 
+From the top 5 differentially expressed genes for each cluster, we can deduce some basic cluster identities. Clusters 0 & 2 look like T cells. Clusters 1 & 4 appear to be monocytes. Cluster 3 strongly expresses B cell markers. Lastly, Cluster 5 is pretty clearly identifiable as being composed of NK cells. When we recluster our cells, we'll keep the biological context of these broad cell types in mind. 
 
 ```{r}
 p2 <- DotPlot(pbmc, features = unique(top_de$gene)) + 
@@ -172,7 +173,7 @@ mono_reclust <- ReclusterCells(pbmc,
                                merge.clusters = TRUE, 
                                n.HVG = 4000,
                                n.PC = 15, 
-                               k.vals = c(10, 15, 20, 25), 
+                               k.vals = c(10, 20, 30), 
                                resolution.vals = c(.3, .4, .5), 
                                redo.embedding = TRUE, 
                                random.seed = 629)
@@ -185,7 +186,6 @@ t_reclust <- ReclusterCells(pbmc,
                             resolution.vals = c(.3, .4, .5), 
                             redo.embedding = TRUE, 
                             random.seed = 629)
-DimPlot(mono_reclust)
 ```
 
 Now we'll run Fit-SNE on each of the reclustered objects for consistencies sake. First we'll need to create variables containing the PC matrices and send them to Python. 
@@ -202,14 +202,14 @@ We run Fit-SNE.
 pc_mono = np.array(r.pc_mono)
 pc_t = np.array(r.pc_t)
 
-# run Fit-SNE w/ perplexity annealing - Monocytes
+# run Fit-SNE - Monocytes
 init_mono = initialization.pca(pc_mono, random_state=629)
 affin_anneal_mono = PerplexityBasedNN(pc_mono, perplexity=50, metric='cosine', random_state=629)
 tsne_mono = TSNEEmbedding(init_mono, affin_anneal_mono, negative_gradient_method='fft')
 embed1_mono = tsne_mono.optimize(n_iter=250, exaggeration=12, momentum=0.6)
 embed2_mono = embed1_mono.optimize(n_iter=950, exaggeration=1, momentum=0.8)
 
-# run Fit-SNE w/ perplexity annealing - T cells
+# run Fit-SNE - T cells
 init_t = initialization.pca(pc_t, random_state=629)
 affin_anneal_t = PerplexityBasedNN(pc_t, perplexity=50, metric='cosine', random_state=629)
 tsne_t = TSNEEmbedding(init_t, affin_anneal_t, negative_gradient_method='fft')
@@ -260,7 +260,6 @@ p5 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) +
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p1
 p5
 ```
 
@@ -270,7 +269,7 @@ Now that we've determined our subpopulations, we can assign cell types to each c
 
 ## CD4+ T Cells
 
-We can quickly identify cluster 0 as the naive CD4+ T cells, and cluster 6 as the memory CD4+ population.
+We can quickly identify cluster 7 as the naive CD4+ T cells, and cluster 8 as the memory CD4+ population.
 
 ```{r}
 p6 <- FeaturePlot(pbmc, features = "IL7R") + 
@@ -293,7 +292,7 @@ p8 <- FeaturePlot(pbmc, features = "S100A4") +
 
 ## CD14+ Monocytes
 
-Cluster 1 clearly houses our CD14+ monocytes.
+Cluster 2 clearly houses our CD14+ monocytes.
 
 ```{r}
 p12 <- FeaturePlot(pbmc, features = "CD14") + 
@@ -353,7 +352,7 @@ p18 <- FeaturePlot(pbmc, features = "HLA-DRA") +
 
 ## B Cells
 
-Expression of MS4A1 allows us to isolate the B cells in cluster 3.
+Expression of MS4A1 allows us to isolate the B cells in cluster 0.
 
 ```{r}
 p19 <- FeaturePlot(pbmc, features = "MS4A1") + 
@@ -366,7 +365,7 @@ p19 / p5
 
 ## CD8+ T Cells
 
-The canonical marker CD8A swiftly identifies our CD8+ T cells in cluster 2.
+The canonical marker CD8A swiftly identifies our CD8+ T cells in cluster 9.
 
 ```{r}
 p20 <- FeaturePlot(pbmc, features = "CD8A") + 
@@ -379,7 +378,7 @@ p20 / p5
 
 ## Natural Killer Cells
 
-We can use NKG7 and GNLY to isolate the NK cells in cluster 5.
+We can use NKG7 and GNLY to isolate the NK cells in cluster 1.
 
 ```{r}
 p21 <- FeaturePlot(pbmc, features = "NKG7") + 
@@ -397,7 +396,7 @@ p22 <- FeaturePlot(pbmc, features = "GNLY") +
 
 ## Dendritic Cells
 
-The dendritic cell group is defined by expression of FCER1A and CST3 in cluster 9.
+The dendritic cell group is defined by expression of FCER1A and CST3 in cluster 5.
 
 ```{r}
 p23 <- FeaturePlot(pbmc, features = "FCER1A") + 
@@ -431,23 +430,24 @@ p25 / p5
 Finally, we'll add cell labels to our original `Seurat` object and plot the results.
 
 ```{r}
-pbmc$label <- case_when(pbmc$seurat_clusters == 0 ~ "Naive CD4+ T", 
-                        pbmc$seurat_clusters == 1 ~ "CD14+ Monocyte", 
-                        pbmc$seurat_clusters == 2 ~ "CD8+ T", 
-                        pbmc$seurat_clusters == 3 ~ "B", 
+pbmc$label <- case_when(pbmc$seurat_clusters == 0 ~ "B", 
+                        pbmc$seurat_clusters == 1 ~ "NK", 
+                        pbmc$seurat_clusters == 2 ~ "CD14+ Monocyte", 
+                        pbmc$seurat_clusters == 3 ~ "Intermediate Monocyte", 
                         pbmc$seurat_clusters == 4 ~ "FCGR3A+ Monocyte", 
-                        pbmc$seurat_clusters == 5 ~ "NK", 
-                        pbmc$seurat_clusters == 6 ~ "Memory CD4+ T", 
-                        pbmc$seurat_clusters == 7 ~ "Th1", 
-                        pbmc$seurat_clusters == 8 ~ "Intermediate Monocyte", 
-                        pbmc$seurat_clusters == 9 ~ "DC", 
-                        pbmc$seurat_clusters == 10 ~ "Platelet")
+                        pbmc$seurat_clusters == 5 ~ "DC", 
+                        pbmc$seurat_clusters == 6 ~ "Platelet", 
+                        pbmc$seurat_clusters == 7 ~ "Naive CD4+ T", 
+                        pbmc$seurat_clusters == 8 ~ "Memory CD4+ T", 
+                        pbmc$seurat_clusters == 9 ~ "CD8+ T")
+pbmc$label <- as.factor(pbmc$label)
+Idents(pbmc) <- "label"
 ```
 
 We visualize the final cells labels for our 11 clusters.  
 
 ```{r}
-p26 <- DimPlot(pbmc, cols = paletteer_d("rcartocolor::Vivid"), group.by = "label") + 
+p26 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_10")) + 
        theme_yehlab() + 
        guides(color = guide_legend(nrow = 3, override.aes = list(size = 3))) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = NULL)
