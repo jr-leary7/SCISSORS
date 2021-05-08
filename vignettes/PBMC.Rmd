@@ -164,7 +164,7 @@ p2
 
 # Reclustering
 
-We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 4 and 0 & 2. We use slightly different possible parameter sets as the T cell object is much larger than the Monocyte object. 
+We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 4 and 0 & 2. We use slightly different possible parameter sets as the T cell object is much larger than the monocyte object. 
 
 ```{r, warning=FALSE, message=FALSE, results='hold'}
 mono_reclust <- ReclusterCells(pbmc, 
@@ -222,14 +222,14 @@ Now we bring the results back in to R.
 ```{r}
 embed_mono <- as.matrix(py$embed2_mono)
 rownames(embed_mono) <- colnames(mono_reclust)
-# mono_reclust@reductions$bh_tsne <- mono_reclust@reductions$tsne
+mono_reclust@reductions$bh_tsne <- mono_reclust@reductions$tsne
 mono_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_mono, 
                                                      key = "FitSNE_",
                                                      assay = "SCT", 
                                                      global = TRUE)
 embed_t <- as.matrix(py$embed2_t)
 rownames(embed_t) <- colnames(t_reclust)
-# t_reclust@reductions$bh_tsne <- t_reclust@reductions$tsne
+t_reclust@reductions$bh_tsne <- t_reclust@reductions$tsne
 t_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_t,
                                                   key = "FitSNE_",
                                                   assay = "SCT",
@@ -260,6 +260,7 @@ p5 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) +
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+p1
 p5
 ```
 

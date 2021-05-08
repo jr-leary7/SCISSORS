@@ -27,7 +27,6 @@ IntegrateSubclusters <- function(original.object = NULL,
     } else {
       meta_df <- reclust.results[[i]]@meta.data
       unique_subclust <- sort(unique(as.numeric(meta_df$seurat_clusters)) - 1)
-      unique_subclust <- unique_subclust[-1]  # subcluster 1 retains identity of original cluster (makes sense if you think about it for a moment)
       for (j in seq_along(unique_subclust)) {
         subclust_df <- data.frame(Cell = rownames(meta_df[meta_df$seurat_clusters == unique_subclust[j], ]),
                                   ClustID = max_clust + 1)
@@ -45,7 +44,11 @@ IntegrateSubclusters <- function(original.object = NULL,
     original.object@meta.data$seurat_clusters <- case_when(rownames(original.object@meta.data) %in% clust_cells ~ new_clusts[k],
                                                            TRUE ~ original.object@meta.data$seurat_clusters)
   }
-  original.object@meta.data$seurat_clusters <- as.factor(original.object@meta.data$seurat_clusters)
+  clusts_to_fix <- sort(unique(original.object$seurat_clusters))
+  for (l in seq_along(clusts_to_fix)) {
+    original.object@meta.data[original.object@meta.data$seurat_clusters == clusts_to_fix[l], ]$seurat_clusters <- l
+  }
+  original.object@meta.data$seurat_clusters <- as.factor(original.object@meta.data$seurat_clusters - 1)
   Idents(original.object) <- "seurat_clusters"
 
   # plot results if desired
