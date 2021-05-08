@@ -1,5 +1,5 @@
 ---
-title: "PBMC Analysis using SCISSORS"
+title: "Reclustering PBMCs Using SCISSORS"
 subtitle: "Jack Leary"
 author: 
   - "University of North Carolina at Chapel Hill - Lineberger Comprehensive Cancer Center"
@@ -159,7 +159,9 @@ p2 <- DotPlot(pbmc, features = unique(top_de$gene)) +
             legend.position = "bottom", legend.justification = "center", 
             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
             axis.line = element_blank()) + 
-      guides(color = guide_colorbar(title.position = "top", barwidth = unit(6, units = "cm"), title.hjust = 0.5), 
+      guides(color = guide_colorbar(title.position = "top", 
+                                    barwidth = unit(6, units = "cm"), 
+                                    title.hjust = 0.5), 
              size = guide_legend(title.position = "top", title.hjust = 0.5))
 p2
 ```
@@ -485,7 +487,7 @@ p24 <- DotPlot(pbmc, features = unique(top_de_final$gene)) +
 Our differential expression results confirm our manual annotations. Each of the celltypes expresses some of its canonical markers, so we can be pretty confident that we got the annotations right. 
 
 ```{r}
-p27
+p24
 ```
 
 # Conclusions
@@ -533,31 +535,31 @@ SaveFigure <- function(my.plot = NULL, name = NULL) {
 Lastly, we'll save the figures under `./vignettes/figures/`. 
 
 ```{r}
-SaveFigure(p0, names = "Seurat_Clusters")
-SaveFigure(p1, names = "Seurat_Clusters_FitSNE")
-SaveFigure(p2, names = "Marker_Genes_For_Seurat_Clusters")
-SaveFigure(p3, names = "Monocyte_Cluster_SCISSORS")
-SaveFigure(p4, names = "T_Cluster_SCISSORS")
-SaveFigure(p5, names = "SCISSORS_Clusters_Final")
-SaveFigure(p6, names = "CD4T_IL7R")
-SaveFigure(p7, names = "CD4T_CCR7")
-SaveFigure(p8, names = "CD4T_S100A4")
-SaveFigure(p9, names = "Monocyte_CD14")
-SaveFigure(p10, names = "Monocyte_LYZ")
-SaveFigure(p11, names = "FCGR3A_Monocyte_FCGR3A")
-SaveFigure(p12, names = "FCGR3A_Monocyte_MS4A7")
-SaveFigure(p13, names = "Intermediate_Mono_HLADPB1")
-SaveFigure(p14, names = "Intermediate_Mono_CD74")
-SaveFigure(p15, names = "Intermediate_Mono_HLADRA")
-SaveFigure(p16, names = "B_MS4A1")
-SaveFigure(p17, names = "CD8T_CD8A")
-SaveFigure(p18, names = "NK_NKG7")
-SaveFigure(p19, names = "NK_GNLY")
-SaveFigure(p20, names = "DC_FCER1A")
-SaveFigure(p21, names = "DC_CST3")
-SaveFigure(p22, names = "Platelet_PPBP")
-SaveFigure(p23, names = "SCISSORS_Celltypes_Final")
-SaveFigure(p24, names = "Marker_Genes_For_SCISSORS_Celltypes")
+SaveFigure(p0, name = "Seurat_Clusters")
+SaveFigure(p1, name = "Seurat_Clusters_FitSNE")
+SaveFigure(p2, name = "Marker_Genes_For_Seurat_Clusters")
+SaveFigure(p3, name = "Monocyte_Cluster_SCISSORS")
+SaveFigure(p4, name = "T_Cluster_SCISSORS")
+SaveFigure(p5, name = "SCISSORS_Clusters_Final")
+SaveFigure(p6, name = "CD4T_IL7R")
+SaveFigure(p7, name = "CD4T_CCR7")
+SaveFigure(p8, name = "CD4T_S100A4")
+SaveFigure(p9, name = "Monocyte_CD14")
+SaveFigure(p10, name = "Monocyte_LYZ")
+SaveFigure(p11, name = "FCGR3A_Monocyte_FCGR3A")
+SaveFigure(p12, name = "FCGR3A_Monocyte_MS4A7")
+SaveFigure(p13, name = "Intermediate_Mono_HLADPB1")
+SaveFigure(p14, name = "Intermediate_Mono_CD74")
+SaveFigure(p15, name = "Intermediate_Mono_HLADRA")
+SaveFigure(p16, name = "B_MS4A1")
+SaveFigure(p17, name = "CD8T_CD8A")
+SaveFigure(p18, name = "NK_NKG7")
+SaveFigure(p19, name = "NK_GNLY")
+SaveFigure(p20, name = "DC_FCER1A")
+SaveFigure(p21, name = "DC_CST3")
+SaveFigure(p22, name = "Platelet_PPBP")
+SaveFigure(p23, name = "SCISSORS_Celltypes_Final")
+SaveFigure(p24, name = "Marker_Genes_For_SCISSORS_Celltypes")
 ```
 
 And of course:
