@@ -144,6 +144,7 @@ pbmc_de <- FindAllMarkers(pbmc,
                           random.seed = 629, 
                           verbose = FALSE)
 pbmc_de %>% 
+  filter(p_val_adj < 0.05) %>% 
   group_by(cluster) %>% 
   top_n(n = 5, wt = avg_log2FC) -> top_de
 ```
@@ -295,17 +296,17 @@ p8 <- FeaturePlot(pbmc, features = "S100A4") +
 Cluster 2 clearly houses our CD14+ monocytes.
 
 ```{r}
-p12 <- FeaturePlot(pbmc, features = "CD14") + 
+p9 <- FeaturePlot(pbmc, features = "CD14") + 
+      scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
+      theme_yehlab() + 
+      NoLegend() + 
+      theme(axis.title = element_blank())
+p10 <- FeaturePlot(pbmc, features = "LYZ") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p13 <- FeaturePlot(pbmc, features = "LYZ") + 
-       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-(p12 | p13) / p5
+(p9 | p10) / p5
 ```
 
 ## FCGR3A+ Monocytes
@@ -313,40 +314,40 @@ p13 <- FeaturePlot(pbmc, features = "LYZ") +
 The FCGR3A+ monocytes are positioned near the CD14+ monocytes in cluster 4. Note: these are also known as CD16+ monocytes. 
 
 ```{r}
-p14 <- FeaturePlot(pbmc, features = "FCGR3A") + 
+p11 <- FeaturePlot(pbmc, features = "FCGR3A") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p15 <- FeaturePlot(pbmc, features = "MS4A7") + 
+p12 <- FeaturePlot(pbmc, features = "MS4A7") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p14 | p15) / p5
+(p11 | p12) / p5
 ```
 
 ## Intermediate Monocytes
 
-Lastly, it follows that between the CD14+ and FCGR3A+ monocytes are the intermediate monocytes, which [are characterized by](https://www.frontiersin.org/articles/10.3389/fimmu.2019.02035/full#B3) expression of CD14 and CD16, along with S100A8, CD74, HLA-DPB1, etc. 
+Lastly, it follows that between the CD14+ and FCGR3A+ monocytes are the intermediate monocytes, which [are characterized by expression of CD14 and CD16, along with S100A8, CD74, HLA-DPB1, etc ](https://www.frontiersin.org/articles/10.3389/fimmu.2019.02035/full#B3). 
 
 ```{r}
-p16 <- FeaturePlot(pbmc, features = "HLA-DPB1") + 
+p13 <- FeaturePlot(pbmc, features = "HLA-DPB1") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p17 <- FeaturePlot(pbmc, features = "CD74") + 
+p14 <- FeaturePlot(pbmc, features = "CD74") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p18 <- FeaturePlot(pbmc, features = "HLA-DRA") + 
+p15 <- FeaturePlot(pbmc, features = "HLA-DRA") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p16 | p17 | p18) / p5
+(p13 | p14 | p15) / p5
 ```
 
 
@@ -355,12 +356,12 @@ p18 <- FeaturePlot(pbmc, features = "HLA-DRA") +
 Expression of MS4A1 allows us to isolate the B cells in cluster 0.
 
 ```{r}
-p19 <- FeaturePlot(pbmc, features = "MS4A1") + 
+p16 <- FeaturePlot(pbmc, features = "MS4A1") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p19 / p5
+p16 / p5
 ```
 
 ## CD8+ T Cells
@@ -368,12 +369,12 @@ p19 / p5
 The canonical marker CD8A swiftly identifies our CD8+ T cells in cluster 9.
 
 ```{r}
-p20 <- FeaturePlot(pbmc, features = "CD8A") + 
+p17 <- FeaturePlot(pbmc, features = "CD8A") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p20 / p5
+p17 / p5
 ```
 
 ## Natural Killer Cells
@@ -381,17 +382,17 @@ p20 / p5
 We can use NKG7 and GNLY to isolate the NK cells in cluster 1.
 
 ```{r}
-p21 <- FeaturePlot(pbmc, features = "NKG7") + 
+p18 <- FeaturePlot(pbmc, features = "NKG7") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p22 <- FeaturePlot(pbmc, features = "GNLY") + 
+p19 <- FeaturePlot(pbmc, features = "GNLY") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p21 | p22) / p5
+(p18 | p19) / p5
 ```
 
 ## Dendritic Cells
@@ -399,30 +400,30 @@ p22 <- FeaturePlot(pbmc, features = "GNLY") +
 The dendritic cell group is defined by expression of FCER1A and CST3 in cluster 5.
 
 ```{r}
-p23 <- FeaturePlot(pbmc, features = "FCER1A") + 
+p20 <- FeaturePlot(pbmc, features = "FCER1A") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p24 <- FeaturePlot(pbmc, features = "CST3") + 
+p21 <- FeaturePlot(pbmc, features = "CST3") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p23 | p24) / p5
+(p20 | p21) / p5
 ```
 
 ## Platelets
 
-The tiny platelet population of `r sum(pbmc$seurat_clusters == 10)` cells can be identified by its expression of PPBP in cluster 10.
+The tiny platelet population of `r sum(pbmc$seurat_clusters == 6)` cells can be identified by its expression of PPBP in cluster 6.
 
 ```{r}
-p25 <- FeaturePlot(pbmc, features = "PPBP") + 
+p22 <- FeaturePlot(pbmc, features = "PPBP") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p25 / p5
+p22 / p5
 ```
 
 ## Final Figure
@@ -447,18 +448,51 @@ Idents(pbmc) <- "label"
 We visualize the final cells labels for our 11 clusters.  
 
 ```{r}
-p26 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_10")) + 
+p23 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_10")) + 
        theme_yehlab() + 
        guides(color = guide_legend(nrow = 3, override.aes = list(size = 3))) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = NULL)
-p26
+p23
+```
+
+We perform a final differential expression analysis for our cell types. 
+
+```{r}
+final_de <- FindAllMarkers(pbmc, 
+                           logfc.threshold = .5, 
+                           test.use = "wilcox", 
+                           only.pos = TRUE, 
+                           verbose = FALSE, 
+                           random.seed = 629)
+final_de %>% 
+  filter(p_val_adj < 0.05) %>% 
+  group_by(cluster) %>% 
+  top_n(n = 5, wt = avg_log2FC) -> top_de_final
+p24 <- DotPlot(pbmc, features = unique(top_de_final$gene)) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Scaled Mean Expression", size = "% Expressed", x = "Marker Genes") + 
+       theme(axis.text.x = element_text(angle = 45, size = 7, vjust = 1, hjust = 1), 
+             legend.position = "bottom", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), axis.title.y = element_blank(), 
+             axis.text.y = element_text(size = 9)) + 
+       guides(color = guide_colorbar(title.position = "top", 
+                                     barwidth = unit(5, units = "cm"), 
+                                     title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+```
+
+Our differential expression results confirm our manual annotations. Each of the celltypes expresses some of its canonical markers, so we can be pretty confident that we got the annotations right. 
+
+```{r}
+p27
 ```
 
 # Conclusions
 
-SCISSORS automatically split a large CD4+ T cluster into naive, memory, and Th1 CD4+ T cells. It successfully separated a small dendritic cell cluster from the CD14+ monocytes it had originally been grouped with, and teased out the intermediate monocyte population nestled between the CD14+ and CD16+ monocyte clusters. Lastly, it identified a tiny platelet cluster that had been erroneously grouped with the CD16+ monocytes. The intermediate monocyte and Th1 cells were not annotated in [the original Satija Lab PBMC3k vignette](https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html). 
+SCISSORS automatically split a large CD4+ T cluster into naive and memory CD4+ T cells. It successfully separated a small dendritic cell cluster from the CD14+ monocytes it had originally been grouped with, and teased out the intermediate monocyte population nestled between the CD14+ and CD16+ monocyte clusters. Lastly, it identified a tiny platelet cluster that had been erroneously grouped with the CD16+ monocytes. The intermediate monocytes were not annotated in [the original Satija Lab PBMC3k vignette](https://satijalab.org/seurat/v3.2/pbmc3k_tutorial.html). 
 
-We used the PBMC3k dataset because of 1) its immediate availability to anyone wishing to replicate our results and 2) the validity of its annotations, which allowed us to be confident in the results from SCISSORS, which was able to carve out rare cell groups from larger, broader cell types. In this case, the dendritic cell cluster was composed of 39 cells, the Th1 cluster of 40 cells, and the platelet cluster of just 13 cells. However, SCISSORS isn't just useful for rare cell types: it also identified the intermediate monocytes, a cluster of 206 cells. We thus believe we can confidently say that SCISSORS has been shown to accurately and swiftly identify cell types, both common and rare, by considering the variance in gene expression within clusters and judging iterative reclustering using silhouette scores. We put forth that this approach is theoretically advantageous for identifying rare cell populations, rather than attempting to do so at the level of the entire dataset.
+We used the PBMC3k dataset because of 1) its immediate availability to anyone wishing to replicate our results and 2) the validity of its annotations, which allowed us to be confident in the results from SCISSORS, which was able to carve out rare cell groups from larger, broader cell types. In this case, the dendritic cell cluster was composed of 37 cells, and the platelet cluster of just 14 cells. However, SCISSORS isn't just useful for rare cell types: it also identified the intermediate monocytes, a cluster of 191 cells. We thus believe we can confidently say that SCISSORS has been shown to accurately and swiftly identify cell types, both common and rare, by considering the variance in gene expression within clusters and judging iterative reclustering using silhouette scores. We put forth that this approach is theoretically advantageous for identifying rare cell populations, rather than attempting to do so at the level of the entire dataset.
 
 # Save Data & Figures
 
@@ -467,71 +501,63 @@ This part isn't really worth reading; it's just here to prove that all the figur
 We'll create a quick convenience function to help us save the figures.
 
 ```{r}
-saveSCISSORS <- function(plot = NULL, 
-                         name = NULL, 
-                         border = TRUE, 
-                         pub.ready = FALSE) {
+SaveFigure <- function(my.plot = NULL, name = NULL) {
   if (is.null(plot) | is.null(name)) stop("You forgot some arguments.")
-  if (pub.ready) {
-    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC"
-    if (!border) {
-      plot <- plot + 
-              theme(panel.border = element_blank(), 
-                    axis.title = element_blank(), 
-                    legend.position = "none")
-    } else {
-      plot <- plot + 
-              theme(axis.title = element_blank(), 
-                    legend.position = "none")
-    }
-    ggsave(filename = paste0(name, ".pdf"), 
-           device = "pdf", 
-           units = "in",
-           path = dir, 
-           height = 8, 
-           width = 8) 
-  } else {
-    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/PBMC"
-    ggsave(filename = paste0(name, ".pdf"), 
-           device = "pdf", 
-           units = "in",
-           path = dir, 
-           height = 8, 
-           width = 8) 
-  }
+  # save figure as is - w/ axis labels, titles, etc. 
+  dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/PBMC"
+  ggsave(my.plot, 
+         filename = paste0(name, ".pdf"), 
+         device = "pdf", 
+         units = "in",
+         path = dir, 
+         height = 8, 
+         width = 8) 
+  # save "blank" figure w/ no labels, legends, etc.
+  dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC"
+  plot_blank <- my.plot + 
+                theme(axis.title = element_blank(), 
+                      panel.border = element_blank(), 
+                      plot.title = element_blank(), 
+                      plot.subtitle = element_blank(), 
+                      legend.position = "none")
+  ggsave(plot_blank, 
+         filename = paste0(name, ".pdf"), 
+         device = "pdf", 
+         units = "in",
+         path = dir, 
+         height = 8, 
+         width = 8) 
 }
 ```
 
 Lastly, we'll save the figures under `./vignettes/figures/`. 
 
 ```{r}
-saveSCISSORS(plot = p0, name = "Seurat_Clusters", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p1, name = "Seurat_Clusters_FitSNE", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p2, name = "Clust0_Reclust", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p3, name = "Clust1_Reclust", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p4, name = "Clust2_Reclust", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p5, name = "SCISSORS_Clusters", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p6, name = "CD4T_IL7R")
-saveSCISSORS(plot = p7, name = "CD4T_CCR7")
-saveSCISSORS(plot = p8, name = "CD4T_S100A4")
-saveSCISSORS(plot = p9, name = "TH1_IFIT1")
-saveSCISSORS(plot = p10, name = "TH1_IFIT3")
-saveSCISSORS(plot = p11, name = "TH1_IFI6")
-saveSCISSORS(plot = p12, name = "Monocyte_CD14")
-saveSCISSORS(plot = p13, name = "Monocyte_LYZ")
-saveSCISSORS(plot = p14, name = "FCGR3A_Monocyte_FCGR3A")
-saveSCISSORS(plot = p15, name = "FCGR3A_Monocyte_MS4A7")
-saveSCISSORS(plot = p16, name = "Intermediate_Mono_HLADPB1")
-saveSCISSORS(plot = p17, name = "Intermediate_Mono_CD74")
-saveSCISSORS(plot = p18, name = "Intermediate_Mono_HLADRA")
-saveSCISSORS(plot = p19, name = "B_MS4A1")
-saveSCISSORS(plot = p20, name = "CD8T_CD8A")
-saveSCISSORS(plot = p21, name = "NK_NKG7")
-saveSCISSORS(plot = p22, name = "NK_GNLY")
-saveSCISSORS(plot = p23, name = "DC_FCER1A")
-saveSCISSORS(plot = p24, name = "DC_CST3")
-saveSCISSORS(plot = p25, name = "Platelet_PPBP")
-saveSCISSORS(plot = p26, name = "SCISSORS_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(p0, names = "Seurat_Clusters")
+SaveFigure(p1, names = "Seurat_Clusters_FitSNE")
+SaveFigure(p2, names = "Marker_Genes_For_Seurat_Clusters")
+SaveFigure(p3, names = "Monocyte_Cluster_SCISSORS")
+SaveFigure(p4, names = "T_Cluster_SCISSORS")
+SaveFigure(p5, names = "SCISSORS_Clusters_Final")
+SaveFigure(p6, names = "CD4T_IL7R")
+SaveFigure(p7, names = "CD4T_CCR7")
+SaveFigure(p8, names = "CD4T_S100A4")
+SaveFigure(p9, names = "Monocyte_CD14")
+SaveFigure(p10, names = "Monocyte_LYZ")
+SaveFigure(p11, names = "FCGR3A_Monocyte_FCGR3A")
+SaveFigure(p12, names = "FCGR3A_Monocyte_MS4A7")
+SaveFigure(p13, names = "Intermediate_Mono_HLADPB1")
+SaveFigure(p14, names = "Intermediate_Mono_CD74")
+SaveFigure(p15, names = "Intermediate_Mono_HLADRA")
+SaveFigure(p16, names = "B_MS4A1")
+SaveFigure(p17, names = "CD8T_CD8A")
+SaveFigure(p18, names = "NK_NKG7")
+SaveFigure(p19, names = "NK_GNLY")
+SaveFigure(p20, names = "DC_FCER1A")
+SaveFigure(p21, names = "DC_CST3")
+SaveFigure(p22, names = "Platelet_PPBP")
+SaveFigure(p23, names = "SCISSORS_Celltypes_Final")
+SaveFigure(p24, names = "Marker_Genes_For_SCISSORS_Celltypes")
 ```
 
 And of course:
