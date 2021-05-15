@@ -109,21 +109,47 @@ rm(raw_counts)
 We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. The t-SNE embedding looks decent, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. Clusters 5 and 11 are split in two, which we would prefer not to have happen. 
 
 ```{r, warning=FALSE}
-pdac <- PrepareData(pdac, 
-                    n.variable.genes = 4000, 
+pdac <- PrepareData(seurat.object = pdac, 
+                    n.HVG = 4000, 
                     n.PC = 20, 
-                    cell.cycle = TRUE, 
+                    regress.mt = TRUE, 
+                    regress.cc = TRUE, 
                     which.dim.reduc = "tsne", 
-                    initial.resolution = .5, 
+                    initial.resolution = 0.5, 
                     random.seed = 629)
-p0 <- DimPlot(pdac, reduction = "tsne") + 
-      scale_color_manual(values = unname(tableau20())) + 
-      labs(x = "t-SNE 1", y = "t-SNE 2") + 
-      theme_yehlab() + 
-      theme(legend.text = element_text(size = 10)) + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p0
 ```
+
+We compute the distribution of the silhouette scores for each cluster. 
+
+```{r}
+sil_df <- ComputeSilhouetteScores(pbmc, avg = FALSE)
+p0a <- ggplot(sil_df, aes(x = Cluster, y = Score, color = Cluster)) + 
+       geom_quasirandom() + 
+       stat_summary(fun = "mean", geom = "crossbar", width = 0.5, color = "black") + 
+       geom_signif(comparisons = list(c("1", "4"), c("1", "2"), c("0", "1"), c("3", "4"), c("4", "5")), 
+                   test = wilcox.test, map_signif_level = TRUE, step_increase = .075) + 
+       scale_y_continuous(limits = c(min(sil_df$Score), 1.5)) + 
+       scale_color_paletteer_d("ggthemes::Classic_10") + 
+       labs(y = "Silhouette Score", color = "Louvain Clusters") + 
+       theme_minimal() + 
+       theme(panel.grid = element_blank(), 
+             panel.border = element_rect(fill = NA, size = 1), 
+             legend.position = "bottom", 
+             axis.title.x = element_blank()) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+```
+
+
+```{r}
+p0b <- DimPlot(pdac, reduction = "tsne", pt.size = 1.75) + 
+       scale_color_manual(values = unname(tableau20())) + 
+       labs(x = "t-SNE 1", y = "t-SNE 2") + 
+       theme_yehlab() + 
+       theme(legend.text = element_text(size = 10)) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+p0b
+```
+
 
 ## Optimize Dimension Reduction
 

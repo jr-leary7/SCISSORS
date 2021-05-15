@@ -4,10 +4,12 @@
 \alias{ComputeSilhouetteScores}
 \title{Calculate the mean silhouette score of a clustering.}
 \usage{
-ComputeSilhouetteScores(seurat.obj = NULL)
+ComputeSilhouetteScores(seurat.obj = NULL, avg = TRUE)
 }
 \arguments{
 \item{seurat.obj}{The input object for which silhouette score will be computed. Defaults to NULL.}
+
+\item{avg}{Should the average scores for each cluster be returned, or should a dataframe of every observation's cluster identity and score be returned? Defaults to TRUE.}
 }
 \description{
 This function will compute the silhouette score for each cluster identified by \code{Seurat}'s Louvain modularity optimization community detection algorithm.

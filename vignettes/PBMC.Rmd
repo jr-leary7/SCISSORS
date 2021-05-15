@@ -34,13 +34,15 @@ This document will serve as a tutorial for using `SCISSORS`, with the added func
 ## R
 
 ```{r}
-library(dplyr)       # tidy data manipulation
+library(dplyr)       # tidy data 
 library(Seurat)      # single cell infrastructure
 library(ggplot2)     # plots
-library(SCISSORS)    # our package 
+library(SCISSORS)    # reclustering  
+library(ggsignif)    # significance bars
 library(paletteer)   # advanced colors
 library(reticulate)  # Python interface
 library(SeuratData)  # PBMC3k dataset
+library(ggbeeswarm)  # beeswarm plots
 ```
 
 ## Python
@@ -77,14 +79,40 @@ pbmc <- PrepareData(pbmc,
                     random.seed = 629)
 ```
 
+We compute the distribution of the silhouette scores for each cluster. 
+
+```{r}
+sil_df <- ComputeSilhouetteScores(pbmc, avg = FALSE)
+p0a <- ggplot(sil_df, aes(x = Cluster, y = Score, color = Cluster)) + 
+       geom_quasirandom() + 
+       stat_summary(fun = "mean", geom = "crossbar", width = 0.5, color = "black") + 
+       geom_signif(comparisons = list(c("1", "4"), c("1", "2"), c("0", "1"), c("3", "4"), c("4", "5")), 
+                   test = wilcox.test, map_signif_level = TRUE, step_increase = .075) + 
+       scale_y_continuous(limits = c(min(sil_df$Score), 1.5)) + 
+       scale_color_paletteer_d("ggthemes::Classic_10") + 
+       labs(y = "Silhouette Score", color = "Louvain Clusters") + 
+       theme_minimal() + 
+       theme(panel.grid = element_blank(), 
+             panel.border = element_rect(fill = NA, size = 1), 
+             legend.position = "bottom", 
+             axis.title.x = element_blank()) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+```
+
+Clusters 0, 1, and 2 have statistically significantly lower silhouette scores than the other three clusters. We also see a small clump of cells in Cluster 4 that has lower scores than the rest of the cluster. We'll focus on these four clusters when reclustering, as clusters 3 and 5 seem correct. 
+
+```{r}
+p0a
+```
+
 We see clear visual evidence of subclusters. 
 
 ```{r}
-p0 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
-      labs(x = "t-SNE 1", y = "t-SNE 2") + 
-      theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p0
+p0b <- DimPlot(pbmc, pt.size = 1.75, cols = paletteer_d("ggthemes::Classic_10")) + 
+       labs(x = "t-SNE 1", y = "t-SNE 2") + 
+       theme_yehlab() + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p0b
 ```
 
 ## Fit-SNE
@@ -125,10 +153,10 @@ pbmc@reductions$tsne <- CreateDimReducObject(embeddings = embed,
 Visualizing the results shows pretty much the same global structure as with the default t-SNE implementation, albeit rotated a bit, but I like that Fit-SNE's clusters are a bit denser, so we'll use Fit-SNE going forward.
 
 ```{r}
-p1 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
+p1 <- DimPlot(pbmc, pt.size = 1.75, cols = paletteer_d("ggthemes::Classic_10")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p1
 ```
 
@@ -242,14 +270,14 @@ t_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_t,
 Here's what our reclusterings look like. There's clear visual separation between the main clusters and the subgroups we've discovered using `SCISSORS`.
 
 ```{r}
-p3 <- DimPlot(mono_reclust, cols = paletteer_d("ggsci::nrc_npg")) + 
+p3 <- DimPlot(mono_reclust, pt.size = 1.75, cols = paletteer_d("ggsci::nrc_npg")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p4 <- DimPlot(t_reclust, cols = paletteer_d("ggsci::nrc_npg")) + 
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p4 <- DimPlot(t_reclust, pt.size = 1.75, cols = paletteer_d("ggsci::nrc_npg")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p3
 p4
 ```
@@ -259,10 +287,10 @@ Next, we'll reintegrate our new clusters into our original `Seurat` object - thi
 ```{r, message=FALSE}
 pbmc <- IntegrateSubclusters(original.object = pbmc, 
                              reclust.results = list(mono_reclust, t_reclust))
-p5 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_20")) + 
+p5 <- DimPlot(pbmc, pt.size = 1.75, cols = paletteer_d("ggthemes::Classic_10")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p5
 ```
 
@@ -275,17 +303,17 @@ Now that we've determined our subpopulations, we can assign cell types to each c
 We can quickly identify cluster 7 as the naive CD4+ T cells, and cluster 8 as the memory CD4+ population.
 
 ```{r}
-p6 <- FeaturePlot(pbmc, features = "IL7R") + 
+p6 <- FeaturePlot(pbmc, pt.size = 1.75, features = "IL7R") + 
       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
       theme_yehlab() + 
       NoLegend() + 
       theme(axis.title = element_blank())
-p7 <- FeaturePlot(pbmc, features = "CCR7") + 
+p7 <- FeaturePlot(pbmc, pt.size = 1.75, features = "CCR7") + 
       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
       theme_yehlab()  + 
       NoLegend() + 
       theme(axis.title = element_blank())
-p8 <- FeaturePlot(pbmc, features = "S100A4") + 
+p8 <- FeaturePlot(pbmc, pt.size = 1.75, features = "S100A4") + 
       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
       theme_yehlab() + 
       NoLegend() + 
@@ -298,12 +326,12 @@ p8 <- FeaturePlot(pbmc, features = "S100A4") +
 Cluster 2 clearly houses our CD14+ monocytes.
 
 ```{r}
-p9 <- FeaturePlot(pbmc, features = "CD14") + 
+p9 <- FeaturePlot(pbmc, pt.size = 1.75, features = "CD14") + 
       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
       theme_yehlab() + 
       NoLegend() + 
       theme(axis.title = element_blank())
-p10 <- FeaturePlot(pbmc, features = "LYZ") + 
+p10 <- FeaturePlot(pbmc, pt.size = 1.75, features = "LYZ") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -316,12 +344,12 @@ p10 <- FeaturePlot(pbmc, features = "LYZ") +
 The FCGR3A+ monocytes are positioned near the CD14+ monocytes in cluster 4. Note: these are also known as CD16+ monocytes. 
 
 ```{r}
-p11 <- FeaturePlot(pbmc, features = "FCGR3A") + 
+p11 <- FeaturePlot(pbmc, pt.size = 1.75, features = "FCGR3A") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p12 <- FeaturePlot(pbmc, features = "MS4A7") + 
+p12 <- FeaturePlot(pbmc, pt.size = 1.75, features = "MS4A7") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -334,17 +362,17 @@ p12 <- FeaturePlot(pbmc, features = "MS4A7") +
 Lastly, it follows that between the CD14+ and FCGR3A+ monocytes are the intermediate monocytes, which [are characterized by expression of CD14 and CD16, along with S100A8, CD74, HLA-DPB1, etc ](https://www.frontiersin.org/articles/10.3389/fimmu.2019.02035/full#B3). 
 
 ```{r}
-p13 <- FeaturePlot(pbmc, features = "HLA-DPB1") + 
+p13 <- FeaturePlot(pbmc, pt.size = 1.75, features = "HLA-DPB1") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p14 <- FeaturePlot(pbmc, features = "CD74") + 
+p14 <- FeaturePlot(pbmc, pt.size = 1.75, features = "CD74") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p15 <- FeaturePlot(pbmc, features = "HLA-DRA") + 
+p15 <- FeaturePlot(pbmc, pt.size = 1.75, features = "HLA-DRA") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -358,7 +386,7 @@ p15 <- FeaturePlot(pbmc, features = "HLA-DRA") +
 Expression of MS4A1 allows us to isolate the B cells in cluster 0.
 
 ```{r}
-p16 <- FeaturePlot(pbmc, features = "MS4A1") + 
+p16 <- FeaturePlot(pbmc, pt.size = 1.75, features = "MS4A1") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -371,7 +399,7 @@ p16 / p5
 The canonical marker CD8A swiftly identifies our CD8+ T cells in cluster 9.
 
 ```{r}
-p17 <- FeaturePlot(pbmc, features = "CD8A") + 
+p17 <- FeaturePlot(pbmc, pt.size = 1.75, features = "CD8A") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -384,12 +412,12 @@ p17 / p5
 We can use NKG7 and GNLY to isolate the NK cells in cluster 1.
 
 ```{r}
-p18 <- FeaturePlot(pbmc, features = "NKG7") + 
+p18 <- FeaturePlot(pbmc, pt.size = 1.75, features = "NKG7") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p19 <- FeaturePlot(pbmc, features = "GNLY") + 
+p19 <- FeaturePlot(pbmc, pt.size = 1.75, features = "GNLY") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -402,12 +430,12 @@ p19 <- FeaturePlot(pbmc, features = "GNLY") +
 The dendritic cell group is defined by expression of FCER1A and CST3 in cluster 5.
 
 ```{r}
-p20 <- FeaturePlot(pbmc, features = "FCER1A") + 
+p20 <- FeaturePlot(pbmc, pt.size = 1.75, features = "FCER1A") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p21 <- FeaturePlot(pbmc, features = "CST3") + 
+p21 <- FeaturePlot(pbmc, pt.size = 1.75, features = "CST3") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -420,7 +448,7 @@ p21 <- FeaturePlot(pbmc, features = "CST3") +
 The tiny platelet population of `r sum(pbmc$seurat_clusters == 6)` cells can be identified by its expression of PPBP in cluster 6.
 
 ```{r}
-p22 <- FeaturePlot(pbmc, features = "PPBP") + 
+p22 <- FeaturePlot(pbmc, pt.size = 1.75, features = "PPBP") + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
@@ -450,9 +478,9 @@ Idents(pbmc) <- "label"
 We visualize the final cells labels for our 11 clusters.  
 
 ```{r}
-p23 <- DimPlot(pbmc, cols = paletteer_d("ggthemes::Classic_10")) + 
+p23 <- DimPlot(pbmc, pt.size = 1.75, cols = paletteer_d("ggthemes::Classic_10")) + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 3, override.aes = list(size = 3))) + 
+       guides(color = guide_legend(nrow = 3, override.aes = list(size = 4))) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = NULL)
 p23
 ```
@@ -541,7 +569,8 @@ SaveFigure <- function(my.plot = NULL, name = NULL) {
 Lastly, we'll save the figures under `./vignettes/figures/`. 
 
 ```{r}
-SaveFigure(p0, name = "Seurat_Clusters")
+SaveFigure(p0a, name = "Seurat_Clusters_Silhouettes")
+SaveFigure(p0b, name = "Seurat_Clusters")
 SaveFigure(p1, name = "Seurat_Clusters_FitSNE")
 SaveFigure(p2, name = "Marker_Genes_For_Seurat_Clusters")
 SaveFigure(p3, name = "Monocyte_Cluster_SCISSORS")

@@ -63,7 +63,7 @@ PrepareData <- function(seurat.object = NULL,
                                         g2m.features = cc.genes.updated.2019$g2m.genes,
                                         set.ident = FALSE)
       seurat.object$CC_difference <- seurat.object$S.Score - seurat.object$G2M.Score
-      regression_vars <- c(regression_vars, "S.Score", "G2M.score")
+      regression_vars <- c(regression_vars, "CC_difference")
     }
     # add % mitochondrial DNA
     if (regress.mt) {
