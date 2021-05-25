@@ -36,9 +36,7 @@ library(magrittr)        # piping
 library(SCISSORS)        # reclustering  
 library(ggsignif)        # significance bars
 library(paletteer)       # advanced colors
-library(latex2exp)       # LaTeX
 library(reticulate)      # Python interface
-library(ggbeeswarm)      # beeswarm plots
 library(SeuratData)      # PBMC3k dataset
 library(SAFEclustering)  # the SAFE algorithm
 ```
@@ -160,23 +158,38 @@ clust_sils <- data.frame(Method = c(rep("SCISSORS", 2695),
 clust_sils %<>% mutate(Method = factor(Method,levels = c("GiniClust3", "Seurat", "SAFE", "SCISSORS"))) 
 ```
 
-We see that our method gives the highest median silhouette score over the `Seurat` vignette's results, `GiniClust3`, and `SAFE`. 
+We see that our method gives the highest median silhouette score over the `Seurat` vignette's results, `GiniClust3`, and `SAFE`; the differences between `SCISSORS` and the other methods are statistically significant 
 
 ```{r}
-ggplot(clust_sils, aes(x = Method, y = Silhouette, fill = Method)) + 
-  geom_violin(draw_quantiles = 0.5) +
-  geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .1, 
-              comparisons = list(c("SCISSORS", "GiniClust3"), c("SCISSORS", "Seurat"), c("SCISSORS", "SAFE"))) + 
-  scale_fill_paletteer_d("ggsci::default_locuszoom") + 
-  scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1)) + 
-  labs(y = "Silhouette Score") + 
-  theme(panel.grid = element_blank(), 
-        panel.background = element_blank(), 
-        panel.border = element_rect(fill = NA, size = 1), 
-        axis.title.x = element_blank(), 
-        axis.title.y = element_text(size = 22), 
-        legend.title = element_text(size = 22), 
-        legend.text = element_text(size = 16), 
-        axis.text.y = element_text(size = 16), 
-        axis.text.x = element_text(size = 16))
+p1 <- ggplot(clust_sils, aes(x = Method, y = Silhouette, fill = Method)) + 
+      geom_violin(draw_quantiles = 0.5, color = "black") +
+      geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .1, size = 1.2, textsize = 8, 
+                  comparisons = list(c("SCISSORS", "GiniClust3"), 
+                                     c("SCISSORS", "Seurat"), 
+                                     c("SCISSORS", "SAFE"))) + 
+      scale_fill_paletteer_d("ggsci::default_locuszoom") + 
+      scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1, 1.45)) + 
+      labs(y = "Silhouette Score") + 
+      theme(panel.grid = element_blank(), 
+            panel.background = element_blank(), 
+            panel.border = element_rect(fill = NA, size = 1), 
+            axis.title.x = element_blank(), 
+            axis.title.y = element_text(size = 22), 
+            legend.title = element_text(size = 22), 
+            legend.text = element_text(size = 16), 
+            axis.text.y = element_text(size = 16), 
+            axis.text.x = element_text(size = 16))
+p1
+```
+
+# Save Figure 
+
+```{r}
+ggsave(p1, 
+       filename = "Method_Comparison.pdf", 
+       device = "pdf", 
+       units = "in",
+       path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC", 
+       height = 8, 
+       width = 8) 
 ```
