@@ -1,0 +1,182 @@
+---
+title: "A Comparison of Clustering Methods Using the Silhouette Score"
+author: "Jack Leary"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: yeti
+    highlight: tango
+    code_folding: show
+    code_download: true
+    toc: true
+    toc_float:
+      collpased: false
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      fig.align = "center")
+set.seed(629)
+reticulate::use_virtualenv("~/Desktop/Python/science/venv/", required = TRUE)
+```
+
+# Libraries
+
+## R
+
+```{r}
+library(dplyr)           # tidy data 
+library(Seurat)          # single cell infrastructure
+library(ggplot2)         # plots
+library(cluster)         # clustering tools
+library(magrittr)        # piping
+library(SCISSORS)        # reclustering  
+library(ggsignif)        # significance bars
+library(paletteer)       # advanced colors
+library(latex2exp)       # LaTeX
+library(reticulate)      # Python interface
+library(ggbeeswarm)      # beeswarm plots
+library(SeuratData)      # PBMC3k dataset
+library(SAFEclustering)  # the SAFE algorithm
+```
+
+## Import libraries
+
+```{python}
+import anndata           # annotated single cell data
+import numpy as np       # matrix algebra
+import pandas as pd      # DataFrames
+import scanpy as sc      # ScanPy
+import giniclust3 as gc  # GiniClust3
+```
+
+# Data 
+
+First we'll read in both our `SCISSORS`-processed PBMC3k dataset as well as the same data [as processed by the Satija Lab](https://satijalab.org/seurat/articles/pbmc3k_tutorial.html). We also load in a blank version of the object and pre-process it exactly as we did the `SCISSORS`-processed object. 
+
+```{r}
+pbmc_SCISSORS <- readRDS("~/Desktop/Data/pbmc3k.Rds")
+sils_SCISSORS <- ComputeSilhouetteScores(pbmc_SCISSORS, avg = FALSE)
+pbmc_Seurat <- pbmc3k.final %>% subset(subset = nFeature_RNA < 2500)
+pbmc <- LoadData("pbmc3k") %>% 
+        subset(subset = nFeature_RNA < 2500) %>% 
+        PrepareData(n.HVG = 4000, 
+                    regress.cc = FALSE, 
+                    regress.mt = FALSE, 
+                    n.PC = 15, 
+                    which.dim.reduc = "tsne",
+                    initial.resolution = .4, 
+                    random.seed = 629)
+sils_satija <- ComputeSilhouetteScores(pbmc_Seurat, avg = FALSE)
+```
+
+# Analysis 
+
+## SAFEclustering
+
+```{r}
+SAFE_res <- individual_clustering(inputTags = data.frame(GetAssayData(pbmc, slot = "counts")), 
+                                  mt_filter = FALSE, 
+                                  nGene_filter = FALSE, 
+                                  SC3 = TRUE, 
+                                  gene_filter = FALSE, 
+                                  CIDR = FALSE, 
+                                  nPC.seurat = 15,
+                                  Seurat = TRUE, 
+                                  tSNE = TRUE, 
+                                  low.genes = 200, 
+                                  SEED = 629)
+clust_ensembl <- SAFE(cluster_results = SAFE_res, 
+                      program.dir = "~/Downloads/SAFE", 
+                      HGPA = TRUE, 
+                      MCLA = TRUE, 
+                      CSPA = TRUE, 
+                      SEED = 629)
+pbmc@meta.data$SAFE_clust <- clust_ensembl$optimal_clustering
+cos_dist<- CosineDist(input = Embeddings(pbmc, "pca"))
+sils_safe <- silhouette(dist = cos_dist_safe, x = clust_ensembl$optimal_clustering)
+```
+
+# GiniClust3
+
+Here we'll use the `GiniClust3` Python library to identify rare cell clusters. 
+
+```{r}
+counts <- GetAssayData(pbmc, assay = "SCT", slot = "counts") %>% 
+          as.data.frame()
+```
+
+## Cluster Cells
+
+We bring the cells into Python. 
+
+```{python, eval=FALSE}
+counts = r.counts 
+adata = anndata.AnnData(X=counts.T)
+sc.pp.normalize_per_cell(adata, counts_per_cell_after=1e4)
+```
+
+Next we process them using `GiniClust` and `FanoClust`, and the consensus between the two. We write the data to a file that we'll later read into R. 
+
+```{python}
+# GiniIndexClust
+gc.gini.calGini(adata)
+adataGini = gc.gini.clusterGini(adata, neighbors=5)
+# FanoClust
+gc.fano.calFano(adata)
+adataFano = gc.fano.clusterFano(adata)
+# consensus cluster
+consensusCluster = {}
+consensusCluster['giniCluster'] = np.array(adata.obs['rare'].values.tolist())
+consensusCluster['fanoCluster'] = np.array(adata.obs['fano'].values.tolist())
+gc.consensus.generateMtilde(consensusCluster)
+gc.consensus.clusterMtilde(consensusCluster)
+```
+
+## Import GiniCluster Results to R 
+
+```{r, eval=FALSE}
+gini_clusts <- as.integer(py$consensusCluster$finalCluster)
+pbmc@meta.data$gini_clust <- gini_clusts
+sils_gini <- cluster::silhouette(dist = cos_dist, x = gini_clusts)
+```
+
+# Compare Results
+
+We build a dataframe of the results that we'll pass into `ggplot2`. 
+
+```{r}
+clust_sils <- data.frame(Method = c(rep("SCISSORS", 2695), 
+                                    rep("Seurat", 2638), 
+                                    rep("SAFE", 2695), 
+                                    rep("GiniClust3", 2695)), 
+                         Silhouette = c(sils_SCISSORS$Score, 
+                                        sils_satija$Score, 
+                                        sils_safe[, 3], 
+                                        sils_gini[, 3]))
+clust_sils %<>% mutate(Method = factor(Method,levels = c("GiniClust3", "Seurat", "SAFE", "SCISSORS"))) 
+```
+
+We see that our method gives the highest median silhouette score over the `Seurat` vignette's results, `GiniClust3`, and `SAFE`. 
+
+```{r}
+ggplot(clust_sils, aes(x = Method, y = Silhouette, fill = Method)) + 
+  geom_violin(draw_quantiles = 0.5) +
+  geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .1, 
+              comparisons = list(c("SCISSORS", "GiniClust3"), c("SCISSORS", "Seurat"), c("SCISSORS", "SAFE"))) + 
+  scale_fill_paletteer_d("ggsci::default_locuszoom") + 
+  scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1)) + 
+  labs(y = "Silhouette Score") + 
+  theme(panel.grid = element_blank(), 
+        panel.background = element_blank(), 
+        panel.border = element_rect(fill = NA, size = 1), 
+        axis.title.x = element_blank(), 
+        axis.title.y = element_text(size = 22), 
+        legend.title = element_text(size = 22), 
+        legend.text = element_text(size = 16), 
+        axis.text.y = element_text(size = 16), 
+        axis.text.x = element_text(size = 16))
+```

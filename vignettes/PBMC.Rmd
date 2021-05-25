@@ -40,6 +40,7 @@ library(ggplot2)     # plots
 library(SCISSORS)    # reclustering  
 library(ggsignif)    # significance bars
 library(paletteer)   # advanced colors
+library(latex2exp)   # LaTeX
 library(reticulate)  # Python interface
 library(SeuratData)  # PBMC3k dataset
 library(ggbeeswarm)  # beeswarm plots
@@ -90,7 +91,8 @@ p0a <- ggplot(sil_df, aes(x = Cluster, y = Score, color = Cluster)) +
                    test = wilcox.test, map_signif_level = TRUE, step_increase = .075) + 
        scale_y_continuous(limits = c(min(sil_df$Score), 1.5)) + 
        scale_color_paletteer_d("ggthemes::Classic_10") + 
-       labs(y = "Silhouette Score", color = "Louvain Clusters") + 
+       labs(y = "Silhouette Score", color = "Louvain Clusters", 
+            caption = TeX(paste0("$\\bar{S}$ = ", round(mean(sil_df$Score), 2)))) + 
        theme_minimal() + 
        theme(panel.grid = element_blank(), 
              panel.border = element_rect(fill = NA, size = 1), 

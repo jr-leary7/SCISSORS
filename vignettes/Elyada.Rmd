@@ -23,7 +23,6 @@ knitr::opts_chunk$set(echo = TRUE,
                       results = "hold", 
                       fig.align = "center")
 reticulate::use_virtualenv("~/Desktop/Python/science/venv/", required = TRUE)
-set.seed(629)
 ```
 
 # Introduction
@@ -45,8 +44,10 @@ library(decoderr)    # de novo deconvolution
 library(SCISSORS)    # our package
 library(mixtools)    # Gaussian mixture model estimation
 library(patchwork)   # plot grids
+library(latex2exp)   # LaTeX
 library(paletteer)   # more color palettes
 library(CONICSmat)   # CNV estimation
+library(ggbeeswarm)  # beeswarm plots
 library(reticulate)  # Python interface
 library(wesanderson) # even more color palettes
 ```
@@ -106,14 +107,14 @@ rm(raw_counts)
 
 # Preprocessing
 
-We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. The t-SNE embedding looks decent, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. Clusters 5 and 11 are split in two, which we would prefer not to have happen. 
+We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. 
 
 ```{r, warning=FALSE}
 pdac <- PrepareData(seurat.object = pdac, 
                     n.HVG = 4000, 
                     n.PC = 20, 
                     regress.mt = TRUE, 
-                    regress.cc = TRUE, 
+                    regress.cc = FALSE, 
                     which.dim.reduc = "tsne", 
                     initial.resolution = 0.5, 
                     random.seed = 629)
@@ -122,34 +123,39 @@ pdac <- PrepareData(seurat.object = pdac,
 We compute the distribution of the silhouette scores for each cluster. 
 
 ```{r}
-sil_df <- ComputeSilhouetteScores(pbmc, avg = FALSE)
+sil_df <- ComputeSilhouetteScores(pdac, avg = FALSE)
 p0a <- ggplot(sil_df, aes(x = Cluster, y = Score, color = Cluster)) + 
        geom_quasirandom() + 
        stat_summary(fun = "mean", geom = "crossbar", width = 0.5, color = "black") + 
-       geom_signif(comparisons = list(c("1", "4"), c("1", "2"), c("0", "1"), c("3", "4"), c("4", "5")), 
-                   test = wilcox.test, map_signif_level = TRUE, step_increase = .075) + 
-       scale_y_continuous(limits = c(min(sil_df$Score), 1.5)) + 
-       scale_color_paletteer_d("ggthemes::Classic_10") + 
-       labs(y = "Silhouette Score", color = "Louvain Clusters") + 
+       scale_color_paletteer_d("ggthemes::Classic_20") + 
+       labs(y = "Silhouette Score", color = "Louvain Clusters", 
+            caption = TeX(paste0("$\\bar{S}$ = ", round(mean(sil_df$Score), 2)))) + 
        theme_minimal() + 
        theme(panel.grid = element_blank(), 
              panel.border = element_rect(fill = NA, size = 1), 
              legend.position = "bottom", 
-             axis.title.x = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+             axis.title.x = element_blank(), 
+             plot.subtitle = element_text(face = "italic", size = 10)) + 
+       guides(color = guide_legend(nrow = 2, override.aes = list(size = 4)))
 ```
 
+Looking at the silhouette score distribution for each cluster, we see that Cluster 4 seems to have the best fit, and Clusters 2, 5, & 11 seem to have pretty poor fits. 
 
 ```{r}
-p0b <- DimPlot(pdac, reduction = "tsne", pt.size = 1.75) + 
-       scale_color_manual(values = unname(tableau20())) + 
+p0a
+```
+
+Let's check out the t-SNE embedding. It looks decent, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. Clusters 5 and 11 are split in two, which mirrors what we saw in the previous plot, i.e. that those two clusters are not well fit. 
+
+```{r}
+p0b <- DimPlot(pdac, reduction = "tsne", pt.size = 0.75) + 
+       scale_color_paletteer_d("ggthemes::Classic_20") + 
        labs(x = "t-SNE 1", y = "t-SNE 2") + 
        theme_yehlab() + 
        theme(legend.text = element_text(size = 10)) + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p0b
 ```
-
 
 ## Optimize Dimension Reduction
 
@@ -170,8 +176,8 @@ pdac <- RunUMAP(pdac,
                 metric = "cosine", 
                 seed.use = 629, 
                 verbose = FALSE)
-p1 <- DimPlot(pdac, reduction = "umap") + 
-      scale_color_manual(values = unname(tableau20())) + 
+p1 <- DimPlot(pdac, reduction = "umap", pt.size = 0.75) + 
+      scale_color_paletteer_d("ggthemes::Classic_20") + 
       labs(x = "UMAP 1", y = "UMAP 2") + 
       theme_yehlab() +
       theme(legend.text = element_text(size = 10)) + 
@@ -209,8 +215,8 @@ pdac@reductions$fitsne <- CreateDimReducObject(embeddings = embed,
                                                key = "FitSNE_", 
                                                assay = "SCT", 
                                                global = TRUE)
-p2 <- DimPlot(pdac, reduction = "fitsne") + 
-      scale_color_manual(values = unname(tableau20())) + 
+p2 <- DimPlot(pdac, reduction = "fitsne", pt.size = 0.75) + 
+      scale_color_paletteer_d("ggthemes::Classic_20") + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() +
       theme(legend.text = element_text(size = 10)) + 
@@ -238,8 +244,8 @@ pdac@reductions$fitsne_multi <- CreateDimReducObject(embeddings = embed_multi,
                                                      key = "FitSNE_", 
                                                      assay = "SCT", 
                                                      global = TRUE)
-p3 <- DimPlot(pdac, reduction = "fitsne_multi") + 
-      scale_color_manual(values = unname(tableau20())) + 
+p3 <- DimPlot(pdac, reduction = "fitsne_multi", pt.size = 0.75) + 
+      scale_color_paletteer_d("ggthemes::Classic_20") +  
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab()+
       theme(legend.text = element_text(size = 10)) + 
@@ -250,9 +256,9 @@ p3
 Finally, we'll use a multiscale kernel to represent the data in the high-dimensional space instead of the default Gaussian. This in tandem with the multiple perplexity values will preserve as much as possible of both local and global structure.
 
 ```{python}
-affin_multi = Multiscale(pc_df, perplexities=[30, 200], metric='cosine', random_state=629)
+affin_multi = Multiscale(pc_df, perplexities=[30, 100], metric='cosine', random_state=629)
 tsne3 = TSNEEmbedding(init, affin_multi, negative_gradient_method='fft')
-embed6 = tsne3.optimize(n_iter=450, exaggeration=12, momentum=0.6)
+embed6 = tsne3.optimize(n_iter=250, exaggeration=12, momentum=0.6)
 embed7 = embed6.optimize(n_iter=1200, exaggeration=1, momentum=0.8)
 ```
 
@@ -265,9 +271,8 @@ pdac@reductions$fitsne_kern<- CreateDimReducObject(embeddings = embed_kern,
                                                    key = "FitSNE_", 
                                                    assay = "SCT", 
                                                    global = TRUE)
-
-p4 <- DimPlot(pdac, reduction = "fitsne_kern") +
-      scale_color_manual(values = unname(tableau20())) + 
+p4 <- DimPlot(pdac, reduction = "fitsne_kern", pt.size = 0.75) +
+      scale_color_paletteer_d("ggthemes::Classic_20") + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() +
       theme(legend.text = element_text(size = 10)) + 
@@ -314,7 +319,7 @@ pdac$SingleR.labels.sc <- case_when(pdac$SingleR.labels.sc == "acinar" ~ "Acinar
 We can see that there's a large immune population, as well as smaller ductal, fibroblast (denoted activated and quiescent stellate in the reference dataset), and acinar groups. These broad cell types line up with what we expected to see given the authors' original cell cluster annotations. 
 
 ```{r}
-p5 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.sc") + 
+p5 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.sc", pt.size = 0.75) + 
       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
@@ -348,7 +353,7 @@ pdac$SingleR.labels.bulk <- case_when(pdac$SingleR.labels.bulk == "B_cell" ~ "B"
 The bulk reference gives us somewhat more granular labels for the immune cells, and confirms the identities of the ductal / epithelial and stroma clusters. We see that the clusters denoted quiescent stellate by the single cell reference are here labeled as endothelial cells, and the activated stellate cells are confirmed to be fibroblasts.  
 
 ```{r}
-p6 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk") + 
+p6 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk", pt.size = 0.75) + 
       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
@@ -408,7 +413,7 @@ We add the normal vs. malignant cell labels in to our `Seurat` object's metadata
 normal <- which(hist1 == 2)
 malignant <- which(hist1 != 2)
 pdac@meta.data$malig <- ifelse(rownames(pdac@meta.data) %in% names(normal), "Normal", "Malignant")
-p7 <- DimPlot(pdac, reduction = "tsne", group.by = "malig") + 
+p7 <- DimPlot(pdac, reduction = "tsne", group.by = "malig", pt.size = 0.75) + 
       scale_color_manual(values = wes_palette("Zissou1", n = 5)[c(5, 2)]) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
@@ -446,7 +451,7 @@ pdac <- AddMetaData(pdac, sample_wts$ActivatedStroma, "act_stroma")
 The basal weights are highest in a subcluster of the ductal group identified through `SingleR`. This is interesting as the authors did not find evidence of the basal subtype in their paper. 
 
 ```{r}
-p8 <- FeaturePlot(pdac, reduction = "tsne", features = "basal") + 
+p8 <- FeaturePlot(pdac, reduction = "tsne", features = "basal", pt.size = 0.75) + 
       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
@@ -460,7 +465,7 @@ p8
 The classical weights are highest in another subcluster of the ductal cluster, and cells with high classical weights do not collocate with those that have high basal weights. The putative classical and basal PDAC cells also align closely with the cells identified through `CONCISmat` as malignant. 
 
 ```{r}
-p9 <- FeaturePlot(pdac, reduction = "tsne", features = "classical") + 
+p9 <- FeaturePlot(pdac, reduction = "tsne", features = "classical", pt.size = 0.75) + 
       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
@@ -474,7 +479,7 @@ p9
 The cluster identified through `SingleR` as acinar cells is the only cluster with high exocrine pancreas weights. 
 
 ```{r}
-p10 <- FeaturePlot(pdac, reduction = "tsne", features = "exocrine") +
+p10 <- FeaturePlot(pdac, reduction = "tsne", features = "exocrine", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -488,7 +493,7 @@ p10
 No cells have high endocrine pancreas weights. 
 
 ```{r}
-p11 <- FeaturePlot(pdac, reduction = "tsne", features = "endocrine") +
+p11 <- FeaturePlot(pdac, reduction = "tsne", features = "endocrine", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -502,7 +507,7 @@ p11
 Once again, we confirm the largeness of the immune cell population in this dataset. 
 
 ```{r}
-p12 <- FeaturePlot(pdac, reduction = "tsne", features = "immune") + 
+p12 <- FeaturePlot(pdac, reduction = "tsne", features = "immune", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -516,7 +521,7 @@ p12
 Cells with high normal stroma stroma weights are located in the cluster identified by `SingleR` as being composed of endothelial cells. 
 
 ```{r}
-p13 <- FeaturePlot(pdac, reduction = "tsne", features = "norm_stroma") +
+p13 <- FeaturePlot(pdac, reduction = "tsne", features = "norm_stroma", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -530,7 +535,7 @@ p13
 Cells with high activated stroma weights are also located in the fibroblast cluster, and do not intersect with the cells that have high normal stroma scores. This indicates that `SCISSORS` will most likely perform well on the fibroblast cluster and be able to quickly tease out the cell subtypes.
 
 ```{r}
-p14 <- FeaturePlot(pdac, reduction = "tsne", features = "act_stroma") +
+p14 <- FeaturePlot(pdac, reduction = "tsne", features = "act_stroma", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -548,25 +553,25 @@ Now that we have rough labels from `SingleR`, CNVs from `CONICSmat`, and compart
 The fibroblast marker genes provided by Elyada *et al* match the `SingleR` results defining cluster 8 as containing fibroblasts. 
 
 ```{r}
-p15 <- FeaturePlot(pdac, reduction = "tsne", features = "COL1A1") +
+p15 <- FeaturePlot(pdac, reduction = "tsne", features = "COL1A1", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "COL1A1") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p16 <- FeaturePlot(pdac, reduction = "tsne", features = "COL3A1") +
+p16 <- FeaturePlot(pdac, reduction = "tsne", features = "COL3A1", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "COL3A1") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p17 <- FeaturePlot(pdac, reduction = "tsne", features = "LUM") + 
+p17 <- FeaturePlot(pdac, reduction = "tsne", features = "LUM", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "LUM") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p18 <- FeaturePlot(pdac, reduction = "tsne", features = "DCN") + 
+p18 <- FeaturePlot(pdac, reduction = "tsne", features = "DCN", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "DCN") + 
        theme_yehlab() + 
