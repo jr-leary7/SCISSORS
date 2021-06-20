@@ -27,7 +27,7 @@ reticulate::use_virtualenv("~/Desktop/Python/science/venv/", required = TRUE)
 
 # Introduction
 
-In 2017, the Tuveson Lab at Cold Spring Harbor Cancer Center published a paper written by Elyada *et al* (2017) that detailed the discovery of cancer-associated fibroblasts (CAFs) in mice. The subtypes were then validated in human samples affected with PDAC in a subsequent paper released in 2019. Here we will use SCISSORS to identify the CAF subtypes within the larger fibroblast population, immune cell types within broadly-defined immune clusters, and ductal & PDAC subtypes within the ductal group. 
+In 2017, the Tuveson Lab at Cold Spring Harbor Cancer Center published a paper written by Elyada *et al* that detailed the discovery of cancer-associated fibroblasts (CAFs) in mice. The subtypes were then validated in human samples affected with PDAC in a subsequent paper released in 2019. Here we will use SCISSORS to identify the CAF subtypes within the larger stroma population, fine-grained immune cell types within broadly-defined immune clusters, and ductal & PDAC subtypes within the ductal group. 
 
 # Libraries
 
