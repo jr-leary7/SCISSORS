@@ -49,6 +49,7 @@ library(paletteer)   # more color palettes
 library(CONICSmat)   # CNV estimation
 library(ggbeeswarm)  # beeswarm plots
 library(reticulate)  # Python interface
+library(kableExtra)  # pretty tables
 library(wesanderson) # even more color palettes
 ```
 
@@ -113,47 +114,50 @@ We run the typical single cell pre-processing steps on our cells - normalization
 pdac <- PrepareData(seurat.object = pdac, 
                     n.HVG = 4000, 
                     n.PC = 20, 
-                    regress.mt = TRUE, 
+                    regress.mt = FALSE, 
                     regress.cc = FALSE, 
                     which.dim.reduc = "tsne", 
-                    initial.resolution = 0.5, 
+                    initial.resolution = 0.4, 
                     random.seed = 629)
+```
+
+Let's check out the t-SNE embedding. It looks decent, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. 
+
+```{r}
+p0a <- DimPlot(pdac, reduction = "tsne", pt.size = 0.75) + 
+       scale_color_paletteer_d("ggthemes::Classic_20") + 
+       labs(x = "t-SNE 1", y = "t-SNE 2") + 
+       theme_yehlab() + 
+       theme(legend.text = element_text(size = 10)) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p0a
 ```
 
 We compute the distribution of the silhouette scores for each cluster. 
 
 ```{r}
 sil_df <- ComputeSilhouetteScores(pdac, avg = FALSE)
-p0a <- ggplot(sil_df, aes(x = Cluster, y = Score, color = Cluster)) + 
-       geom_quasirandom() + 
-       stat_summary(fun = "mean", geom = "crossbar", width = 0.5, color = "black") + 
-       scale_color_paletteer_d("ggthemes::Classic_20") + 
-       labs(y = "Silhouette Score", color = "Louvain Clusters", 
-            caption = TeX(paste0("$\\bar{S}$ = ", round(mean(sil_df$Score), 2)))) + 
+p0b <- ggplot(sil_df, aes(x = Cluster, y = Score, fill = Cluster)) + 
+       geom_violin(draw_quantiles = .5, color = "black", scale = "width") + 
+       scale_fill_paletteer_d("ggthemes::Classic_20") + 
+       labs(y = "Silhouette Score", fill = "Louvain\nClusters") + 
        theme_minimal() + 
        theme(panel.grid = element_blank(), 
              panel.border = element_rect(fill = NA, size = 1), 
-             legend.position = "bottom", 
+             legend.position = "right", 
+             legend.direction = "vertical", 
              axis.title.x = element_blank(), 
-             plot.subtitle = element_text(face = "italic", size = 10)) + 
-       guides(color = guide_legend(nrow = 2, override.aes = list(size = 4)))
+             legend.title = element_text(size = 22), 
+             legend.text = element_text(size = 16), 
+             axis.title.y = element_text(size = 22), 
+             axis.text = element_text(size = 16), 
+             axis.ticks = element_line(), 
+             plot.subtitle = element_text(face = "italic", size = 10))
 ```
 
-Looking at the silhouette score distribution for each cluster, we see that Cluster 4 seems to have the best fit, and Clusters 2, 5, & 11 seem to have pretty poor fits. 
+Looking at the silhouette score distribution for each cluster, we see that Cluster 10 seems to have the best fit, and Clusters 1, 2, & 9 seem to have pretty poor fits. 
 
 ```{r}
-p0a
-```
-
-Let's check out the t-SNE embedding. It looks decent, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. Clusters 5 and 11 are split in two, which mirrors what we saw in the previous plot, i.e. that those two clusters are not well fit. 
-
-```{r}
-p0b <- DimPlot(pdac, reduction = "tsne", pt.size = 0.75) + 
-       scale_color_paletteer_d("ggthemes::Classic_20") + 
-       labs(x = "t-SNE 1", y = "t-SNE 2") + 
-       theme_yehlab() + 
-       theme(legend.text = element_text(size = 10)) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
 p0b
 ```
 
@@ -163,7 +167,7 @@ I think the two-dimensional visualization of the cells could be improved. We'll 
 
 ### UMAP
 
-It seems like UMAP does a good job of clearly separating our clusters and preserving the global structure of the data. However,  difficult to see local structure within some of the clusters due to their density, and cluster 5 is split across the 2D UMAP space.
+It seems like UMAP does a good job of clearly separating our clusters and preserving the global structure of the data. However, it's difficult to see local structure within some of the clusters due to their density.
 
 ```{r}
 pdac <- RunUMAP(pdac, 
@@ -199,14 +203,14 @@ pc_df <- Embeddings(pdac, reduction = "pca")
 # import data
 pc_df = np.array(r.pc_df)
 # run Fit-SNE
-affin = PerplexityBasedNN(pc_df, perplexity=50, metric='cosine', random_state=629)
+affin = PerplexityBasedNN(pc_df, perplexity=30, metric='cosine', random_state=629)
 init = initialization.pca(pc_df, random_state=629)
 tsne1 = TSNEEmbedding(init, affin, negative_gradient_method='fft')
 embed1 = tsne1.optimize(n_iter=350, exaggeration=12, momentum=0.6) 
-embed2 = embed1.optimize(n_iter=1000, momentum=0.8)
+embed2 = embed1.optimize(n_iter=750, momentum=0.8)
 ```
 
-The embedding looks good, but the subclusters within clusters 5 and 11 are still clearly separated, and a small part of cluster 12 is far from the rest of the cells in the cluster.
+The embedding looks good, so we'll use it going forwards.
 
 ```{r}
 embed <- as.matrix(py$embed2)
@@ -224,73 +228,15 @@ p2 <- DimPlot(pdac, reduction = "fitsne", pt.size = 0.75) +
 p2
 ```
 
-We use the ability of Fit-SNE to consider multiple perplexities in an attempt to provide a more accurate representation of both local and global structure in our data.
-
-```{python}
-affin_anneal = PerplexityBasedNN(pc_df, perplexity=150, metric='cosine', random_state=629)
-tsne2 = TSNEEmbedding(init, affin_anneal, negative_gradient_method='fft')
-embed3 = tsne2.optimize(n_iter=350, exaggeration=12, momentum=0.5)
-embed4 = embed1.optimize(n_iter=1000, exaggeration=1, momentum=0.8)
-affin_anneal.set_perplexity(30)
-embed5 = embed4.optimize(n_iter=500, momentum=0.8)
-```
-
-The perplexity annealing hasn't really improved or even changed the embedding much at all.
-
-```{r}
-embed_multi <- as.matrix(py$embed5)
-rownames(embed_multi) <- colnames(pdac)
-pdac@reductions$fitsne_multi <- CreateDimReducObject(embeddings = embed_multi, 
-                                                     key = "FitSNE_", 
-                                                     assay = "SCT", 
-                                                     global = TRUE)
-p3 <- DimPlot(pdac, reduction = "fitsne_multi", pt.size = 0.75) + 
-      scale_color_paletteer_d("ggthemes::Classic_20") +  
-      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-      theme_yehlab()+
-      theme(legend.text = element_text(size = 10)) + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p3
-```
-
-Finally, we'll use a multiscale kernel to represent the data in the high-dimensional space instead of the default Gaussian. This in tandem with the multiple perplexity values will preserve as much as possible of both local and global structure.
-
-```{python}
-affin_multi = Multiscale(pc_df, perplexities=[30, 100], metric='cosine', random_state=629)
-tsne3 = TSNEEmbedding(init, affin_multi, negative_gradient_method='fft')
-embed6 = tsne3.optimize(n_iter=250, exaggeration=12, momentum=0.6)
-embed7 = embed6.optimize(n_iter=1200, exaggeration=1, momentum=0.8)
-```
-
-The multiscale trick doesn't completely fix the embedding issues either, but it does clean up a bit of the noise in the plot, and it does place the subclusters in clusters 11 and 5 closer together. We'll use this embedding going forward and make sure to examine those clusters for subgroups using `SCISSORS`.
-
-```{r}
-embed_kern <- as.matrix(py$embed7)
-rownames(embed_kern) <- colnames(pdac)
-pdac@reductions$fitsne_kern<- CreateDimReducObject(embeddings = embed_kern, 
-                                                   key = "FitSNE_", 
-                                                   assay = "SCT", 
-                                                   global = TRUE)
-p4 <- DimPlot(pdac, reduction = "fitsne_kern", pt.size = 0.75) +
-      scale_color_paletteer_d("ggthemes::Classic_20") + 
-      labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-      theme_yehlab() +
-      theme(legend.text = element_text(size = 10)) + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p4
-```
-
-Looking at the embedding, we can see that clusters 3, 4, 5, 10, and 11 contain clear small subclusters. I'm also intrigued by the shape of cluster 8.  We'll be sure to investigate each of these in turn, and annotate the groups using marker genes.
-
 Due to the way `Seurat` accesses cell embeddings, we'll need to replace our original t-SNE dimension reduction in our `Seurat` object with the new Fit-SNE version. We'll keep the original Barnes-Hut t-SNE embedding under a separate name.
 
 ```{r}
 pdac@reductions$bh_tsne <- pdac@reductions$tsne
-pdac@reductions$tsne <- pdac@reductions$fitsne_kern
+pdac@reductions$tsne <- pdac@reductions$fitsne
 ```
 
 ```{r, echo=FALSE}
-rm(embed, embed_kern, embed_multi, pc_df)
+rm(embed, pc_df)
 ```
 
 # SingleR Cell Type Identification
@@ -312,20 +258,19 @@ pdac$SingleR.labels.sc <- case_when(pdac$SingleR.labels.sc == "acinar" ~ "Acinar
                                     pdac$SingleR.labels.sc == "activated_stellate" ~ "Activated Stellate",
                                     pdac$SingleR.labels.sc == "ductal" ~ "Ductal", 
                                     pdac$SingleR.labels.sc == "macrophage" ~ "Macrophage",
-                                    pdac$SingleR.labels.sc == "t_cell" ~ "T", 
-                                    pdac$SingleR.labels.sc == "quiescent_stellate" ~ "Quiescent Stellate")
+                                    pdac$SingleR.labels.sc == "t_cell" ~ "T")
 ```
 
-We can see that there's a large immune population, as well as smaller ductal, fibroblast (denoted activated and quiescent stellate in the reference dataset), and acinar groups. These broad cell types line up with what we expected to see given the authors' original cell cluster annotations. 
+We can see that there's a large immune population, as well as smaller ductal, fibroblast (denoted activated stellate in the reference dataset), and acinar groups. These broad cell types line up with what we expected to see given the authors' original cell cluster annotations. 
 
 ```{r}
-p5 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.sc", pt.size = 0.75) + 
-      scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p3 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.sc", pt.size = 0.75) + 
+      scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p5
+p3
 ```
 
 ## Bulk Tissue RNA-seq Reference Data
@@ -345,21 +290,20 @@ pdac[["SingleR.labels.bulk"]] <- bulk_preds$labels[match(pdac[[]][["seurat_clust
 pdac$SingleR.labels.bulk <- case_when(pdac$SingleR.labels.bulk == "B_cell" ~ "B", 
                                       pdac$SingleR.labels.bulk == "Epithelial_cells" ~ "Epithelial", 
                                       pdac$SingleR.labels.bulk == "B_cell-" ~ "B", 
-                                      pdac$SingleR.labels.bulk == "T_cells" ~ "T", 
-                                      pdac$SingleR.labels.bulk == "Endothelial_cells" ~ "Endothelial", 
+                                      pdac$SingleR.labels.bulk == "T_cells" ~ "T",
                                       TRUE ~ pdac$SingleR.labels.bulk)
 ```
 
-The bulk reference gives us somewhat more granular labels for the immune cells, and confirms the identities of the ductal / epithelial and stroma clusters. We see that the clusters denoted quiescent stellate by the single cell reference are here labeled as endothelial cells, and the activated stellate cells are confirmed to be fibroblasts.  
+The bulk reference gives us somewhat more granular labels for the immune cells, and confirms the identities of the ductal / epithelial and stroma clusters. 
 
 ```{r}
-p6 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk", pt.size = 0.75) + 
-      scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p4 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk", pt.size = 0.75) + 
+      scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p6
+p4
 ```
 
 ```{r, echo=FALSE}
@@ -370,7 +314,7 @@ One shouldn't use `SingleR` as the final authority for cell types, but we were a
 
 # CONICSmat CNV Estimation
 
-Next we'll attempt to identify malignant cells using single-cell copy number variation estimation as implemented in the `CONCISmat` package. Details of the GMM methodology used can be found [at the Diaz Lab's GitHub repository](https://github.com/diazlab/CONICS). Note: this step is memory-intensive because 1) it requires the sparse counts matrix to be cast to a dense matrix and 2) a lot of Gaussian mixture models get estimated. If your machine doesn't have a lot of RAM it might be best to skip this and manually annotate the malignant cells instead through the usage of known canonical markers or the `VAM` single-cell GSEA methodology. 
+Next we'll attempt to identify malignant cells using single-cell copy number variation estimation as implemented in the `CONCISmat` package. Details of the GMM methodology used can be found at [the Diaz Lab's GitHub repository](https://github.com/diazlab/CONICS). Note: this step is memory-intensive because 1) it requires the sparse counts matrix to be cast to a dense matrix and 2) a lot of Gaussian mixture models get estimated. If your machine doesn't have a lot of RAM it might be best to skip this and manually annotate the malignant cells instead through the usage of canonical markers or the `VAM` single-cell GSEA methodology. 
 
 ```{r, results="hide"}
 chrom_regions <- read.table("/Volumes/labs/Home/Jen Jen Yeh Lab/Jack/scRNAseq/chrom_arm_positions.txt", 
@@ -387,6 +331,11 @@ cnv_est <- plotAll(mat = cpm,
                    gene_pos = gene_pos, 
                    fname = "Elyada")
 ```
+
+```{r, echo=FALSE, results='hide'}
+gc(verbose = FALSE)
+```
+
 
 ## Visualizing CNVs
 
@@ -410,19 +359,19 @@ hist1 <- plotHistogram(cnv_est[, cand_regions],
 We add the normal vs. malignant cell labels in to our `Seurat` object's metadata, then visualize the results. As expected, the malignant cells are located in the clusters identified by `SingleR` as ductal cells and fibroblasts. This indicates that `CONICSmat` did a solid job of estimating the CNVs - no easy feat with sparse, noisy single-cell data. 
 
 ```{r}
-normal <- which(hist1 == 2)
-malignant <- which(hist1 != 2)
+normal <- which(hist1 == 1)
+malignant <- which(hist1 != 1)
 pdac@meta.data$malig <- ifelse(rownames(pdac@meta.data) %in% names(normal), "Normal", "Malignant")
-p7 <- DimPlot(pdac, reduction = "tsne", group.by = "malig", pt.size = 0.75) + 
+p5 <- DimPlot(pdac, reduction = "tsne", group.by = "malig", pt.size = 0.75) + 
       scale_color_manual(values = wes_palette("Zissou1", n = 5)[c(5, 2)]) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p7
+p5
 ```
 
-```{r, echo=FALSE, results="hide"}
+```{r, echo=FALSE, results='hide'}
 rm(cpm, bic_table, chrom_regions, cnv_est, gene_pos, cand_regions, hist1, normal, norm_factor, malignant)
 gc(verbose = FALSE)  # not recommended, but it could help this document compile, so ...
 ```
@@ -451,13 +400,13 @@ pdac <- AddMetaData(pdac, sample_wts$ActivatedStroma, "act_stroma")
 The basal weights are highest in a subcluster of the ductal group identified through `SingleR`. This is interesting as the authors did not find evidence of the basal subtype in their paper. 
 
 ```{r}
-p8 <- FeaturePlot(pdac, reduction = "tsne", features = "basal", pt.size = 0.75) + 
+p6 <- FeaturePlot(pdac, reduction = "tsne", features = "basal", pt.size = 0.75) + 
       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
       NoLegend()
-p8
+p6
 ```
 
 ### Classical PDAC
@@ -465,13 +414,13 @@ p8
 The classical weights are highest in another subcluster of the ductal cluster, and cells with high classical weights do not collocate with those that have high basal weights. The putative classical and basal PDAC cells also align closely with the cells identified through `CONCISmat` as malignant. 
 
 ```{r}
-p9 <- FeaturePlot(pdac, reduction = "tsne", features = "classical", pt.size = 0.75) + 
+p7 <- FeaturePlot(pdac, reduction = "tsne", features = "classical", pt.size = 0.75) + 
       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
       NoLegend()
-p9
+p7
 ```
 
 ### Exocrine Pancreas
@@ -479,7 +428,35 @@ p9
 The cluster identified through `SingleR` as acinar cells is the only cluster with high exocrine pancreas weights. 
 
 ```{r}
-p10 <- FeaturePlot(pdac, reduction = "tsne", features = "exocrine", pt.size = 0.75) +
+p8 <- FeaturePlot(pdac, reduction = "tsne", features = "exocrine", pt.size = 0.75) +
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme(plot.title = element_blank()) + 
+       theme_yehlab() + 
+       NoLegend()
+p8
+```
+
+### Endocrine Pancreas
+
+No cells have high endocrine pancreas weights. 
+
+```{r}
+p9 <- FeaturePlot(pdac, reduction = "tsne", features = "endocrine", pt.size = 0.75) +
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme(plot.title = element_blank()) + 
+       theme_yehlab() + 
+       NoLegend()
+p9
+```
+
+### Immune
+
+Once again, we confirm the largeness of the immune cell population in this dataset. 
+
+```{r}
+p10 <- FeaturePlot(pdac, reduction = "tsne", features = "immune", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -488,12 +465,12 @@ p10 <- FeaturePlot(pdac, reduction = "tsne", features = "exocrine", pt.size = 0.
 p10
 ```
 
-### Endocrine Pancreas
+### Normal Stroma
 
-No cells have high endocrine pancreas weights. 
+Cells with high normal stroma stroma weights are located in the cluster identified by `SingleR` as being stromal cells. 
 
 ```{r}
-p11 <- FeaturePlot(pdac, reduction = "tsne", features = "endocrine", pt.size = 0.75) +
+p11 <- FeaturePlot(pdac, reduction = "tsne", features = "norm_stroma", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -502,12 +479,12 @@ p11 <- FeaturePlot(pdac, reduction = "tsne", features = "endocrine", pt.size = 0
 p11
 ```
 
-### Immune
+### Activated Stroma
 
-Once again, we confirm the largeness of the immune cell population in this dataset. 
+Cells with high activated stroma weights are also located in the fibroblast cluster, and do not intersect with the cells that have high normal stroma scores. This indicates that `SCISSORS` will most likely perform well on the fibroblast cluster and be able to quickly tease out the cell subtypes.
 
 ```{r}
-p12 <- FeaturePlot(pdac, reduction = "tsne", features = "immune", pt.size = 0.75) + 
+p12 <- FeaturePlot(pdac, reduction = "tsne", features = "act_stroma", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme(plot.title = element_blank()) + 
@@ -516,84 +493,54 @@ p12 <- FeaturePlot(pdac, reduction = "tsne", features = "immune", pt.size = 0.75
 p12
 ```
 
-### Normal Stroma
-
-Cells with high normal stroma stroma weights are located in the cluster identified by `SingleR` as being composed of endothelial cells. 
-
-```{r}
-p13 <- FeaturePlot(pdac, reduction = "tsne", features = "norm_stroma", pt.size = 0.75) +
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme(plot.title = element_blank()) + 
-       theme_yehlab() + 
-       NoLegend()
-p13
-```
-
-### Activated Stroma
-
-Cells with high activated stroma weights are also located in the fibroblast cluster, and do not intersect with the cells that have high normal stroma scores. This indicates that `SCISSORS` will most likely perform well on the fibroblast cluster and be able to quickly tease out the cell subtypes.
-
-```{r}
-p14 <- FeaturePlot(pdac, reduction = "tsne", features = "act_stroma", pt.size = 0.75) +
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme(plot.title = element_blank()) + 
-       theme_yehlab() + 
-       NoLegend()
-p14
-```
-
 # SCISSORS
 
 Now that we have rough labels from `SingleR`, CNVs from `CONICSmat`, and compartment weights from `DECODER`, we should have more than enough cell-level metadata to look for and annotate cell subtypes using `SCISSORS`. 
 
 ## Fibroblasts
 
-The fibroblast marker genes provided by Elyada *et al* match the `SingleR` results defining cluster 8 as containing fibroblasts. 
+The fibroblast marker genes provided by Elyada *et al* match the `SingleR` results defining cluster 6 as containing fibroblasts. 
 
 ```{r}
-p15 <- FeaturePlot(pdac, reduction = "tsne", features = "COL1A1", pt.size = 0.75) +
+p13 <- FeaturePlot(pdac, reduction = "tsne", features = "COL1A1", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "COL1A1") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p16 <- FeaturePlot(pdac, reduction = "tsne", features = "COL3A1", pt.size = 0.75) +
+p14 <- FeaturePlot(pdac, reduction = "tsne", features = "COL3A1", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "COL3A1") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p17 <- FeaturePlot(pdac, reduction = "tsne", features = "LUM", pt.size = 0.75) + 
+p15 <- FeaturePlot(pdac, reduction = "tsne", features = "LUM", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "LUM") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p18 <- FeaturePlot(pdac, reduction = "tsne", features = "DCN", pt.size = 0.75) + 
+p16 <- FeaturePlot(pdac, reduction = "tsne", features = "DCN", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(title = "DCN") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p15 | p16) / (p17 | p18)
+(p13 | p14) / (p15 | p16)
 ```
 
 ### Reclustering
 
-Here we use `ReclusterCells()` to identify subclusters within cluster 7. We find four distinct subclusters.
+Here we use `ReclusterCells()` to identify subclusters within cluster 6. We find five distinct subclusters.
 
 ```{r, warning=FALSE}
 fibro <- ReclusterCells(pdac,
-                        which.clust = 8,
-                        n.variable.genes = 4000, 
+                        which.clust = 6, 
+                        n.HVG = 4000, 
                         n.PC = 20, 
-                        resolution.vals = c(.1, .2, .3, .4), 
-                        k.vals = c(5, 10, 20, 30), 
-                        which.dim.reduc = "tsne", 
-                        redo.embedding = TRUE, 
-                        do.plot = FALSE)
+                        resolution.vals = c(.03, .05, .1), 
+                        k.vals = c(20, 30, 40), 
+                        redo.embedding = TRUE)
 fibro_pc <- Embeddings(fibro, "pca")
 ```
 
@@ -620,15 +567,34 @@ fibro@reductions$tsne<- CreateDimReducObject(embeddings = embed_fibro,
                                              key = "FitSNE_", 
                                              assay = "SCT", 
                                              global = TRUE)
-p19 <- DimPlot(fibro, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p17 <- DimPlot(fibro, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p19
+p17
 ```
 
 ### Cell Type Identification
+
+First we identify the endothelial and perivascular cells using PLVAP and RGS5 expression. 
+
+```{r}
+p18 <- FeaturePlot(fibro, reduction = "tsne", features = "PLVAP", pt.size = 1.5) +
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(title = "PLVAP") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p19 <- FeaturePlot(fibro, reduction = "tsne", features = "RGS5", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(title = "RGS5") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p18 | p19) / p17
+```
+
 
 Next, we use the `VAM` method of single cell gene set enrichment analysis to determine which clusters are enriched for the iCAF and myCAF marker genes, as well as the general pan-CAF marker set. We use the marker genes identified by the authors. 
 
@@ -651,27 +617,27 @@ DefaultAssay(fibro) <- "VAMcdf"
 
 #### iCAFs & myCAFs
 
-We can easily define cluster 0 as the myCAF population, and clusters 1 and 2 as the slightly smaller iCAF population. Cluster 3 shows no enrichment whatsoever for either the iCAF or myCAF gene sets. 
+We can easily define cluster 0 as the myCAF population, and cluster 2 as the slightly smaller iCAF population. Cluster 4 shows no enrichment whatsoever for either the iCAF or myCAF gene sets. 
 
 ```{r}
-p20 <- FeaturePlot(fibro, reduction = "tsne", features = "iCAF") +
+p20 <- FeaturePlot(fibro, reduction = "tsne", features = "iCAF", pt.size = 1.5) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "iCAF Enrichment") + 
+       labs(title = "iCAF") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p21 <- FeaturePlot(fibro, reduction = "tsne", features = "myCAF") + 
+p21 <- FeaturePlot(fibro, reduction = "tsne", features = "myCAF", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "myCAF Enrichment") + 
+       labs(title = "myCAF") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p20 | p21) / p19
+(p20 | p21) / p17
 ```
 
 #### apCAFs
 
-So we have a small cluster of 14 cells that does not appear to express any of the fibroblast, CAF, perivascular, or endothelial markers. After performing differential expression analysis, we find that the top 3 markers for cluster 3 are CLU, CD74, and CRYAB. Interestingly, CLU and CD74 were found to be differentially expressed in the apCAF population discovered in the KPC mouse models of CAFs in Elyada *et al*.
+So we have a small cluster of 23 cells that does not appear to express any of the fibroblast, CAF, perivascular, or endothelial markers. After performing differential expression analysis, we find that the top 3 markers for cluster 4 are CLU, CD74, and CRYAB. Interestingly, CLU and CD74 were found to be differentially expressed in the apCAF population discovered in the KPC mouse models of CAFs in Elyada *et al*.
 
 ```{r}
 DefaultAssay(fibro) <- "SCT"
@@ -683,11 +649,15 @@ fibro_markers <- FindAllMarkers(fibro,
                                 random.seed = 629, 
                                 verbose = FALSE)
 fibro_markers %>% 
-  filter(cluster == 3) %>% 
-  arrange(desc(avg_logFC))
+  filter(cluster == 4) %>% 
+  arrange(desc(avg_log2FC)) %>% 
+  dplyr::select(cluster, gene, avg_log2FC, p_val_adj, pct.1, pct.2) %>% 
+  slice_head(n = 5) %>% 
+  kbl(booktabs = TRUE, digits = 4, row.names = FALSE) %>% 
+  kable_minimal("hover", full_width = FALSE)
 ```
 
-We re-run GSEA, again using the `VAM` package and the differentially expressed genes for the apCAF population as defined in Elyada *et al* (with the mouse gene names converted to HGNC symbols). We can see that the apCAF pathway is strongly enriched in cluster 3 as compared to the other CAF clusters.
+We re-run GSEA, again using the `VAM` package and the differentially expressed genes for the apCAF population as defined in Elyada *et al* (with the mouse gene names converted to HGNC symbols). We can see that the apCAF pathway is strongly enriched in cluster 4 as compared to the other CAF clusters.
 
 ```{r}
 apcaf_genes <- c("HLA-DQB1", "CD74", "SAA3P", "SLPI")
@@ -700,13 +670,13 @@ fibro <- vamForSeurat(fibro,
                       gene.set.collection = gene_sets, 
                       gamma = TRUE)
 DefaultAssay(fibro) <- "VAMcdf"
-p22 <- FeaturePlot(fibro, reduction = "tsne", features = "apCAF") + 
+p22 <- FeaturePlot(fibro, reduction = "tsne", features = "apCAF", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "apCAF Enrichment") + 
+       labs(title = "apCAF") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p22 / p19
+p22 / p17
 ```
 
 ### Visualization
@@ -715,122 +685,16 @@ Finally, we add cell labels to our identified clusters.
 
 ```{r}
 fibro$label <- case_when(fibro$seurat_clusters == 0 ~ "myCAF", 
-                         fibro$seurat_clusters == 1 ~ "iCAF", 
+                         fibro$seurat_clusters == 1 ~ "Perivascular", 
                          fibro$seurat_clusters == 2 ~ "iCAF", 
-                         fibro$seurat_clusters == 3 ~ "apCAF")
-p23 <- DimPlot(fibro, reduction = "tsne", group.by = "label") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+                         fibro$seurat_clusters == 3 ~ "Endothelial", 
+                         fibro$seurat_clusters == 4 ~ "apCAF")
+p23 <- DimPlot(fibro, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank())
 p23
-```
-
-## Normal Stroma Cells
-
-We hypothesize that the cluster identified as endothelial cells by `SingleR` contains our normal stroma population, and potentially some other cell types as it contains visible subclusters. 
-
-### Reclustering
-
-```{r}
-endo <- ReclusterCells(pdac, 
-                       which.clust = 12, 
-                       n.variable.genes = 4000, 
-                       n.PC = 20, 
-                       which.dim.reduc = "tsne", 
-                       redo.embedding = TRUE, 
-                       random.seed = 629)
-endo_pc <- Embeddings(endo, "pca")
-```
-
-For consistencies' sake, we'll run Fit-SNE on the reclustered object. 
-
-```{python}
-# import data
-endo_pc = r.endo_pc
-# run Fit-SNE
-affin_endo = PerplexityBasedNN(endo_pc, perplexity=60, metric='cosine', random_state=629)
-init = initialization.pca(endo_pc, random_state=629)
-tsne_e = TSNEEmbedding(init, affin_endo, negative_gradient_method='fft')
-embed_e1 = tsne_e.optimize(n_iter=250, exaggeration=10, momentum=0.6) 
-embed_e2 = embed_e1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-```
-
-```{r}
-embed_endo <- as.matrix(py$embed_e2)
-rownames(embed_endo) <- colnames(endo)
-endo@reductions$bh_tsne <- endo@reductions$tsne
-endo@reductions$tsne<- CreateDimReducObject(embeddings = embed_endo, 
-                                            key = "FitSNE_", 
-                                            assay = "SCT", 
-                                            global = TRUE)
-p24 <- DimPlot(endo, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p24
-```
-
-### Perivascular Cells
-
-By examining the marker genes provided in the Elyada paper, we define cluster 0 as being composed of perivascular cells. 
-
-```{r}
-p25 <- FeaturePlot(endo, reduction = "tsne", features = "IGFBP7") +
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "IGFBP7") + 
-       theme_yehlab() + 
-       NoLegend() +
-       theme(axis.title = element_blank())
-p26 <- FeaturePlot(endo, reduction = "tsne", features = "ACTA2") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "ACTA2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p27 <- FeaturePlot(endo, reduction = "tsne", features = "RGS5") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "RGS5") + 
-       theme_yehlab() + 
-       NoLegend() +
-       theme(axis.title = element_blank())
-(p25 | p26 | p27) / p24
-```
-
-### Endothelial Cells
-
-Next, we use the gene markers PLVAP and VWF (again provided in Elyada *et al*) to identify cluster 1 as the endothelial cells.
-
-```{r}
-p28 <- FeaturePlot(endo, reduction = "tsne", features = "PLVAP") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "PLVAP") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p29 <- FeaturePlot(endo, reduction = "tsne", features = "VWF") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(title = "VWF") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-(p28 | p29) / p24
-```
-
-### Visualization
-
-First we add labels to our two clusters, then we visualize the results. 
-
-```{r}
-endo$label <- case_when(endo$seurat_clusters == 0 ~ "Perivascular", 
-                        endo$seurat_clusters == 1 ~ "Endothelial")
-p30 <- DimPlot(endo, reduction = "tsne", group.by = "label") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank())
-p30
 ```
 
 ## T Cells
@@ -838,18 +702,18 @@ p30
 Going back to the main `Seurat` object, we should have a large population of T and NK cells that warrants further investigation. Using CD3D expression we can easily identify clusters 0, 3, and 7 as the mixed T & NK cells. We already see some good separation, so reclustering the cells should have good results. 
 
 ```{r}
-p31 <- FeaturePlot(pdac, reduction = "tsne", features = "CD3D") + 
+p24 <- FeaturePlot(pdac, reduction = "tsne", features = "CD3D", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p31 / p4
+p24 / p2
 ```
 
 ### Tumor
 
 ```{r}
-nkt_tumor <- subset(pdac, subset = seurat_clusters %in% c(0, 3, 7) & condition == "PDAC")
+nkt_tumor <- subset(pdac, subset = seurat_clusters %in% c(0, 3, 8) & condition == "PDAC")
 ```
 
 #### Reclustering
@@ -858,16 +722,17 @@ Here we run `ReclusterCells()`, while treating the NK & T cell clusters as one l
 
 ```{r}
 nkt_tumor <- ReclusterCells(nkt_tumor, 
-                            which.clust = list(0, 3, 7), 
+                            which.clust = list(0, 3, 8), 
                             merge.clusters = TRUE, 
-                            n.variable.genes = 4000, 
+                            n.HVG = 4000, 
                             n.PC = 15, 
                             k.vals = c(30, 40, 50, 60), 
                             resolution.vals = c(.1, .2, .3), 
-                            which.dim.reduc = "tsne", 
                             redo.embedding = TRUE, 
                             random.seed = 629)
 nkt_tumor_pc <- Embeddings(nkt_tumor, "pca")
+DimPlot(nkt_tumor, reduction = "tsne")
+FeaturePlot(nkt_tumor, reduction = "tsne", features = "")
 ```
 
 Once again we'll run Fit-SNE on the reclustered cells. 
@@ -876,54 +741,53 @@ Once again we'll run Fit-SNE on the reclustered cells.
 # import data
 nkt_tumor_pc = r.nkt_tumor_pc
 # run Fit-SNE
-affin_nkt_tumor = PerplexityBasedNN(nkt_tumor_pc, perplexity=180, metric='cosine', random_state=629)
+affin_nkt_tumor = PerplexityBasedNN(nkt_tumor_pc, perplexity=100, metric='cosine', random_state=629)
 init = initialization.pca(nkt_tumor_pc, random_state=629)
 tsne_nkt_tumor = TSNEEmbedding(init, affin_nkt_tumor, negative_gradient_method='fft')
 embed_nkt_tumor1 = tsne_nkt_tumor.optimize(n_iter=250, exaggeration=4, momentum=0.6) 
 embed_nkt_tumor2 = embed_nkt_tumor1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-affin_nkt_tumor.set_perplexity(75)
-embed_nkt_tumor3 = embed_nkt_tumor2.optimize(n_iter=3, exaggeration=2, momentum=0.1)
-embed_nkt_tumor4 = embed_nkt_tumor3.optimize(n_iter=500, exaggeration=1, momentum=0.6)
+affin_nkt_tumor.set_perplexity(50)
+embed_nkt_tumor3 = embed_nkt_tumor2.optimize(n_iter=500, exaggeration=1, momentum=0.6)
 ```
 
 The reembedding isn't perfect, which we somewhat expected as immune cells are difficult to tell apart based on the transcriptome alone. 
 
 ```{r}
-embed_nkt_tumor <- as.matrix(py$embed_nkt_tumor4)
+embed_nkt_tumor <- as.matrix(py$embed_nkt_tumor3)
 rownames(embed_nkt_tumor) <- colnames(nkt_tumor)
 nkt_tumor@reductions$bh_tsne <- nkt_tumor@reductions$tsne
 nkt_tumor@reductions$tsne<- CreateDimReducObject(embeddings = embed_nkt_tumor, 
                                                  key = "FitSNE_", 
                                                  assay = "SCT", 
                                                  global = TRUE)
-p32 <- DimPlot(nkt_tumor, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p25 <- DimPlot(nkt_tumor, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::category20_d3")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p32
+p25
 ```
 
 #### Cell Type Identification
 
 ##### CD4+ T
 
-CLusters 0 and 1 contain our CD4+ T cells, which we characterize using IL7R as we did in the PBMC3k vignette. It's somewhat outside of our scope here to determine which subtype each cluster belongs to, so we'll simply assign both clusters the same label and move on. 
+Clusters 0 and 1 contain our CD4+ T cells, which we characterize using IL7R as we did in the PBMC3k vignette. It's somewhat outside of our scope here to determine which subtype each cluster belongs to, so we'll simply assign both clusters the same label and move on. 
 
 ```{r}
-p33 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "IL7R") + 
+p26 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "IL7R", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p34 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD69") + 
+p27 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD69", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p33 | p34) / p32
+(p26 | p27) / p25
 ```
 
 ##### T-regs
@@ -931,19 +795,19 @@ p34 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD69") +
 Cluster 3 contains the regulatory T cells. 
 
 ```{r}
-p35 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "IL2RA") + 
+p28 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "IL2RA", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p36 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "FOXP3") + 
+p29 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "FOXP3", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p35 | p36) / p32
+(p28 | p29) / p25
 ```
 
 ##### Proliferating T-regs
@@ -951,13 +815,13 @@ p36 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "FOXP3") +
 We can find the proliferating T-regs in cluster 7. 
 
 ```{r}
-p37 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "TOP2A") + 
+p30 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "TOP2A", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p37 / p32
+p30 / p25
 ```
 
 ##### Mast
@@ -965,13 +829,13 @@ p37 / p32
 Mast cells can be identified using TPSAB1 expression in cluster 6. 
 
 ```{r}
-p38 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "TPSAB1") + 
+p31 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "TPSAB1", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p38 / p32
+p31 / p25
 ```
 
 ##### NK
@@ -979,19 +843,19 @@ p38 / p32
 NKG7 and PRF1 show us the NK cells in cluster 5. 
 
 ```{r}
-p39 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "NKG7") + 
+p32 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "NKG7", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p40 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "PRF1") + 
+p33 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "PRF1", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p39 | p40) / p32
+(p32 | p33) / p25
 ```
 
 ##### CD8+ T
@@ -999,24 +863,24 @@ p40 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "PRF1") +
 We use CD8A and CD2 to reveal the CD8+ T cells within clusters 2 and 4. 
 
 ```{r}
-p41 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD8A") + 
+p34 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD8A", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p42 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD2") + 
+p35 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD2", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p41 | p42) / p32
+(p34 | p35) / p25
 ```
 
 #### Intermediate Monocyte
 
-Lastly, we have cluster 8, which doesn't highly express our pan-T/NK cell markers CD3D and CD2. It could be a myeloid cell cluster that was mistakenly grouped with the T/NK cells. We'll start with a Wilcoxon test to determine its differentially expressed genes. 
+Lastly, we have cluster 8, which doesn't highly express our pan-T/NK cell markers CD3D and CD2. It could be a myeloid cell cluster that was mistakenly grouped with the T/NK cells. We'll start with a Wilcoxon test to determine its differentially expressed genes. Interestingly, several [intermediate monocyte markers](https://www.frontiersin.org/articles/10.3389/fimmu.2019.02035/full#B3) - LYZ, HLA-DRA, CD74, and HLA-DPB1 - are differentially expressed in cluster 8. 
 
 ```{r}
 clust8_markers <- FindAllMarkers(nkt_tumor, 
@@ -1027,41 +891,42 @@ clust8_markers <- FindAllMarkers(nkt_tumor,
                                  random.seed = 629) %>% 
                   filter(cluster == 8, p_val_adj < .05) %>% 
                   arrange(desc(1 - p_val_adj))
-clust8_markers
+clust8_markers %>% 
+  filter(gene %in% c("LYZ", "HLA-DRA", "CD74", "HLA-DPB1")) %>% 
+  dplyr::select(cluster, gene, avg_log2FC, p_val_adj, pct.1, pct.2) %>% 
+  kbl(booktabs = TRUE, digits = 4, row.names = FALSE) %>% 
+  kable_minimal("hover", full_width = FALSE)
 ```
-
-Interestingly, several [intermediate monocyte markers](https://www.frontiersin.org/articles/10.3389/fimmu.2019.02035/full#B3) - LYZ, HLA-DRA, CD74, and HLA-DPB1 - are differentially expressed in cluster 8. 
 
 We'll plot some of those markers below. 
 
 ```{r}
-p43 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "LYZ") + 
+p36 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "LYZ", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p44 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "HLA-DRA") + 
+p37 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "HLA-DRA", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p45 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD74") + 
+p38 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "CD74", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p46 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "HLA-DPB1") + 
+p39 <- FeaturePlot(nkt_tumor, reduction = "tsne", features = "HLA-DPB1", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-((p43 | p44) / (p45 | p46)) / p32
+((p36 | p37) / (p38 | p39)) / p25
 ```
-
 
 #### Visualization
 
@@ -1077,32 +942,32 @@ nkt_tumor$label <- case_when(nkt_tumor$seurat_clusters == 0 ~ "CD4+ T",
                              nkt_tumor$seurat_clusters == 6 ~ "Mast", 
                              nkt_tumor$seurat_clusters == 7 ~ "Proliferating T-reg", 
                              nkt_tumor$seurat_clusters == 8 ~ "Intermediate Monocyte")
-p47 <- DimPlot(nkt_tumor, reduction = "tsne", group.by = "label") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p40 <- DimPlot(nkt_tumor, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
        guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p47
+p40
 ```
 
 ### Adjacent Normal
 
 ```{r}
-nkt_norm <- subset(pdac, subset = seurat_clusters %in% c(0, 3, 7) & condition == "AdjNorm")
+nkt_norm <- subset(pdac, subset = seurat_clusters %in% c(0, 3, 8) & condition == "AdjNorm")
 ```
 
 #### Reclustering
 
 ```{r}
 nkt_norm <- ReclusterCells(nkt_norm, 
-                           which.clust = list(0, 3, 7), 
+                           which.clust = list(0, 3, 8), 
                            merge.clusters = TRUE, 
-                           n.variable.genes = 4000, 
+                           n.HVG = 4000, 
                            n.PC = 10, 
-                           k.vals = c(5, 10, 15, 20), 
-                           resolution.vals = c(.1, .2, .3), 
-                           which.dim.reduc = "tsne", 
+                           k.vals = c(15, 20, 25), 
+                           resolution.vals = c(.2, .3, .4), 
+                           nn.metric = "euclidean", 
                            redo.embedding = TRUE, 
                            random.seed = 629)
 nkt_norm_pc <- Embeddings(nkt_norm, "pca")
@@ -1114,30 +979,27 @@ As with the other reclusterings, we'll run Fit-SNE in order to (hopefully) obtai
 # import data
 nkt_norm_pc = r.nkt_norm_pc
 # run Fit-SNE
-affin_nkt_norm = PerplexityBasedNN(nkt_norm_pc, perplexity=100, metric='cosine', random_state=629)
+affin_nkt_norm = PerplexityBasedNN(nkt_norm_pc, perplexity=30, metric='cosine', random_state=629)
 init = initialization.pca(nkt_norm_pc, random_state=629)
 tsne_nkt_norm = TSNEEmbedding(init, affin_nkt_norm, negative_gradient_method='fft')
 embed_nkt_norm1 = tsne_nkt_norm.optimize(n_iter=250, exaggeration=12, momentum=0.6) 
 embed_nkt_norm2 = embed_nkt_norm1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-affin_nkt_norm.set_perplexity(20)
-embed_nkt_norm3 = embed_nkt_norm2.optimize(n_iter=20, exaggeration=2, momentum=0.7)
-embed_nkt_norm4 = embed_nkt_norm3.optimize(n_iter=500)
 ```
 
 ```{r}
-embed_nkt_norm <- as.matrix(py$embed_nkt_norm4)
+embed_nkt_norm <- as.matrix(py$embed_nkt_norm2)
 rownames(embed_nkt_norm) <- colnames(nkt_norm)
-nkt_norm@reductions$bh_tsne <- nkt_norm@reductions$tsne
+#nkt_norm@reductions$bh_tsne <- nkt_norm@reductions$tsne
 nkt_norm@reductions$tsne<- CreateDimReducObject(embeddings = embed_nkt_norm, 
                                                 key = "FitSNE_", 
                                                 assay = "SCT", 
                                                 global = TRUE)
-p48 <- DimPlot(nkt_norm, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p41 <- DimPlot(nkt_norm, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p48
+p41
 ```
 
 #### Cell Type Identification
@@ -1153,48 +1015,51 @@ nkt_norm_markers <- FindAllMarkers(nkt_norm,
                                    random.seed = 629) %>% 
                     filter(p_val_adj < .05)
 nkt_norm_markers  %>% 
+  dplyr::select(cluster, gene, avg_log2FC, p_val_adj, pct.1, pct.2) %>% 
   group_by(cluster) %>% 
-  top_n(n = 2, wt = avg_logFC)
+  top_n(n = 3, wt = avg_log2FC) %>% 
+  kbl(booktabs = TRUE, digits = 4) %>% 
+  kable_minimal("hover", full_width = FALSE)
 ```
 
 ##### CD4+ T
 
-We can use IL7R and S100A4 expression to identify the memory CD4+ T cells in cluster 0. IL7R and CCR7 identify the naive CD4+ T cells in the adjacent cluster 4. 
+We can use IL7R and S100A4 expression to identify the memory CD4+ T cells in clusters 0 & 2. IL7R and CCR7 identify the naive CD4+ T cells in the adjacent cluster 6. 
 
 ```{r}
-p49 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "IL7R") + 
+p42 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "IL7R", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p50 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "S100A4") + 
+p43 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "S100A4", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p51 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "CCR7") + 
+p44 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "CCR7", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p50 | p49 | p51) / p48
+(p42 | p43 | p44) / p41
 ```
 
 ##### CD8+ T
 
-Next we reveal the CD8+ T cells in clusters 1 and 2 with CD8A, as per usual. 
+Next we reveal the CD8+ T cells in clusters 1 and 3 with CD8A, as per usual. 
 
 ```{r}
-p52 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "CD8A") + 
+p45 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "CD8A", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p52 / p48
+p45 / p41
 ```
 
 ##### T-reg
@@ -1202,39 +1067,39 @@ p52 / p48
 The T-reg cluster, cluster 5, is identified using TIGIT and FOXP3. 
 
 ```{r}
-p53 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "TIGIT") + 
+p46 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "TIGIT", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p54 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "FOXP3") + 
+p47 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "FOXP3", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p53 | p54) / p48
+(p46 | p47) / p41
 ```
 
 ##### NK
 
-The natural killers can be found in cluster 3 through their expression of PRF1 and NKG7. The NKG7 expression also confirms the identities of the CD8+ T cells we just annotated. 
+The natural killers can be found in cluster 4 through their expression of PRF1 and NKG7. The NKG7 expression also confirms the identities of the CD8+ T cells we just annotated. 
 
 ```{r}
-p55 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "PRF1") + 
+p48 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "PRF1", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p56 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "NKG7") + 
+p49 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "NKG7", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p55 | p56) / p48
+(p48 | p49) / p41
 ```
 
 ##### Proliferating T-reg
@@ -1242,57 +1107,13 @@ p56 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "NKG7") +
 The tiny proliferating T-reg population in cluster 7 is characterized by TOP2A. 
 
 ```{r}
-p57 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "TOP2A") + 
+p50 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "TOP2A", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p57 / p48
-```
-
-#### Intermediate Monocyte
-
-After running another Wilcoxon differential expression test specifically for the last cluster, cluster 6, we can see that several of the myeloid marker genes from Elyada *et al* are upregulated - CD68, LYZ, CD14, HLA-DRA. LST1 is also significantly differentially expressed; [LST1 is involved in monocyte differentiation](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4015914/). Lastly, TYROBP, aka DAP12, [is associated with inflammation and is highly expressed in activated monocytes](https://www.sciencedirect.com/science/article/abs/pii/S0889159111000742). 
-
-```{r}
-FindMarkers(nkt_norm, 
-            ident.1 = 6, 
-            only.pos = TRUE, 
-            min.pct = .3, 
-            verbose = FALSE, 
-            random.seed = 629) %>% 
-  filter(p_val_adj < .05) 
-```
-
-We plot some of the intermediate monocyte marker genes. We can say with reasonable confidence that cluster 6 contains intermediate monocytes. 
-
-```{r}
-p58 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "LYZ") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p59 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "HLA-DRA") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p60 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "LST1") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p61 <- FeaturePlot(nkt_norm, reduction = "tsne", features = "TYROBP") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-((p58 | p59) / (p60 | p61)) / p48
+p50 / p41
 ```
 
 #### Visualization
@@ -1302,51 +1123,57 @@ We add final cell labels to our 8 cell clusters.
 ```{r}
 nkt_norm$label <- case_when(nkt_norm$seurat_clusters == 0 ~ "Memory CD4+ T", 
                             nkt_norm$seurat_clusters == 1 ~ "CD8+ T",
-                            nkt_norm$seurat_clusters == 2 ~ "CD8+ T",
-                            nkt_norm$seurat_clusters == 3 ~ "NK",
-                            nkt_norm$seurat_clusters == 4 ~ "Naive CD4+ T",
+                            nkt_norm$seurat_clusters == 2 ~ "Memory CD4+ T",
+                            nkt_norm$seurat_clusters == 3 ~ "CD8+ T",
+                            nkt_norm$seurat_clusters == 4 ~ "NK",
                             nkt_norm$seurat_clusters == 5 ~ "T-reg", 
-                            nkt_norm$seurat_clusters == 6 ~ "Intermediate Monocyte", 
+                            nkt_norm$seurat_clusters == 6 ~ "Naive CD4+ T", 
                             nkt_norm$seurat_clusters == 7 ~ "Proliferating T-reg")
-p62 <- DimPlot(nkt_norm, reduction = "tsne", group.by = "label") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p51 <- DimPlot(nkt_norm, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
        guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p62
+p51
 ```
 
 ## Ductal Cells
 
 ### Reclustering
 
-We use KRT8 expression to show the ductal cells residing in clusters 5 and 10. We note that some regions of clusters 5 and 10 have no KRT8 expression, which likely means that they are composed of different cell types. 
+We use KRT8 expression to show the ductal cells residing in clusters 5 and 9. We note that some regions of clusters 5 and 9 have no KRT8 expression, which likely means that they are composed of different cell types. 
 
 ```{r}
-p63 <- FeaturePlot(pdac, reduction = "tsne", features = "KRT8") + 
+p52 <- FeaturePlot(pdac, reduction = "tsne", features = "KRT8", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p63 / p4
+p52 / p2
 ```
 
 We run `SCISSORS`, then use a Wilcoxon differential expression test to determine potential markers for each cluster. 
 
 ```{r}
 ductal <- ReclusterCells(pdac, 
-                         which.clust = list(5, 10), 
+                         which.clust = list(5, 9), 
                          merge.clusters = TRUE, 
-                         n.variable.genes = 4000, 
+                         n.HVG = 4000, 
                          n.PC = 20, 
-                         k.vals = c(10, 20, 30, 40), 
-                         resolution.vals = c(.1, .2, .3, .4), 
-                         which.dim.reduc = "tsne", 
+                         k.vals = c(20, 30, 40, 50), nn.metric = "euclidean", 
+                         resolution.vals = c(.2, .3, .4), 
                          redo.embedding = TRUE, 
-                         do.plot = FALSE, 
                          random.seed = 629)
+DimPlot(ductal, reduction = "tsne")
+# cluster 2 = acinar
+# cluster 5 = lipid proc
+# cluster 3 = secretory 
+# cluster 6 = classic 2
+# cluster 0 & 1 & 4 = classic 1
+
+FeaturePlot(ductal, reduction = "tsne", features = "CTRB2")
 ```
 
 ```{r}
@@ -1358,8 +1185,11 @@ ductal_markers <- FindAllMarkers(ductal,
                                  random.seed = 629) %>% 
                   filter(p_val_adj < .05)
 ductal_markers %>% 
+  dplyr::select(cluster, gene, avg_log2FC, p_val_adj, pct.1, pct.2) %>% 
   group_by(cluster) %>% 
-  top_n(n = 3, wt = avg_logFC)
+  top_n(n = 3, wt = avg_log2FC) %>% 
+  kbl(booktabs = TRUE, digits = 4) %>% 
+  kable_minimal("hover", full_width = FALSE)
 ```
 
 Again, we'll run Fit-SNE on the reclustered cells. 
@@ -1372,94 +1202,91 @@ duct_pc <- Embeddings(ductal, reduction = "pca")
 # import data
 duct_pc = r.duct_pc
 # run Fit-SNE
-affin_duct = PerplexityBasedNN(duct_pc, perplexity=200, metric='cosine', random_state=629)
+affin_duct = PerplexityBasedNN(duct_pc, perplexity=30, random_state=629)
 init = initialization.pca(duct_pc, random_state=629)
 tsne_duct = TSNEEmbedding(init, affin_duct, negative_gradient_method='fft')
 embed_d1 = tsne_duct.optimize(n_iter=250, exaggeration=10, momentum=0.6)
 embed_d2 = embed_d1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-affin_duct.set_perplexity(30)
-embed_d3 = embed_d2.optimize(n_iter=60, exaggeration=2, momentum=0.8)
-embed_d4 = embed_d3.optimize(n_iter=500)
 ```
 
 We pull the results into R, making sure to save the Barnes-Hut t-SNE results in another reduction slot.
 
 ```{r}
-embed_duct <- as.matrix(py$embed_d4)
+embed_duct <- as.matrix(py$embed_d2)
 rownames(embed_duct) <- colnames(ductal)
-ductal@reductions$bh_tsne <- ductal@reductions$tsne
+#ductal@reductions$bh_tsne <- ductal@reductions$tsne
 ductal@reductions$tsne<- CreateDimReducObject(embeddings = embed_duct, 
                                               key = "FitSNE_", 
                                               assay = "SCT", 
                                               global = TRUE)
-p64 <- DimPlot(ductal, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+p53 <- DimPlot(ductal, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p64
+p53
 ```
 
 ### Cell Type Identification 
 
 #### Lipid Processing
 
-We use ANPEP expression to identify the lipid processing ductal cells in cluster 7. 
+We use ANPEP expression to identify the lipid processing ductal cells in cluster 6. 
 
 ```{r}
-p65 <- FeaturePlot(ductal, reduction = "tsne", features = "ANPEP") + 
+p54 <- FeaturePlot(ductal, reduction = "tsne", features = "ANPEP", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p65 / p64
+p54 / p53
 ```
 
 #### Secretory
 
-Expression of SOD3 and CFTR reveals the secretory cells in cluster 1.
+Expression of SOD3 and CFTR reveals the secretory cells in cluster 3.
 
 ```{r}
-p66 <- FeaturePlot(ductal, reduction = "tsne", features = "SOD3") + 
+p56 <- FeaturePlot(ductal, reduction = "tsne", features = "SOD3", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p67 <- FeaturePlot(ductal, reduction = "tsne", features = "CFTR") + 
+p57 <- FeaturePlot(ductal, reduction = "tsne", features = "CFTR", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p66 | p67) / p64
+(p56 | p57) / p53
 ```
 
 #### Classical 1
 
-We use TFF1 and TFF2 expression to annotate the classical 1 epithelial cells in clusters 0 and 5. We can also see that the two classical 1 clusters are split by the sample from which the cells originate. Going forward, we'll simply label both clusters as classical 1. 
+We use TFF1 and TFF2 expression to annotate the classical 1 epithelial cells in clusters 0 and 1. We can also see that the two classical 1 clusters are split by the sample from which the cells originate. Going forward, we'll simply label both clusters as classical 1. 
 
 ```{r}
-p68 <- FeaturePlot(ductal, reduction = "tsne", features = "TFF1") + 
+p58 <- FeaturePlot(ductal, reduction = "tsne", features = "TFF1", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p69 <- FeaturePlot(ductal, reduction = "tsne", features = "TFF2") + 
+p59 <- FeaturePlot(ductal, reduction = "tsne", features = "TFF2", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p70 <- DimPlot(ductal, reduction = "tsne", group.by = "sample") + 
+p60 <- DimPlot(ductal, reduction = "tsne", group.by = "sample", pt.size = 1.5) + 
        scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Sample") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p68 | p70 | p69) / p64
+(p58 | p60 | p59) / p53
 ```
 
 #### Classical 2
@@ -1467,79 +1294,41 @@ p70 <- DimPlot(ductal, reduction = "tsne", group.by = "sample") +
 The classical 2 cells are located in cluster 6, as evidenced by their expression of CRISP3. 
 
 ```{r}
-p71 <- FeaturePlot(ductal, reduction = "tsne", features = "CRISP3") + 
+p61 <- FeaturePlot(ductal, reduction = "tsne", features = "CRISP3", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p71 / p64
+p61 / p53
 ```
 
 #### Basal-like
 
-The basal compartment weights from `DECODER` are highest in cluster 3, which we will denote as being composed of basal-like PDAC. 
+The basal compartment weights from `DECODER` are highest in cluster 4, which we will denote as being composed of basal-like PDAC. 
 
 ```{r}
-p72 <- FeaturePlot(ductal, reduction = "tsne", features = "basal") + 
+p62 <- FeaturePlot(ductal, reduction = "tsne", features = "basal") + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Basal-like") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p72 / p64
-```
-
-#### CD16+ Monocyte
-
-As seen earlier in the results of the differential expression text, the top three genes for cluster 2 were HLA-DRA, HLA-DPA1, and HLA-DPB1. This points to cluster 2 being some kind of myeloid cell. We use expression of CD14, CD16 aka FCGR3A, and MS4A7 to identify it as containing CD14+ CD16+ monocytes. 
-
-```{r}
-p73 <- FeaturePlot(ductal, reduction = "tsne", features = "CD14") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p74 <- FeaturePlot(ductal, reduction = "tsne", features = "FCGR3A") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p75 <- FeaturePlot(ductal, reduction = "tsne", features = "MS4A7") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-(p73 | p74 | p75) / p64
-```
-
-All three genes are significantly differentially expressed in cluster 2. 
-
-```{r}
-clust2_markers <- FindMarkers(ductal, 
-                              ident.1 = 2, 
-                              random.seed = 629, 
-                              only.pos = TRUE)
-clust2_markers %>% 
-  filter(rownames(clust2_markers) %in% c("CD14", "MS4A7", "FCGR3A")) %>% 
-  arrange(desc(1 - p_val_adj))
+p62 / p53
 ```
 
 #### Acinar
 
-Lastly, we show that cluster 4 is composed of acinar cells using CTRB2.
+Lastly, we show that cluster 2 is composed of acinar cells using CTRB2.
 
 ```{r}
-p76 <- FeaturePlot(ductal, reduction = "tsne", features = "CTRB2") + 
+p63 <- FeaturePlot(ductal, reduction = "tsne", features = "CTRB2", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p76 / p64
+p63 / p53
 ```
 
 ### Visualization
@@ -1548,120 +1337,39 @@ We add final cluster labels to our `Seurat` object and visualize the results.
 
 ```{r}
 ductal$label <- case_when(ductal$seurat_clusters == 0 ~ "Classical 1", 
-                          ductal$seurat_clusters == 1 ~ "Secretory", 
-                          ductal$seurat_clusters == 2 ~ "CD16+ Monocyte", 
-                          ductal$seurat_clusters == 3 ~ "Basal-like", 
-                          ductal$seurat_clusters == 4 ~ "Acinar", 
-                          ductal$seurat_clusters == 5 ~ "Classical 1", 
-                          ductal$seurat_clusters == 6 ~ "Classical 2", 
-                          ductal$seurat_clusters == 7 ~ "Lipid proc.")
-p77 <- DimPlot(ductal, reduction = "tsne", group.by = "label") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+                          ductal$seurat_clusters == 1 ~ "Classical 1", 
+                          ductal$seurat_clusters == 2 ~ "Acinar", 
+                          ductal$seurat_clusters == 3 ~ "Secretory", 
+                          ductal$seurat_clusters == 4 ~ "Basal", 
+                          ductal$seurat_clusters == 5 ~ "Lipid Proc.", 
+                          ductal$seurat_clusters == 6 ~ "Classical 2")
+p64 <- DimPlot(ductal, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p77
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+p64
 ```
 
 ## Plasma Cells & Plasmacytoid DCs
 
-We'll run `SCISSORS` on cluster 11 in order to reveal its subgroups, the plasma cells and plasmacytoid DCs, as defined by their expression of IGJ (aka JCHAIN) and IRF7, respectively. 
+We use JCHAIN (denoted IGJ in Elyada *et al*) to reveal the Plasma cells in cluster 10, and IRF7 to identify the plasmacytoid DCs in cluster 11. 
 
 ```{r}
-p78 <- FeaturePlot(pdac, reduction = "tsne", features = "JCHAIN") + 
+p65 <- FeaturePlot(pdac, reduction = "tsne", features = "JCHAIN", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "JCHAIN / IGJ") + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "JCHAIN (IGJ)") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p79 <- FeaturePlot(pdac, reduction = "tsne", features = "IRF7") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "IRF7") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-(p78 | p79) / p4
-```
-
-### Reclustering
-
-We run `SCISSORS` with default parameters. 
-
-```{r}
-plas <- ReclusterCells(pdac, 
-                       which.clust = 11, 
-                       n.PC = 20, 
-                       which.dim.reduc = "tsne",
-                       redo.embedding = TRUE, 
-                       do.plot = FALSE, 
-                       random.seed = 629)
-plas_pc <- Embeddings(plas, reduction = "pca")
-```
-
-Even though in this case it's probably not necessary, we'll run Fit-SNE on the cells just so that our axis labels are consistent. 
-
-```{python}
-# import data
-plas_pc = r.plas_pc
-# run Fit-SNE
-affin_plas = PerplexityBasedNN(plas_pc, perplexity=30, metric='cosine', random_state=629)
-init = initialization.pca(plas_pc, random_state=629)
-tsne_plas = TSNEEmbedding(init, affin_plas, negative_gradient_method='fft')
-embed_p1 = tsne_plas.optimize(n_iter=250, exaggeration=12, momentum=0.6)
-embed_p2 = embed_p1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
-```
-
-```{r}
-embed_plas <- as.matrix(py$embed_p2)
-rownames(embed_plas) <- colnames(plas)
-plas@reductions$bh_tsne <- plas@reductions$tsne
-plas@reductions$tsne<- CreateDimReducObject(embeddings = embed_plas, 
-                                            key = "FitSNE_", 
-                                            assay = "SCT", 
-                                            global = TRUE)
-p80 <- DimPlot(plas, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p80
-```
-
-### Cell Type Identification
-
-We use the aforementioned markers to identify our two clusters. 
-
-```{r}
-p81 <- FeaturePlot(plas, reduction = "tsne", features = "JCHAIN") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "JCHAIN") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p82 <- FeaturePlot(plas, reduction = "tsne", features = "IRF7") + 
+p66 <- FeaturePlot(pdac, reduction = "tsne", features = "IRF7", pt.size = 0.75) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "IRF7") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p81 | p82) / p80
-```
-
-### Visualization
-
-As before, we add cell labels and visualize the results. 
-
-```{r}
-plas$label <- case_when(plas$seurat_clusters == 0 ~ "Plasma", 
-                        plas$seurat_clusters == 1 ~ "pDC")
-p83 <- DimPlot(plas, reduction = "tsne", group.by = "label") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p83
+(p65 | p66) / p2
 ```
 
 ## B Cells
@@ -1669,25 +1377,25 @@ p83
 We can identify the B cells in cluster 4 using joint expression of MS4A1 and CD79A. The cluster is split into two subclusters by tissue type: adjacent normal and PDAC. While it would be interesting to determine the genetic drivers of that separation, it's somewhat outside of our scope here. 
 
 ```{r}
-p84 <- FeaturePlot(pdac, reduction = "tsne", features = "MS4A1") +
+p67 <- FeaturePlot(pdac, reduction = "tsne", features = "MS4A1", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "MS4A1") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p85 <- FeaturePlot(pdac, reduction = "tsne", features = "CD79A") +
+p68 <- FeaturePlot(pdac, reduction = "tsne", features = "CD79A", pt.size = 0.75) +
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD79A") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p86 <- DimPlot(pdac, reduction = "tsne", group.by = "condition") + 
+p69 <- DimPlot(pdac, reduction = "tsne", group.by = "condition", pt.size = 0.75) + 
        scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Tissue Type") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p84 | p86 | p85) / p4
+(p67 | p69 | p68) / p2
 ```
 
 ## Myeloid Cells
@@ -1699,118 +1407,117 @@ Lastly, we'll split up the myeloid population by tissue condition (PDAC vs. adja
 First we'll attempt to assign broad cell type labels to each of the four putative myeloid clusters. We'll use the marker genes from Elyada *et al* once again. 
 
 ```{r}
-myo_tumor <- subset(pdac, subset = seurat_clusters %in% c(1, 2, 6, 9) & condition == "PDAC")
-p87 <- DimPlot(myo_tumor, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+myo_tumor <- subset(pdac, subset = seurat_clusters %in% c(1, 2, 7) & condition == "PDAC")
+p70 <- DimPlot(myo_tumor, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p87
+p70
 ```
 
-Cluster 1 appears to be composed of our resident macrophages due to its expression of CD14 and C1QA. 
+Cluster 1 appears to be composed of our resident & alternatively activated macrophages due to its expression of CD14 & C1QA and SPP1, respectively. 
 
 ```{r}
-p88 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "CD14") + 
+p71 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "CD14", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD14") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p89 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "C1QA") + 
+p72 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "C1QA", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "C1QA") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p88 | p89) / p87
-```
-
-We can use LYZ and S100A8 expression to reveal the classic monocytes and neutrophils in cluster 2. 
-
-```{r}
-p90 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "LYZ") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "LYZ") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p91 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "S100A8") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "S100A8") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-(p90 | p91) / p87
-```
-
-Cluster 9 seems to house the alternatively activated macrophages, as shown by expression of SPP1. 
-
-```{r}
-p92 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "SPP1") + 
+p73 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "SPP1", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "SPP1") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p92 / p87
+(p71 | p72 | p73) / p70
+```
+
+We can use LYZ and S100A8 expression to reveal the classic monocytes and neutrophils in cluster 2. 
+
+```{r}
+p74 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "LYZ", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "LYZ") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p75 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "S100A8", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "S100A8") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p74 | p75) / p70
 ```
 
 Lastly, we show that cluster 6 contains our various DC subtypes through its expression of FCER1A, a canonical dendritic cell marker. 
 
 ```{r}
-p93 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "FCER1A") + 
+p76 <- FeaturePlot(myo_tumor, reduction = "tsne", features = "FCER1A", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "FCER1A") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p93 / p87
+p76 / p70
 ```
 
 #### Reclustering
 
-Since we've already annotated some of the myeloid cell types, we'll focus on cluster 2, which contains both monocytes and neutrophils, and the dendritic cells in cluster 6. 
+We'll start with the Macrophages & Monocytes, since the DC populations are small and are best dealt with on their own. 
 
 ```{r}
 myo_reclust <- ReclusterCells(myo_tumor, 
-                              which.clust = c(2, 6), 
+                              which.clust = c(1, 2), 
                               n.PC = 15, 
-                              merge.clusters = FALSE, 
-                              k.vals = c(30, 40, 50), 
+                              merge.clusters = TRUE, 
+                              k.vals = c(40, 50, 60), 
                               resolution.vals = c(.2, .3, .4), 
-                              n.variable.genes = 4000, 
-                              which.dim.reduc = "tsne", 
+                              n.HVG = 4000, 
                               redo.embedding = TRUE, 
-                              do.plot = FALSE, 
                               random.seed = 629)
-mono_tumor <- myo_reclust[[1]]
-dc_tumor <- myo_reclust[[2]]
+dc_reclust <- ReclusterCells(myo_tumor, 
+                             which.clust = 7, 
+                             n.PC = 15, 
+                             k.vals = c(20, 30, 40, 50), 
+                             resolution.vals = c(.3, .4, .5), 
+                             n.HVG = 4000, 
+                             nn.metric = "euclidean", 
+                             redo.embedding = TRUE, 
+                             random.seed = 629)
 ```
 
 We'll again run Fit-SNE on our reclustered cells. 
 
 ```{r}
-mono_tumor_pc <- Embeddings(mono_tumor, "pca")
-dc_tumor_pc <- Embeddings(dc_tumor, "pca")
+mono_tumor_pc <- Embeddings(myo_reclust, "pca")
+dc_tumor_pc <- Embeddings(dc_reclust, "pca")
 ```
 
 ```{python}
 # import data
 mono_pc = r.mono_tumor_pc
 dc_pc = r.dc_tumor_pc
-# Fit-SNE - monocytes
+# Fit-SNE - monocytes & macrophages
 affin_mono = PerplexityBasedNN(mono_pc, perplexity=30, metric='cosine', random_state=629)
 init = initialization.pca(mono_pc, random_state=629)
 tsne_mono = TSNEEmbedding(init, affin_mono, negative_gradient_method='fft')
 embed_mono1 = tsne_mono.optimize(n_iter=250, exaggeration=10, momentum=0.6)
 embed_mono2 = embed_mono1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
 # Fit-SNE - DC
-affin_dc = PerplexityBasedNN(dc_pc, perplexity=30, metric='cosine', random_state=629)
+affin_dc = PerplexityBasedNN(dc_pc, perplexity=30, random_state=629)
 init = initialization.pca(dc_pc, random_state=629)
 tsne_dc = TSNEEmbedding(init, affin_dc, negative_gradient_method='fft')
-embed_dc1 = tsne_dc.optimize(n_iter=250, exaggeration=10, momentum=0.6)
+embed_dc1 = tsne_dc.optimize(n_iter=250, exaggeration=12, momentum=0.6)
 embed_dc2 = embed_dc1.optimize(n_iter=750, exaggeration=1, momentum=0.8)
 ```
 
@@ -1818,166 +1525,203 @@ We pull the results back into R and visualize them.
 
 ```{r}
 embed_mono <- as.matrix(py$embed_mono2)
-rownames(embed_mono) <- colnames(mono_tumor)
-mono_tumor@reductions$bh_tsne <- mono_tumor@reductions$tsne
-mono_tumor@reductions$tsne<- CreateDimReducObject(embeddings = embed_mono, 
-                                                  key = "FitSNE_", 
-                                                  assay = "SCT",
-                                                  global = TRUE)
-p94 <- DimPlot(mono_tumor, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+rownames(embed_mono) <- colnames(myo_reclust)
+myo_reclust@reductions$bh_tsne <- myo_reclust@reductions$tsne
+myo_reclust@reductions$tsne<- CreateDimReducObject(embeddings = embed_mono, 
+                                                   key = "FitSNE_", 
+                                                   assay = "SCT",
+                                                   global = TRUE)
+p77 <- DimPlot(myo_reclust, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p94
+p77
 ```
 
 ```{r}
 embed_dc <- as.matrix(py$embed_dc2)
-rownames(embed_dc) <- colnames(dc_tumor)
-dc_tumor@reductions$bh_tsne <- dc_tumor@reductions$tsne
-dc_tumor@reductions$tsne<- CreateDimReducObject(embeddings = embed_dc, 
-                                                key = "FitSNE_", 
-                                                assay = "SCT",
-                                                global = TRUE)
-p95 <- DimPlot(dc_tumor, reduction = "tsne") + 
-       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+rownames(embed_dc) <- colnames(dc_reclust)
+dc_reclust@reductions$bh_tsne <- dc_reclust@reductions$tsne
+dc_reclust@reductions$tsne<- CreateDimReducObject(embeddings = embed_dc, 
+                                                  key = "FitSNE_", 
+                                                  assay = "SCT",
+                                                  global = TRUE)
+p78 <- DimPlot(dc_reclust, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p95
+p78
 ```
 
 #### Cell Type Identification
 
-##### Monoctyes & Neutrophils
+##### Monoctyes, Macrophages, & Neutrophils
 
-First we ID the neutrophils in cluster 1 using S100A8 and S100A9 - marker genes used by Elyada *et al*. 
+First we ID the neutrophils in cluster 2 using S100A8 and S100A9 - marker genes used by Elyada *et al*. 
 
 ```{r}
-p96 <- FeaturePlot(mono_tumor, reduction = "tsne", features = "S100A8") + 
+p79 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "S100A8", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "S100A8") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p97 <- FeaturePlot(mono_tumor, reduction = "tsne", features = "S100A9") + 
+p80 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "S100A9", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "S100A9") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p96 | p97) / p94
+(p79 | p80) / p77
 ```
 
-We can identify the classical monocytes in cluster 2 through their expression of CD14 and lack of expression of CD16 aka FCGR3A, expression of which reveals the larger group of CD16+ monocytes in cluster 0. . 
+We can identify the classical monocytes in cluster 1 through their expression of CD14 and lack of expression of CD16 aka FCGR3A, expression of which, alongside that of MS4A7, reveals the group of CD16+ monocytes in cluster 4. Finally, expression of those genes [as well as S100A10](https://www.frontiersin.org/articles/10.3389/fimmu.2019.02035/full#B3) allows us to defined cluster 5 as containing intermediate monocytes. 
 
 ```{r}
-p98 <- FeaturePlot(mono_tumor, reduction = "tsne", features = "CD14") + 
+p81 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "CD14", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD14") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p99 <- FeaturePlot(mono_tumor, reduction = "tsne", features = "FCGR3A") + 
+p82 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "FCGR3A", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD16") + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "FCGR3A (CD16)") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-(p98 | p99) / p94
+p83 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "MS4A7", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "MS4A7") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p84 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "S100A10", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "S100A10") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p81 | p82 | p83 | p84) / p77
+```
+
+Expression of C1QA, APOE, and SPP1 show us the resident and alternatively activated macrophages in clusters 0 and 3, respectively. 
+
+```{r}
+p85 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "C1QA", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "C1QA") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p86 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "APOE", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "APOE") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p87 <- FeaturePlot(myo_reclust, reduction = "tsne", features = "SPP1", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "SPP1") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p85 | p86 | p87) / p77
 ```
 
 We add cell labels to our `Seurat` object, then we're off to the DCs. 
 
 ```{r}
-mono_tumor$label <- case_when(mono_tumor$seurat_clusters == 0 ~ "CD16+ Monocyte", 
-                              mono_tumor$seurat_clusters == 1 ~ "Neutrophil", 
-                              mono_tumor$seurat_clusters == 2 ~ "Classical Monocyte")
+myo_reclust$label <- case_when(myo_reclust$seurat_clusters == 0 ~ "Resident Macrophage", 
+                              myo_reclust$seurat_clusters == 1 ~ "Classical Monocyte", 
+                              myo_reclust$seurat_clusters == 2 ~ "Neutrophil", 
+                              myo_reclust$seurat_clusters == 3 ~ "Alt. Activated Macrophage", 
+                              myo_reclust$seurat_clusters == 4 ~ "CD16+ Monocyte", 
+                              myo_reclust$seurat_clusters == 5 ~ "Intermediate Monocyte")
 ```
 
 ##### Dendritic Cells
 
-We can use CLEC9A to annotate the cDC1 population in cluster 2. 
+We can use CLEC9A to annotate the cDC1 population in cluster 5. 
 
 ```{r}
-p100 <- FeaturePlot(dc_tumor, reduction = "tsne", features = "CLEC9A") + 
-        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CLEC9A") + 
-        theme_yehlab() + 
-        NoLegend() + 
-        theme(axis.title = element_blank())
-p100 / p95
+p88 <- FeaturePlot(dc_reclust, reduction = "tsne", features = "CLEC9A", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CLEC9A") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p88 / p78
 ```
 
 High and low expression of CD1A and CD207 reveal the Langerhans-like DCB and DCA cells in clusters 3 and 4, respectively. 
 
 ```{r}
-p101 <- FeaturePlot(dc_tumor, reduction = "tsne", features = "CD1A") + 
-        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD1A") + 
-        theme_yehlab() + 
-        NoLegend() + 
-        theme(axis.title = element_blank())
-p102 <- FeaturePlot(dc_tumor, reduction = "tsne", features = "CD207") + 
-        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD207") + 
-        theme_yehlab() + 
-        NoLegend() + 
-        theme(axis.title = element_blank())
-(p101 | p102) / p95
+p89 <- FeaturePlot(dc_reclust, reduction = "tsne", features = "CD1A", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD1A") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p90 <- FeaturePlot(dc_reclust, reduction = "tsne", features = "CD207", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "CD207") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p89 | p90) / p78
 ```
 
 Next we use LAMP3 to identify the activated DCs in cluster 6. 
 
 ```{r}
-p103 <- FeaturePlot(dc_tumor, reduction = "tsne", features = "LAMP3") + 
-        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "LAMP3") + 
-        theme_yehlab() + 
-        NoLegend() + 
-        theme(axis.title = element_blank())
-p103 / p95
+p91 <- FeaturePlot(dc_reclust, reduction = "tsne", features = "LAMP3", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "LAMP3") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p91 / p78
 ```
 
-Using a Wilcoxon differential expression test shows that cluster 1 is characterized by [several conventionl DC2 marker genes / transcription factors](https://onlinelibrary.wiley.com/doi/pdf/10.1111/imm.12888). 
-
-Lastly, we use expression of two [canonical cDC2 marker genes / transcription factors](https://onlinelibrary.wiley.com/doi/pdf/10.1111/imm.12888) to identify clusters 0, 1, and 2 as cDC cells, which are split by sample ID. 
+Lastly, we use expression of two [canonical cDC2 marker genes / transcription factors](https://onlinelibrary.wiley.com/doi/pdf/10.1111/imm.12888) to identify clusters 0, 1, and 2 as cDC2 cells, which are split by sample ID. 
 
 ```{r}
-p104 <- FeaturePlot(dc_tumor, reduction = "tsne", features = "CLEC10A") + 
-        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        NoLegend() + 
-        theme(axis.title = element_blank())
-p105 <- FeaturePlot(dc_tumor, reduction = "tsne", features = "KLF4") + 
-        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        NoLegend() + 
-        theme(axis.title = element_blank())
-p106 <- DimPlot(dc_tumor, reduction = "tsne", group.by = "sample") + 
-        scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Sample") + 
-        theme_yehlab() + 
-        NoLegend() + 
-        theme(axis.title = element_blank())
-(p104 | p106 | p105) / p95
+p92 <- FeaturePlot(dc_reclust, reduction = "tsne", features = "CLEC10A", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p93 <- FeaturePlot(dc_reclust, reduction = "tsne", features = "KLF4", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p94 <- DimPlot(dc_reclust, reduction = "tsne", group.by = "sample", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Sample") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p92 | p94 | p93) / p78
 ```
 
 We add final subcluster cell type labels to our `Seurat` object, then we're off to the adjacent normal myeloid cells. 
 
 ```{r}
-dc_tumor$label <- case_when(dc_tumor$seurat_clusters == 0 ~ "cDC2", 
-                            dc_tumor$seurat_clusters == 1 ~ "cDC2", 
-                            dc_tumor$seurat_clusters == 2 ~ "cDC2", 
-                            dc_tumor$seurat_clusters == 3 ~ "Langerhans-like DCB", 
-                            dc_tumor$seurat_clusters == 4 ~ "Langerhans-like DCA", 
-                            dc_tumor$seurat_clusters == 5 ~ "cDC1", 
-                            dc_tumor$seurat_clusters == 6 ~ "Activated DC")
+dc_reclust$label <- case_when(dc_reclust$seurat_clusters == 0 ~ "cDC2", 
+                              dc_reclust$seurat_clusters == 1 ~ "cDC2", 
+                              dc_reclust$seurat_clusters == 2 ~ "cDC2", 
+                              dc_reclust$seurat_clusters == 3 ~ "Langerhans-like DCB", 
+                              dc_reclust$seurat_clusters == 4 ~ "Langerhans-like DCA", 
+                              dc_reclust$seurat_clusters == 5 ~ "cDC1", 
+                              dc_reclust$seurat_clusters == 6 ~ "Activated DC")
 ```
 
 #### Visualization
@@ -1985,55 +1729,68 @@ dc_tumor$label <- case_when(dc_tumor$seurat_clusters == 0 ~ "cDC2",
 ##### Monocytes & Neutrophils
 
 ```{r}
-p107 <- DimPlot(mono_tumor, reduction = "tsne", group.by = "label") + 
-        scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        theme(plot.title = element_blank()) + 
-        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p107
+p95 <- DimPlot(myo_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       theme(plot.title = element_blank()) + 
+       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
+p95
 ```
 
 ##### DCs
 
 ```{r}
-p108 <- DimPlot(dc_tumor, reduction = "tsne", group.by = "label") + 
-        scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        theme(plot.title = element_blank()) + 
-        guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p108
+p96 <- DimPlot(dc_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       theme(plot.title = element_blank()) + 
+       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
+p96
 ```
 
 ### Adjacent Normal
 
-We have the same four clusters as in the tumor tissue: 1, 2, 6, and 9. We know that clusters 1 and 9 are composed of the resident and alternatively-activated macrophages, respectively. We'll focus on the monocytes & neutrophils and DCs in clusters 2 and 6, respectively. 
+We have the same four clusters as in the tumor tissue - 1, 2, & 7 - and we'll run the same analysis steps.  
 
 ```{r}
-myo_norm <- subset(pdac, subset = seurat_clusters %in% c(1, 2, 6, 9) & condition == "AdjNorm")
+myo_norm <- subset(pdac, subset = seurat_clusters %in% c(1, 2, 7) & condition == "AdjNorm")
+DimPlot(myo_norm, reduction = "tsne")
 ```
 
 #### Reclustering
 
 ```{r}
 myo_norm_reclust <- ReclusterCells(myo_norm, 
-                                   which.clust = c(2, 6), 
-                                   merge.clusters = FALSE, 
-                                   n.variable.genes = 4000, 
-                                   n.PC = 10, 
-                                   which.dim.reduc = "tsne", 
+                                   which.clust = c(1, 2), 
+                                   n.PC = 15, 
+                                   merge.clusters = TRUE, 
+                                   k.vals = c(20, 30, 40), 
+                                   resolution.vals = c(.1, .2), 
+                                   n.HVG = 4000, 
                                    redo.embedding = TRUE, 
                                    random.seed = 629)
-mono_norm <- myo_norm_reclust[[1]]
-dc_norm <- myo_norm_reclust[[2]]
+dc_norm_reclust <- ReclusterCells(myo_norm, 
+                                  which.clust = 7, 
+                                  n.PC = 15, 
+                                  k.vals = c(20, 30, 40, 50), 
+                                  resolution.vals = c(.3, .4, .5), 
+                                  n.HVG = 4000, 
+                                  nn.metric = "euclidean", 
+                                  redo.embedding = TRUE, 
+                                  random.seed = 629)
+DimPlot(myo_norm_reclust, reduction = "bh_tsne")
+FeaturePlot(myo_norm_reclust, reduction = "bh_tsne", features = "C1QA")
+DimPlot(dc_norm_reclust, reduction = "tsne")
+FeaturePlot(dc_norm_reclust, reduction = "tsne", features = "CLEC10A")
 ```
 
 For the last time, we run Fit-SNE in order to obtain a better embedding. 
 
 ```{r}
-mono_norm_pc <- Embeddings(mono_norm, "pca")
-dc_norm_pc <- Embeddings(dc_norm, "pca")
+mono_norm_pc <- Embeddings(myo_norm_reclust, "pca")
+dc_norm_pc <- Embeddings(dc_norm_reclust, "pca")
 ```
 
 ```{python}
@@ -2058,121 +1815,135 @@ We pull the results back into R and visualize them.
 
 ```{r}
 embed_mono <- as.matrix(py$embed_mono2)
-rownames(embed_mono) <- colnames(mono_norm)
-mono_norm@reductions$bh_tsne <- mono_norm@reductions$tsne
-mono_norm@reductions$tsne<- CreateDimReducObject(embeddings = embed_mono, 
-                                                 key = "FitSNE_", 
-                                                 assay = "SCT",
-                                                 global = TRUE)
-p109 <- DimPlot(mono_norm, reduction = "tsne") + 
-        scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        theme(plot.title = element_blank()) + 
-        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p109
+rownames(embed_mono) <- colnames(myo_norm_reclust)
+myo_norm_reclust@reductions$bh_tsne <- myo_norm_reclust@reductions$tsne
+myo_norm_reclust@reductions$tsne<- CreateDimReducObject(embeddings = embed_mono, 
+                                                        key = "FitSNE_", 
+                                                        assay = "SCT",
+                                                        global = TRUE)
+p97 <- DimPlot(myo_norm_reclust, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       theme(plot.title = element_blank()) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+p97
 ```
 
 ```{r}
 embed_dc <- as.matrix(py$embed_dc2)
-rownames(embed_dc) <- colnames(dc_norm)
-dc_norm@reductions$bh_tsne <- dc_norm@reductions$tsne
-dc_norm@reductions$tsne<- CreateDimReducObject(embeddings = embed_dc, 
-                                               key = "FitSNE_", 
-                                               assay = "SCT",
-                                               global = TRUE)
-p110 <- DimPlot(dc_norm, reduction = "tsne") + 
-        scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        theme(plot.title = element_blank()) + 
-        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p110
+rownames(embed_dc) <- colnames(dc_norm_reclust)
+dc_norm_reclust@reductions$bh_tsne <- dc_norm_reclust@reductions$tsne
+dc_norm_reclust@reductions$tsne<- CreateDimReducObject(embeddings = embed_dc, 
+                                                       key = "FitSNE_", 
+                                                       assay = "SCT",
+                                                       global = TRUE)
+p98 <- DimPlot(dc_norm_reclust, reduction = "tsne", pt.size = 1.5) + 
+       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       theme(plot.title = element_blank()) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+p98
 ```
 
 #### Cell Type Identification
 
-##### Monocytes & Neutrophils
+##### Monocytes, Macrophages, & Neutrophils
 
-We use high S100A8 and S100A9 expression to define the neutrophils in cluster 2. 
+We use high S100A8 and S100A9 expression to define the neutrophils in cluster 4. 
 
 ```{r}
-p111 <- FeaturePlot(mono_norm, reduction = "tsne", features = "S100A8") + 
+p99 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "S100A8", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-p112 <- FeaturePlot(mono_norm, reduction = "tsne", features = "S100A9") + 
+p100 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "S100A9", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-(p111 | p112) / p109
+(p99 | p100) / p97
 ```
 
-Next up are the classical monocytes in clusters 0 and 1, split by sample. 
+Next up are the classical monocytes in clusters 0 and 3, split by sample. 
 
 ```{r}
-p113 <- FeaturePlot(mono_norm, reduction = "tsne", features = "CD68") + 
+p101 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "LYZ", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-p114 <- FeaturePlot(mono_norm, reduction = "tsne", features = "CD14") + 
+p102 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "CD14", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-p115 <- DimPlot(mono_norm, reduction = "tsne", group.by = "sample") + 
+p103 <- DimPlot(myo_norm_reclust, reduction = "tsne", group.by = "sample", pt.size = 1.5) + 
         scale_color_manual(values = paletteer_d("miscpalettes::brightPastel")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Sample") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-(p113 | p115 | p114) / p109
+(p101 | p102 | p103) / p97
 ```
 
-Lastly, it seems we have a small group of CD8+ T cells in cluster 3 that snuck into the myeloid cluster, as defined by their expression of CD2, CD3D (marking them as NK / T cells), and CD8A & NKG7. I don't believe they're NK cells as they do not express PRF1 or GZMB. 
+C1QA and APOE show us the resident macrophages in clusters 1 and 2. 
 
 ```{r}
-p116 <- FeaturePlot(mono_norm, reduction = "tsne", features = "CD2") + 
+p104 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "C1QA", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-p117 <- FeaturePlot(mono_norm, reduction = "tsne", features = "CD3D") + 
+p105 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "APOE", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-p118 <- FeaturePlot(mono_norm, reduction = "tsne", features = "CD8A") + 
+(p104 | p105) / p97
+```
+
+Lastly, it seems we have a small group of CD8+ T cells in cluster 5 that snuck into the myeloid cluster, as defined by their expression of CD3D (marking them as NK / T cells), and CD8A & NKG7. I don't believe they're NK cells as they do not express PRF1 or GZMB. 
+
+```{r}
+p106 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "CD3D") + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-p119 <- FeaturePlot(mono_norm, reduction = "tsne", features = "NKG7") + 
+p107 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "CD8A") + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-((p116 | p117) / (p118 | p119)) / p109
+p108 <- FeaturePlot(myo_norm_reclust, reduction = "tsne", features = "NKG7") + 
+        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        NoLegend() + 
+        theme(axis.title = element_blank())
+(p106 | p107 | p108) / p97
 ```
 
 We add labels to our clusters. 
 
 ```{r}
-mono_norm$label <- case_when(mono_norm$seurat_clusters == 0 ~ "Classic Monocyte", 
-                             mono_norm$seurat_clusters == 1 ~ "Classic Monocyte", 
-                             mono_norm$seurat_clusters == 2 ~ "Neutrophil", 
-                             mono_norm$seurat_clusters == 3 ~ "CD8+ T")
+myo_norm_reclust$label <- case_when(myo_norm_reclust$seurat_clusters == 0 ~ "Classical Monocyte", 
+                                    myo_norm_reclust$seurat_clusters == 1 ~ "Resident Macrophage", 
+                                    myo_norm_reclust$seurat_clusters == 2 ~ "Resident Macrophage", 
+                                    myo_norm_reclust$seurat_clusters == 3 ~ "Classical Monocyte", 
+                                    myo_norm_reclust$seurat_clusters == 4 ~ "Neutrophil",
+                                    myo_norm_reclust$seurat_clusters == 5 ~ "CD8+ T")
 ```
 
 ##### Dendritic Cells
@@ -2180,26 +1951,27 @@ mono_norm$label <- case_when(mono_norm$seurat_clusters == 0 ~ "Classic Monocyte"
 We annotate cluster 1 as conventional DC1 and cluster 0 as conventional DC2 through mutually exclusive expression of the canonical markers CLEC9A and CLEC10A, respectively. 
 
 ```{r}
-p120 <- FeaturePlot(dc_norm, reduction = "tsne", features = "CLEC9A") + 
+p109 <- FeaturePlot(dc_norm_reclust, reduction = "tsne", features = "CLEC9A", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-p121 <- FeaturePlot(dc_norm, reduction = "tsne", features = "CLEC10A") + 
+p110 <- FeaturePlot(dc_norm_reclust, reduction = "tsne", features = "CLEC10A", pt.size = 1.5) + 
         scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         NoLegend() + 
         theme(axis.title = element_blank())
-(p120 | p121) / p110
+(p109 | p110) / p98
 ```
 
 Labels are added to our adjacent normal tissue DC `Seurat` object. 
 
 ```{r}
-dc_norm$label <- case_when(dc_norm$seurat_clusters == 0 ~ "cDC2", 
-                           dc_norm$seurat_clusters == 1 ~ "cDC1")
+dc_norm_reclust$label <- case_when(dc_norm_reclust$seurat_clusters == 0 ~ "cDC2", 
+                                   dc_norm_reclust$seurat_clusters == 1 ~ "cDC2", 
+                                   dc_norm_reclust$seurat_clusters == 2 ~ "cDC1")
 ```
 
 #### Visualization
@@ -2207,192 +1979,179 @@ dc_norm$label <- case_when(dc_norm$seurat_clusters == 0 ~ "cDC2",
 Here are the final annotations for the adjacent normal tissue myeloid population. 
 
 ```{r}
-p122 <- DimPlot(mono_norm, reduction = "tsne", group.by = "label") + 
-        scale_color_manual(values = paletteer_d("awtools::mpalette")) + 
+p111 <- DimPlot(myo_norm_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         theme(plot.title = element_blank()) + 
         guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p122
+p111
 ```
 
 ```{r}
-p123 <- DimPlot(dc_norm, reduction = "tsne", group.by = "label") + 
-        scale_color_manual(values = paletteer_d("awtools::mpalette")) + 
+p112 <- DimPlot(dc_norm_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
         theme_yehlab() + 
         theme(plot.title = element_blank()) + 
         guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p123
+p112
 ```
 
 # Conclusions
+
+
 
 # Save Figures & Data
 
 We'll create a quick convenience function to help us save the figures.
 
 ```{r}
-saveSCISSORS <- function(plot = NULL, 
-                         name = NULL, 
-                         border = TRUE, 
-                         pub.ready = FALSE) {
+SaveFigure <- function(my.plot = NULL, name = NULL, height = 8, width = 8) {
   if (is.null(plot) | is.null(name)) stop("You forgot some arguments.")
-  if (pub.ready) {
-    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/Elyada/"
-    if (!border) {
-      plot <- plot + 
-              theme(panel.border = element_blank(), 
-                    axis.title = element_blank(), 
-                    legend.position = "none")
-    } else {
-      plot <- plot + 
-              theme(axis.title = element_blank(), 
-                    legend.position = "none")
-    }
-    ggsave(filename = paste0(name, ".pdf"), 
-           device = "pdf", 
-           units = "in",
-           path = dir, 
-           height = 5, 
-           width = 5) 
-  } else {
-    dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/Elyada/"
-    ggsave(filename = paste0(name, ".pdf"), 
-           device = "pdf", 
-           units = "in",
-           path = dir, 
-           height = 5, 
-           width = 5) 
-  }
+  # save figure as is - w/ axis labels, titles, etc. 
+  dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/Elyada"
+  ggsave(my.plot, 
+         filename = paste0(name, ".pdf"), 
+         device = "pdf", 
+         units = "in",
+         path = dir, 
+         height = height, 
+         width = width) 
+  # save "blank" figure w/ no labels, legends, etc.
+  dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/Elyada"
+  plot_blank <- my.plot + 
+                theme(axis.title = element_blank(), 
+                      panel.border = element_blank(), 
+                      plot.title = element_blank(), 
+                      plot.subtitle = element_blank(), 
+                      plot.caption = element_blank(), 
+                      legend.position = "none")
+  ggsave(plot_blank, 
+         filename = paste0(name, ".pdf"), 
+         device = "pdf", 
+         units = "in",
+         path = dir, 
+         height = height, 
+         width = width) 
 }
 ```
 
 This section isn't worth reading; it's here solely to prove that the figures we present in our publication were dynamically generated during the knitting of this document.
 
 ```{r}
-saveSCISSORS(plot = p0, name = "Seurat_Clusters_tSNE", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p1, name = "Seurat_Clusters_UMAP", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p4, name = "Seurat_Clusters_FitSNE", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p5, name = "SingleR_Annos_sc_ref", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p6, name = "SingleR_Annos_bulk_ref", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p7, name = "CONICSmat_Annos", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p8, name = "DECODER_basal")
-saveSCISSORS(plot = p9, name = "DECODER_classical")
-saveSCISSORS(plot = p10, name = "DECODER_exocrine")
-saveSCISSORS(plot = p11, name = "DECODER_endocrine")
-saveSCISSORS(plot = p12, name = "DECODER_immune")
-saveSCISSORS(plot = p13, name = "DECODER_normal_stroma")
-saveSCISSORS(plot = p14, name = "DECODER_act_stroma")
-saveSCISSORS(plot = p15, name = "Fibro_all_cells_COL1A1")
-saveSCISSORS(plot = p16, name = "Fibro_all_cells_COL3A1")
-saveSCISSORS(plot = p17, name = "Fibro_all_cells_LUM")
-saveSCISSORS(plot = p18, name = "Fibro_all_cells_DCN")
-saveSCISSORS(plot = p19, name = "Fibro_SCISSORS_FitSNE")
-saveSCISSORS(plot = p20, name = "Fibro_iCAF_VAM")
-saveSCISSORS(plot = p21, name = "Fibro_myCAF_VAM")
-saveSCISSORS(plot = p22, name = "Fibro_apCAF_VAM")
-saveSCISSORS(plot = p23, name = "Fibro_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p24, name = "Endo_Perivascular_SCISSORS_FitSNE")
-saveSCISSORS(plot = p25, name = "Perivascular_IGFBP7")
-saveSCISSORS(plot = p26, name = "Perivascular_ACTA2")
-saveSCISSORS(plot = p27, name = "Perivascular_RGS5")
-saveSCISSORS(plot = p28, name = "Endothelial_PLVAP")
-saveSCISSORS(plot = p29, name = "Endothelial_VWF")
-saveSCISSORS(plot = p30, name = "Endo_Perivascular_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p31, name = "NKT_all_cells_CD3D")
-saveSCISSORS(plot = p32, name = "NKT_Tumor_SCISSORS_FitSNE")
-saveSCISSORS(plot = p33, name = "NKT_Tumor_CD4T_IL7R")
-saveSCISSORS(plot = p34, name = "NKT_Tumor_CD4T_CD69")
-saveSCISSORS(plot = p35, name = "NKT_Tumor_Treg_IL2RA")
-saveSCISSORS(plot = p36, name = "NKT_Tumor_Treg_FOXP3")
-saveSCISSORS(plot = p37, name = "NKT_Tumor_Prolif_Treg_TOP2A")
-saveSCISSORS(plot = p38, name = "NKT_Tumor_Mast_TPSAB1")
-saveSCISSORS(plot = p39, name = "NKT_Tumor_NK_NKG7")
-saveSCISSORS(plot = p40, name = "NKT_Tumor_NK_PRF1")
-saveSCISSORS(plot = p41, name = "NKT_Tumor_CD8T_CD8A")
-saveSCISSORS(plot = p42, name = "NKT_Tumor_CD8T_CD2")
-saveSCISSORS(plot = p43, name = "NKT_Tumor_Intermediate_Mono_LYZ")
-saveSCISSORS(plot = p44, name = "NKT_Tumor_Intermediate_Mono_HLADRA")
-saveSCISSORS(plot = p45, name = "NKT_Tumor_Intermediate_Mono_CD74")
-saveSCISSORS(plot = p46, name = "NKT_Tumor_Intermediate_Mono_HLADPB1")
-saveSCISSORS(plot = p47, name = "NKT_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p48, name = "NKT_Norm_SCISSORS_FitSNE")
-saveSCISSORS(plot = p49, name = "NKT_Norm_CD4T_IL7R")
-saveSCISSORS(plot = p50, name = "NKT_Norm_CD4T_S100A4")
-saveSCISSORS(plot = p51, name = "NKT_Norm_CD4T_CCR7")
-saveSCISSORS(plot = p52, name = "NKT_Norm_CD8T_CD8A")
-saveSCISSORS(plot = p53, name = "NKT_Norm_Treg_TIGIT")
-saveSCISSORS(plot = p54, name = "NKT_Norm_Treg_FOXP3")
-saveSCISSORS(plot = p55, name = "NKT_Norm_NK_PRF1")
-saveSCISSORS(plot = p56, name = "NKT_Norm_NK_NKG7")
-saveSCISSORS(plot = p57, name = "NKT_Norm_Prolif_Treg_TOP2A")
-saveSCISSORS(plot = p58, name = "NKT_Norm_Intermediate_Mono_LYZ")
-saveSCISSORS(plot = p59, name = "NKT_Norm_Intermediate_Mono_HLADRA")
-saveSCISSORS(plot = p60, name = "NKT_Norm_Intermediate_Mono_LST1")
-saveSCISSORS(plot = p61, name = "NKT_Norm_Intermediate_Mono_TYROBP")
-saveSCISSORS(plot = p62, name = "NKT_Norm_SCISSORS_FitSNE", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p63, name = "Ductal_all_cells_KRT8")
-saveSCISSORS(plot = p64, name = "Ductal_SCISSORS_FitSNE")
-saveSCISSORS(plot = p65, name = "Ductal_Lipid_Proc_ANPEP")
-saveSCISSORS(plot = p66, name = "Ductal_Secretory_SOD3")
-saveSCISSORS(plot = p67, name = "Ductal_Secretory_CFTR")
-saveSCISSORS(plot = p68, name = "Ductal_Classical1_TFF1")
-saveSCISSORS(plot = p69, name = "Ductal_Classical1_TFF2")
-saveSCISSORS(plot = p70, name = "Ductal_Classical1_SampleID")
-saveSCISSORS(plot = p71, name = "Ductal_Classical2_CRISP3")
-saveSCISSORS(plot = p72, name = "Ductal_basal_DECODER")
-saveSCISSORS(plot = p73, name = "Ductal_CD16_Mono_CD14")
-saveSCISSORS(plot = p74, name = "Ductal_CD16_Mono_FCGR3A")
-saveSCISSORS(plot = p75, name = "Ductal_CD16_Mono_MS4A7")
-saveSCISSORS(plot = p76, name = "Ductal_Acinar_CTRB2")
-saveSCISSORS(plot = p77, name = "Ductal_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p78, name = "Plasma_all_cells_IGJ")
-saveSCISSORS(plot = p79, name = "Plasma_all_cells_IRF7")
-saveSCISSORS(plot = p80, name = "Plasma_SCISSORS_FitSNE")
-saveSCISSORS(plot = p81, name = "Plasma_Plasma_JCHAIN")
-saveSCISSORS(plot = p82, name = "Plasma_pDC_IGJ")
-saveSCISSORS(plot = p83, name = "Plasma_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p84, name = "B_all_cells_MS4A1")
-saveSCISSORS(plot = p85, name = "B_all_cells_CD79A")
-saveSCISSORS(plot = p86, name = "B_all_cells_tissue_type")
-saveSCISSORS(plot = p87, name = "Myeloid_Tumor_original_FitSNE")
-saveSCISSORS(plot = p88, name = "Myeloid_Tumor_Resident_Macro_CD14")
-saveSCISSORS(plot = p89, name = "Myeloid_Tumor_Resident_Macro_C1QA")
-saveSCISSORS(plot = p90, name = "Myeloid_Tumor_Classic_Mono_LYZ")
-saveSCISSORS(plot = p91, name = "Myeloid_Tumor_Classic_Mono_S100A8")
-saveSCISSORS(plot = p92, name = "Myeloid_Tumor_Alternative_Macro_Spp1")
-saveSCISSORS(plot = p93, name = "Myeloid_Tumor_DC_FCER1A")
-saveSCISSORS(plot = p94, name = "Monocyte_Tumor_SCISSORS_FitSNE")
-saveSCISSORS(plot = p95, name = "DC_Tumor_SCISSORS_FitSNE")
-saveSCISSORS(plot = p96, name = "Monocyte_Tumor_Neutrophil_S100A8")
-saveSCISSORS(plot = p97, name = "Monocyte_Tumor_Neutrophil_S100A9")
-saveSCISSORS(plot = p98, name = "Monocyte_Tumor_Classic_Mono_CD14")
-saveSCISSORS(plot = p99, name = "Monocyte_Tumor_CD16_Mono_FCGR3A")
-saveSCISSORS(plot = p100, name = "DC_Tumor_cDC1_CLEC9A")
-saveSCISSORS(plot = p101, name = "DC_Tumor_Langerhans_DC_CD1A")
-saveSCISSORS(plot = p102, name = "DC_Tumor_Langerhans_DC_CD207")
-saveSCISSORS(plot = p103, name = "DC_Tumor_Activated_DC_LAMP3")
-saveSCISSORS(plot = p104, name = "DC_Tumor_cDC2_CLEC10A")
-saveSCISSORS(plot = p105, name = "DC_Tumor_cDC2_KLF4")
-saveSCISSORS(plot = p106, name = "DC_Tumor_cDC2_SAMPLEID")
-saveSCISSORS(plot = p107, name = "Mono_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p108, name = "DC_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p109, name = "Mono_Norm_SCISSORS_FitSNE")
-saveSCISSORS(plot = p110, name = "DC_Norm_SCISSORS_FitSNE")
-saveSCISSORS(plot = p111, name = "Mono_Norm_Neutrophil_S100A8")
-saveSCISSORS(plot = p112, name = "Mono_Norm_Neutrophil_S100A9")
-saveSCISSORS(plot = p113, name = "Mono_Norm_Classic_Monocyte_CD68")
-saveSCISSORS(plot = p114, name = "Mono_Norm_Classic_Monocyte_CD14")
-saveSCISSORS(plot = p115, name = "Mono_Norm_Classic_MOnocyte_SampleID")
-saveSCISSORS(plot = p116, name = "Mono_Norm_CD8T_CD2")
-saveSCISSORS(plot = p117, name = "Mono_Norm_CD8T_CD3D")
-saveSCISSORS(plot = p118, name = "Mono_Norm_CD8T_CD8A")
-saveSCISSORS(plot = p119, name = "Mono_Norm_CD8T_NKG7")
-saveSCISSORS(plot = p120, name = "DC_Norm_cDC1_CLEC9A")
-saveSCISSORS(plot = p121, name = "DC_Norm_cDC2_CLEC10A")
-saveSCISSORS(plot = p122, name = "Mono_Norm_final_labels", pub.ready = TRUE, border = FALSE)
-saveSCISSORS(plot = p123, name = "DC_Norm_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p0a, name = "Seurat_Clusters_Sil_Scores")
+SaveFigure(plot = p0b, name = "Seurat_Clusters_tSNE")
+SaveFigure(plot = p1, name = "Seurat_Clusters_UMAP")
+SaveFigure(plot = p2, name = "Seurat_Clusters_FitSNE")
+SaveFigure(plot = p3, name = "SingleR_Annos_sc_ref")
+SaveFigure(plot = p4, name = "SingleR_Annos_bulk_ref")
+SaveFigure(plot = p5, name = "CONICSmat_Annos")
+SaveFigure(plot = p6, name = "DECODER_basal")
+SaveFigure(plot = p7, name = "DECODER_classical")
+SaveFigure(plot = p8, name = "DECODER_exocrine")
+SaveFigure(plot = p9, name = "DECODER_endocrine")
+SaveFigure(plot = p10, name = "DECODER_immune")
+SaveFigure(plot = p11, name = "DECODER_normal_stroma")
+SaveFigure(plot = p12, name = "DECODER_act_stroma")
+SaveFigure(plot = p13, name = "Fibro_all_cells_COL1A1")
+SaveFigure(plot = p14, name = "Fibro_all_cells_COL3A1")
+SaveFigure(plot = p15, name = "Fibro_all_cells_LUM")
+SaveFigure(plot = p16, name = "Fibro_all_cells_DCN")
+SaveFigure(plot = p17, name = "Fibro_SCISSORS_FitSNE")
+SaveFigure(plot = p18, name = "Fibro_SCISSORS_PLVAP")
+SaveFigure(plot = p19, name = "Fibro_SCISSORS_RGS5")
+SaveFigure(plot = p20, name = "Fibro_apCAF_VAM")
+SaveFigure(plot = p23, name = "Fibro_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p24, name = "Endo_Perivascular_SCISSORS_FitSNE")
+SaveFigure(plot = p25, name = "Perivascular_IGFBP7")
+SaveFigure(plot = p26, name = "Perivascular_ACTA2")
+SaveFigure(plot = p27, name = "Perivascular_RGS5")
+SaveFigure(plot = p28, name = "Endothelial_PLVAP")
+SaveFigure(plot = p29, name = "Endothelial_VWF")
+SaveFigure(plot = p30, name = "Endo_Perivascular_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p31, name = "NKT_all_cells_CD3D")
+SaveFigure(plot = p32, name = "NKT_Tumor_SCISSORS_FitSNE")
+SaveFigure(plot = p33, name = "NKT_Tumor_CD4T_IL7R")
+SaveFigure(plot = p34, name = "NKT_Tumor_CD4T_CD69")
+SaveFigure(plot = p35, name = "NKT_Tumor_Treg_IL2RA")
+SaveFigure(plot = p36, name = "NKT_Tumor_Treg_FOXP3")
+SaveFigure(plot = p37, name = "NKT_Tumor_Prolif_Treg_TOP2A")
+SaveFigure(plot = p38, name = "NKT_Tumor_Mast_TPSAB1")
+SaveFigure(plot = p39, name = "NKT_Tumor_NK_NKG7")
+SaveFigure(plot = p40, name = "NKT_Tumor_NK_PRF1")
+SaveFigure(plot = p41, name = "NKT_Tumor_CD8T_CD8A")
+SaveFigure(plot = p42, name = "NKT_Tumor_CD8T_CD2")
+SaveFigure(plot = p43, name = "NKT_Tumor_Intermediate_Mono_LYZ")
+SaveFigure(plot = p44, name = "NKT_Tumor_Intermediate_Mono_HLADRA")
+SaveFigure(plot = p45, name = "NKT_Tumor_Intermediate_Mono_CD74")
+SaveFigure(plot = p46, name = "NKT_Tumor_Intermediate_Mono_HLADPB1")
+SaveFigure(plot = p47, name = "NKT_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p48, name = "NKT_Norm_SCISSORS_FitSNE")
+SaveFigure(plot = p49, name = "NKT_Norm_CD4T_IL7R")
+SaveFigure(plot = p50, name = "NKT_Norm_CD4T_S100A4")
+SaveFigure(plot = p51, name = "NKT_Norm_CD4T_CCR7")
+SaveFigure(plot = p52, name = "NKT_Norm_CD8T_CD8A")
+SaveFigure(plot = p53, name = "NKT_Norm_Treg_TIGIT")
+SaveFigure(plot = p54, name = "NKT_Norm_Treg_FOXP3")
+SaveFigure(plot = p55, name = "NKT_Norm_NK_PRF1")
+SaveFigure(plot = p56, name = "NKT_Norm_NK_NKG7")
+SaveFigure(plot = p57, name = "NKT_Norm_Prolif_Treg_TOP2A")
+SaveFigure(plot = p58, name = "NKT_Norm_Intermediate_Mono_LYZ")
+SaveFigure(plot = p59, name = "NKT_Norm_Intermediate_Mono_HLADRA")
+SaveFigure(plot = p60, name = "NKT_Norm_Intermediate_Mono_LST1")
+SaveFigure(plot = p61, name = "NKT_Norm_Intermediate_Mono_TYROBP")
+SaveFigure(plot = p62, name = "NKT_Norm_SCISSORS_FitSNE", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p63, name = "Ductal_all_cells_KRT8")
+SaveFigure(plot = p64, name = "Ductal_SCISSORS_FitSNE")
+SaveFigure(plot = p65, name = "Ductal_Lipid_Proc_ANPEP")
+SaveFigure(plot = p66, name = "Ductal_Secretory_SOD3")
+SaveFigure(plot = p67, name = "Ductal_Secretory_CFTR")
+SaveFigure(plot = p68, name = "Ductal_Classical1_TFF1")
+SaveFigure(plot = p69, name = "Ductal_Classical1_TFF2")
+SaveFigure(plot = p70, name = "Ductal_Classical1_SampleID")
+SaveFigure(plot = p71, name = "Ductal_Classical2_CRISP3")
+SaveFigure(plot = p72, name = "Ductal_basal_DECODER")
+SaveFigure(plot = p73, name = "Ductal_CD16_Mono_CD14")
+SaveFigure(plot = p74, name = "Ductal_CD16_Mono_FCGR3A")
+SaveFigure(plot = p75, name = "Ductal_CD16_Mono_MS4A7")
+SaveFigure(plot = p76, name = "Ductal_Acinar_CTRB2")
+SaveFigure(plot = p77, name = "Ductal_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p78, name = "Plasma_all_cells_IGJ")
+SaveFigure(plot = p79, name = "Plasma_all_cells_IRF7")
+SaveFigure(plot = p80, name = "Plasma_SCISSORS_FitSNE")
+SaveFigure(plot = p81, name = "Plasma_Plasma_JCHAIN")
+SaveFigure(plot = p82, name = "Plasma_pDC_IGJ")
+SaveFigure(plot = p83, name = "Plasma_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p84, name = "B_all_cells_MS4A1")
+SaveFigure(plot = p85, name = "B_all_cells_CD79A")
+SaveFigure(plot = p86, name = "B_all_cells_tissue_type")
+SaveFigure(plot = p87, name = "Myeloid_Tumor_original_FitSNE")
+SaveFigure(plot = p88, name = "Myeloid_Tumor_Resident_Macro_CD14")
+SaveFigure(plot = p89, name = "Myeloid_Tumor_Resident_Macro_C1QA")
+SaveFigure(plot = p90, name = "Myeloid_Tumor_Classic_Mono_LYZ")
+SaveFigure(plot = p91, name = "Myeloid_Tumor_Classic_Mono_S100A8")
+SaveFigure(plot = p92, name = "Myeloid_Tumor_Alternative_Macro_Spp1")
+SaveFigure(plot = p93, name = "Myeloid_Tumor_DC_FCER1A")
+SaveFigure(plot = p94, name = "Monocyte_Tumor_SCISSORS_FitSNE")
+SaveFigure(plot = p95, name = "DC_Tumor_SCISSORS_FitSNE")
+SaveFigure(plot = p96, name = "Monocyte_Tumor_Neutrophil_S100A8")
+SaveFigure(plot = p97, name = "Monocyte_Tumor_Neutrophil_S100A9")
+SaveFigure(plot = p98, name = "Monocyte_Tumor_Classic_Mono_CD14")
+SaveFigure(plot = p99, name = "Monocyte_Tumor_CD16_Mono_FCGR3A")
+SaveFigure(plot = p100, name = "DC_Tumor_cDC1_CLEC9A")
+SaveFigure(plot = p101, name = "DC_Tumor_Langerhans_DC_CD1A")
+SaveFigure(plot = p102, name = "DC_Tumor_Langerhans_DC_CD207")
+SaveFigure(plot = p103, name = "DC_Tumor_Activated_DC_LAMP3")
+SaveFigure(plot = p104, name = "DC_Tumor_cDC2_CLEC10A")
+SaveFigure(plot = p105, name = "DC_Tumor_cDC2_KLF4")
+SaveFigure(plot = p106, name = "DC_Tumor_cDC2_SAMPLEID")
+SaveFigure(plot = p107, name = "Mono_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p108, name = "DC_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
+SaveFigure(plot = p109, name = "Mono_Norm_SCISSORS_FitSNE")
+SaveFigure(plot = p110, name = "DC_Norm_SCISSORS_FitSNE")
+SaveFigure(plot = p111, name = "Mono_Norm_Neutrophil_S100A8")
+SaveFigure(plot = p112, name = "Mono_Norm_Neutrophil_S100A9")
 ```
 
 And of course:

@@ -12,6 +12,7 @@
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).
 #' @param k.vals (Optional) The parameters *k* to be tested. Defaults to c(10, 25, 50).
 #' @param cutoff.score (Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are [2, .3].
+#' @param nn.metric (Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
 #' @examples
@@ -28,6 +29,7 @@ ReclusterCells <- function(seurat.object = NULL,
                            resolution.vals = c(.1, .2, .3, .4),
                            k.vals = c(10, 25, 50),
                            cutoff.score = .25,
+                           nn.metric = "cosine",
                            random.seed = 629) {
   # check inputs
   if (any(sapply(c(seurat.object, which.clust), is.null))) stop("Please provide a Seurat object and clusters to investigate.")
@@ -97,7 +99,7 @@ ReclusterCells <- function(seurat.object = NULL,
                                   reduction = "pca",
                                   dims = 1:n.PC,
                                   k.param = k.vals[k],
-                                  annoy.metric = "cosine",
+                                  annoy.metric = nn.metric,
                                   nn.method = "annoy",
                                   verbose = FALSE)
         temp_obj <- FindClusters(temp_obj,
@@ -148,7 +150,7 @@ ReclusterCells <- function(seurat.object = NULL,
       temp_obj <- FindNeighbors(temp_obj,
                                 reduction = "pca",
                                 dims = 1:n.PC,
-                                annoy.metric = "cosine",
+                                annoy.metric = nn.metric,
                                 nn.method = "annoy",
                                 k.param = best_k,
                                 verbose = FALSE)
@@ -160,9 +162,9 @@ ReclusterCells <- function(seurat.object = NULL,
     } else {
       # replace new object w/ original one, as no subclusters were found
       if (merge.clusters) {
-        print(sprintf("Didn't find subclusters in merged clusters %s; max S = %s"),
-              paste(old_which_clust, collapse = ", "),
-              round(max(sil_scores), 3))
+        print(sprintf("Didn't find subclusters in merged clusters %s; max S = %s",
+                      paste(old_which_clust, collapse = ", "),
+                      round(max(sil_scores), 3)))
         temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
       } else {
         print(sprintf("Didn't find subclusters in cluster %s; max S = %s",
