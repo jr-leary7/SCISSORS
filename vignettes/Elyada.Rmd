@@ -185,7 +185,7 @@ p1 <- DimPlot(pdac, reduction = "umap", pt.size = 0.75) +
       labs(x = "UMAP 1", y = "UMAP 2") + 
       theme_yehlab() +
       theme(legend.text = element_text(size = 10)) + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p1
 ```
 
@@ -224,7 +224,7 @@ p2 <- DimPlot(pdac, reduction = "fitsne", pt.size = 0.75) +
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() +
       theme(legend.text = element_text(size = 10)) + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p2
 ```
 
@@ -269,7 +269,7 @@ p3 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.sc", pt.size 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 2, override.aes = list(size = 4)))
 p3
 ```
 
@@ -302,7 +302,7 @@ p4 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk", pt.siz
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 2, override.aes = list(size = 4)))
 p4
 ```
 
@@ -367,7 +367,7 @@ p5 <- DimPlot(pdac, reduction = "tsne", group.by = "malig", pt.size = 0.75) +
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme(plot.title = element_blank()) + 
       theme_yehlab() + 
-      guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+      guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p5
 ```
 
@@ -571,7 +571,7 @@ p17 <- DimPlot(fibro, reduction = "tsne", pt.size = 1.5) +
        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p17
 ```
 
@@ -689,12 +689,44 @@ fibro$label <- case_when(fibro$seurat_clusters == 0 ~ "myCAF",
                          fibro$seurat_clusters == 2 ~ "iCAF", 
                          fibro$seurat_clusters == 3 ~ "Endothelial", 
                          fibro$seurat_clusters == 4 ~ "apCAF")
-p23 <- DimPlot(fibro, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank())
-p23
+Idents(fibro) <- "label"
+p23a <- DimPlot(fibro, reduction = "tsne", pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p23a
+```
+
+Here's the marker genes for each cluster. 
+
+```{r}
+fibro_markers2 <- FindAllMarkers(fibro, 
+                                 logfc.threshold = .5, 
+                                 test.use = "wilcox", 
+                                 only.pos = TRUE, 
+                                 random.seed = 629, 
+                                 verbose = FALSE) %>% 
+                  filter(p_val_adj < .05) %>% 
+                  group_by(cluster) %>% 
+                  arrange(desc(avg_log2FC)) %>% 
+                  slice_head(n = 5)
+p23b <- DotPlot(fibro, features = unique(fibro_markers2$gene), dot.scale = 10) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed") + 
+        theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 16), 
+              axis.title.y = element_blank(), 
+              axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", 
+                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p23b
 ```
 
 ## T Cells
@@ -764,7 +796,7 @@ p25 <- DimPlot(nkt_tumor, reduction = "tsne", pt.size = 1.5) +
        scale_color_manual(values = paletteer_d("ggsci::category20_d3")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p25
 ```
 
@@ -942,13 +974,44 @@ nkt_tumor$label <- case_when(nkt_tumor$seurat_clusters == 0 ~ "CD4+ T",
                              nkt_tumor$seurat_clusters == 6 ~ "Mast", 
                              nkt_tumor$seurat_clusters == 7 ~ "Proliferating T-reg", 
                              nkt_tumor$seurat_clusters == 8 ~ "Intermediate Monocyte")
-p40 <- DimPlot(nkt_tumor, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p40
+Idents(nkt_tumor) <- "label"
+p40a <- DimPlot(nkt_tumor, reduction = "tsne", pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 2, override.aes = list(size = 4)))
+p40a
+```
+
+Here's the marker genes. 
+
+```{r}
+nkt_tumor_markers2 <- FindAllMarkers(nkt_tumor, 
+                                     logfc.threshold = .5, 
+                                     test.use = "wilcox", 
+                                     only.pos = TRUE, 
+                                     random.seed = 629, 
+                                     verbose = FALSE) %>% 
+                      filter(p_val_adj < .05) %>% 
+                      group_by(cluster) %>% 
+                      arrange(desc(avg_log2FC)) %>% 
+                      slice_head(n = 5)
+p40b <- DotPlot(nkt_tumor, features = unique(nkt_tumor_markers2$gene), dot.scale = 10) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed") + 
+        theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 14), 
+              axis.title.y = element_blank(), 
+              axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 14)) + 
+        guides(color = guide_colorbar(title.position = "top", 
+                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p40b
 ```
 
 ### Adjacent Normal
@@ -989,7 +1052,7 @@ embed_nkt_norm2 = embed_nkt_norm1.optimize(n_iter=750, exaggeration=1, momentum=
 ```{r}
 embed_nkt_norm <- as.matrix(py$embed_nkt_norm2)
 rownames(embed_nkt_norm) <- colnames(nkt_norm)
-#nkt_norm@reductions$bh_tsne <- nkt_norm@reductions$tsne
+nkt_norm@reductions$bh_tsne <- nkt_norm@reductions$tsne
 nkt_norm@reductions$tsne<- CreateDimReducObject(embeddings = embed_nkt_norm, 
                                                 key = "FitSNE_", 
                                                 assay = "SCT", 
@@ -998,7 +1061,7 @@ p41 <- DimPlot(nkt_norm, reduction = "tsne", pt.size = 1.5) +
        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p41
 ```
 
@@ -1129,13 +1192,44 @@ nkt_norm$label <- case_when(nkt_norm$seurat_clusters == 0 ~ "Memory CD4+ T",
                             nkt_norm$seurat_clusters == 5 ~ "T-reg", 
                             nkt_norm$seurat_clusters == 6 ~ "Naive CD4+ T", 
                             nkt_norm$seurat_clusters == 7 ~ "Proliferating T-reg")
-p51 <- DimPlot(nkt_norm, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p51
+Idents(nkt_norm) <- "label"
+p51a <- DimPlot(nkt_norm, reduction = "tsne", pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 2, override.aes = list(size = 4)))
+p51a
+```
+
+Here's the marker genes. 
+
+```{r}
+nkt_norm_markers2 <- FindAllMarkers(nkt_norm, 
+                                    logfc.threshold = .5, 
+                                    test.use = "wilcox", 
+                                    only.pos = TRUE, 
+                                    random.seed = 629, 
+                                    verbose = FALSE) %>% 
+                      filter(p_val_adj < .05) %>% 
+                      group_by(cluster) %>% 
+                      arrange(desc(avg_log2FC)) %>% 
+                      slice_head(n = 5)
+p50b <- DotPlot(nkt_norm, features = unique(nkt_norm_markers2$gene), dot.scale = 10) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed") + 
+        theme(axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 14), 
+              axis.title.y = element_blank(), 
+              axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 14)) + 
+        guides(color = guide_colorbar(title.position = "top", 
+                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p50b
 ```
 
 ## Ductal Cells
@@ -1166,14 +1260,6 @@ ductal <- ReclusterCells(pdac,
                          resolution.vals = c(.2, .3, .4), 
                          redo.embedding = TRUE, 
                          random.seed = 629)
-DimPlot(ductal, reduction = "tsne")
-# cluster 2 = acinar
-# cluster 5 = lipid proc
-# cluster 3 = secretory 
-# cluster 6 = classic 2
-# cluster 0 & 1 & 4 = classic 1
-
-FeaturePlot(ductal, reduction = "tsne", features = "CTRB2")
 ```
 
 ```{r}
@@ -1214,7 +1300,7 @@ We pull the results into R, making sure to save the Barnes-Hut t-SNE results in 
 ```{r}
 embed_duct <- as.matrix(py$embed_d2)
 rownames(embed_duct) <- colnames(ductal)
-#ductal@reductions$bh_tsne <- ductal@reductions$tsne
+ductal@reductions$bh_tsne <- ductal@reductions$tsne
 ductal@reductions$tsne<- CreateDimReducObject(embeddings = embed_duct, 
                                               key = "FitSNE_", 
                                               assay = "SCT", 
@@ -1223,7 +1309,7 @@ p53 <- DimPlot(ductal, reduction = "tsne", pt.size = 1.5) +
        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p53
 ```
 
@@ -1343,13 +1429,44 @@ ductal$label <- case_when(ductal$seurat_clusters == 0 ~ "Classical 1",
                           ductal$seurat_clusters == 4 ~ "Basal", 
                           ductal$seurat_clusters == 5 ~ "Lipid Proc.", 
                           ductal$seurat_clusters == 6 ~ "Classical 2")
-p64 <- DimPlot(ductal, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p64
+Idents(ductal) <- "label"
+p64a <- DimPlot(ductal, reduction = "tsne",pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p64a
+```
+
+Here's the marker genes. 
+
+```{r}
+ductal_markers2 <- FindAllMarkers(ductal, 
+                                  logfc.threshold = .5, 
+                                  test.use = "wilcox", 
+                                  only.pos = TRUE, 
+                                  random.seed = 629, 
+                                  verbose = FALSE) %>% 
+                   filter(p_val_adj < .05) %>% 
+                   group_by(cluster) %>% 
+                   arrange(desc(avg_log2FC)) %>% 
+                   slice_head(n = 5)
+p64b <- DotPlot(ductal, features = unique(ductal_markers2$gene), dot.scale = 10) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed") + 
+        theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 14), 
+              axis.title.y = element_blank(), 
+              axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 14)) + 
+        guides(color = guide_colorbar(title.position = "top", 
+                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p64b
 ```
 
 ## Plasma Cells & Plasmacytoid DCs
@@ -1413,7 +1530,7 @@ p70 <- DimPlot(myo_tumor, reduction = "tsne", pt.size = 1.5) +
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p70
 ```
 
@@ -1536,7 +1653,7 @@ p77 <- DimPlot(myo_reclust, reduction = "tsne", pt.size = 1.5) +
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p77
 ```
 
@@ -1553,7 +1670,7 @@ p78 <- DimPlot(dc_reclust, reduction = "tsne", pt.size = 1.5) +
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p78
 ```
 
@@ -1637,11 +1754,12 @@ We add cell labels to our `Seurat` object, then we're off to the DCs.
 
 ```{r}
 myo_reclust$label <- case_when(myo_reclust$seurat_clusters == 0 ~ "Resident Macrophage", 
-                              myo_reclust$seurat_clusters == 1 ~ "Classical Monocyte", 
-                              myo_reclust$seurat_clusters == 2 ~ "Neutrophil", 
-                              myo_reclust$seurat_clusters == 3 ~ "Alt. Activated Macrophage", 
-                              myo_reclust$seurat_clusters == 4 ~ "CD16+ Monocyte", 
-                              myo_reclust$seurat_clusters == 5 ~ "Intermediate Monocyte")
+                               myo_reclust$seurat_clusters == 1 ~ "Classical Monocyte", 
+                               myo_reclust$seurat_clusters == 2 ~ "Neutrophil", 
+                               myo_reclust$seurat_clusters == 3 ~ "Alt. Activated Macrophage", 
+                               myo_reclust$seurat_clusters == 4 ~ "CD16+ Monocyte", 
+                               myo_reclust$seurat_clusters == 5 ~ "Intermediate Monocyte")
+Idents(myo_reclust) <- "label"
 ```
 
 ##### Dendritic Cells
@@ -1722,6 +1840,7 @@ dc_reclust$label <- case_when(dc_reclust$seurat_clusters == 0 ~ "cDC2",
                               dc_reclust$seurat_clusters == 4 ~ "Langerhans-like DCA", 
                               dc_reclust$seurat_clusters == 5 ~ "cDC1", 
                               dc_reclust$seurat_clusters == 6 ~ "Activated DC")
+Idents(dc_reclust) <- "label"
 ```
 
 #### Visualization
@@ -1729,25 +1848,85 @@ dc_reclust$label <- case_when(dc_reclust$seurat_clusters == 0 ~ "cDC2",
 ##### Monocytes & Neutrophils
 
 ```{r}
-p95 <- DimPlot(myo_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p95
+p95a <- DimPlot(myo_reclust, reduction = "tsne", pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 2, override.aes = list(size = 4)))
+p95a
+```
+
+Here's the marker genes. 
+
+```{r}
+myo_reclust_markers2 <- FindAllMarkers(myo_reclust, 
+                                       logfc.threshold = .5, 
+                                       test.use = "wilcox", 
+                                       only.pos = TRUE, 
+                                       random.seed = 629, 
+                                       verbose = FALSE) %>% 
+                        filter(p_val_adj < .05) %>% 
+                        group_by(cluster) %>% 
+                        arrange(desc(avg_log2FC)) %>% 
+                        slice_head(n = 5)
+p95b <- DotPlot(myo_reclust, features = unique(myo_reclust_markers2$gene), dot.scale = 10) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed") + 
+        theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 14), 
+              axis.title.y = element_blank(), 
+              axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 14)) + 
+        guides(color = guide_colorbar(title.position = "top", 
+                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p95b
 ```
 
 ##### DCs
 
 ```{r}
-p96 <- DimPlot(dc_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
-p96
+p96a <- DimPlot(dc_reclust, reduction = "tsne", pt.size = 1.5) + 
+        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 2, override.aes = list(size = 3)))
+p96a
+```
+
+Here's the marker genes. 
+
+```{r}
+dc_reclust_markers2 <- FindAllMarkers(dc_reclust, 
+                                      logfc.threshold = .5, 
+                                      test.use = "wilcox", 
+                                      only.pos = TRUE, 
+                                      random.seed = 629, 
+                                      verbose = FALSE) %>% 
+                       filter(p_val_adj < .05) %>% 
+                       group_by(cluster) %>% 
+                       arrange(desc(avg_log2FC)) %>% 
+                       slice_head(n = 5)
+p96b <- DotPlot(dc_reclust, features = unique(dc_reclust_markers2$gene), dot.scale = 8) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed") + 
+        theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 14), 
+              axis.title.y = element_blank(), 
+              axis.title.x = element_blank(), 
+              axis.text.y = element_text(size = 14)) + 
+        guides(color = guide_colorbar(title.position = "top", 
+                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p96b
 ```
 
 ### Adjacent Normal
@@ -1756,7 +1935,6 @@ We have the same four clusters as in the tumor tissue - 1, 2, & 7 - and we'll ru
 
 ```{r}
 myo_norm <- subset(pdac, subset = seurat_clusters %in% c(1, 2, 7) & condition == "AdjNorm")
-DimPlot(myo_norm, reduction = "tsne")
 ```
 
 #### Reclustering
@@ -1780,10 +1958,6 @@ dc_norm_reclust <- ReclusterCells(myo_norm,
                                   nn.metric = "euclidean", 
                                   redo.embedding = TRUE, 
                                   random.seed = 629)
-DimPlot(myo_norm_reclust, reduction = "bh_tsne")
-FeaturePlot(myo_norm_reclust, reduction = "bh_tsne", features = "C1QA")
-DimPlot(dc_norm_reclust, reduction = "tsne")
-FeaturePlot(dc_norm_reclust, reduction = "tsne", features = "CLEC10A")
 ```
 
 For the last time, we run Fit-SNE in order to obtain a better embedding. 
@@ -1826,7 +2000,7 @@ p97 <- DimPlot(myo_norm_reclust, reduction = "tsne", pt.size = 1.5) +
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p97
 ```
 
@@ -1843,7 +2017,7 @@ p98 <- DimPlot(dc_norm_reclust, reduction = "tsne", pt.size = 1.5) +
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
        theme_yehlab() + 
        theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p98
 ```
 
@@ -1944,6 +2118,7 @@ myo_norm_reclust$label <- case_when(myo_norm_reclust$seurat_clusters == 0 ~ "Cla
                                     myo_norm_reclust$seurat_clusters == 3 ~ "Classical Monocyte", 
                                     myo_norm_reclust$seurat_clusters == 4 ~ "Neutrophil",
                                     myo_norm_reclust$seurat_clusters == 5 ~ "CD8+ T")
+Idents(myo_norm_reclust) <- "label"
 ```
 
 ##### Dendritic Cells
@@ -1972,6 +2147,7 @@ Labels are added to our adjacent normal tissue DC `Seurat` object.
 dc_norm_reclust$label <- case_when(dc_norm_reclust$seurat_clusters == 0 ~ "cDC2", 
                                    dc_norm_reclust$seurat_clusters == 1 ~ "cDC2", 
                                    dc_norm_reclust$seurat_clusters == 2 ~ "cDC1")
+Idents(dc_norm_reclust) <- "label"
 ```
 
 #### Visualization
@@ -1979,23 +2155,86 @@ dc_norm_reclust$label <- case_when(dc_norm_reclust$seurat_clusters == 0 ~ "cDC2"
 Here are the final annotations for the adjacent normal tissue myeloid population. 
 
 ```{r}
-p111 <- DimPlot(myo_norm_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        theme(plot.title = element_blank()) + 
-        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p111
+p111a <- DimPlot(myo_norm_reclust, reduction = "tsne", pt.size = 1.5) + 
+         scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+         theme_yehlab() + 
+         theme(plot.title = element_blank()) + 
+         guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p111a
 ```
 
+And here's their marker genes. 
+
 ```{r}
-p112 <- DimPlot(dc_norm_reclust, reduction = "tsne", group.by = "label", pt.size = 1.5) + 
-        scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-        theme_yehlab() + 
-        theme(plot.title = element_blank()) + 
-        guides(color = guide_legend(nrow = 1, override.aes = list(size = 3)))
-p112
+myo_norm_reclust_markers2 <- FindAllMarkers(myo_norm_reclust, 
+                                            logfc.threshold = .5, 
+                                            test.use = "wilcox", 
+                                            only.pos = TRUE, 
+                                            random.seed = 629, 
+                                            verbose = FALSE) %>% 
+                             filter(p_val_adj < .05) %>% 
+                             group_by(cluster) %>% 
+                             arrange(desc(avg_log2FC)) %>% 
+                             slice_head(n = 5)
+p111b <- DotPlot(myo_norm_reclust, features = unique(myo_norm_reclust_markers2$gene), dot.scale = 10) + 
+         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+         labs(color = "Expression", size = "% Expressed") + 
+         theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
+               legend.position = "right", legend.justification = "center", 
+               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+               axis.line = element_blank(), 
+               legend.title = element_text(size = 14), 
+               axis.title.y = element_blank(), 
+               axis.title.x = element_blank(), 
+               axis.text.y = element_text(size = 14)) + 
+         guides(color = guide_colorbar(title.position = "top", 
+                                       barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+                size = guide_legend(title.position = "top", title.hjust = 0.5))
+p111b
+```
+
+Here's the final DC annotations .
+
+```{r}
+p112a <- DimPlot(dc_norm_reclust, reduction = "tsne", pt.size = 1.5) + 
+         scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
+         labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+         theme_yehlab() + 
+         theme(plot.title = element_blank()) + 
+         guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p112a
+```
+
+And here are their marker genes. 
+
+```{r}
+dc_norm_reclust_markers2 <- FindAllMarkers(dc_norm_reclust, 
+                                           logfc.threshold = .5, 
+                                           test.use = "wilcox", 
+                                           only.pos = TRUE, 
+                                           random.seed = 629, 
+                                           verbose = FALSE) %>% 
+                            filter(p_val_adj < .05) %>% 
+                            group_by(cluster) %>% 
+                            arrange(desc(avg_log2FC)) %>% 
+                            slice_head(n = 5)
+p112b <- DotPlot(dc_norm_reclust, features = unique(dc_norm_reclust_markers2$gene), dot.scale = 10) + 
+         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+         labs(color = "Expression", size = "% Expressed") + 
+         theme(axis.text.x = element_text(angle = 90, size = 14, vjust = 0.5), 
+               legend.position = "right", 
+               legend.justification = "center", 
+               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+               axis.line = element_blank(), 
+               legend.title = element_text(size = 16), 
+               axis.title.y = element_blank(), 
+               axis.title.x = element_blank(), 
+               axis.text.y = element_text(size = 16)) + 
+         guides(color = guide_colorbar(title.position = "top", 
+                                       barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+                size = guide_legend(title.position = "top", title.hjust = 0.5))
+p112b
 ```
 
 # Conclusions
