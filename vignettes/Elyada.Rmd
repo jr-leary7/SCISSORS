@@ -1,5 +1,5 @@
 ---
-title: "Reclustering Analysis of Cancer-Associated Fibroblast Using SCISSORS"
+title: "Reclustering Analysis of Cancer-Associated Fibroblasts Using SCISSORS"
 subtitle: "Jack Leary"
 author: 
   - "University of North Carolina at Chapel Hill - Lineberger Comprehensive Cancer Center"
@@ -27,30 +27,28 @@ reticulate::use_virtualenv("~/Desktop/Python/science/venv/", required = TRUE)
 
 # Introduction
 
-In 2017, the Tuveson Lab at Cold Spring Harbor Cancer Center published a paper written by Elyada *et al* that detailed the discovery of cancer-associated fibroblasts (CAFs) in mice. The subtypes were then validated in human samples affected with PDAC in a subsequent paper released in 2019. Here we will use SCISSORS to identify the CAF subtypes within the larger stroma population, fine-grained immune cell types within broadly-defined immune clusters, and ductal & PDAC subtypes within the ductal group. 
+In 2017, the Tuveson Lab at Cold Spring Harbor Cancer Center published a paper written by Elyada *et al* that detailed the discovery of cancer-associated fibroblasts (CAFs) in mice. The subtypes were then validated in human samples affected with PDAC in a subsequent paper released in 2019. Here we will use SCISSORS to identify the CAF subtypes within the larger stroma population, fine-grained immune cell types within broadly-defined immune clusters, and ductal & PDAC subtypes within the ductal group. You can install SCISSORS from [our GitHub repository](https://github.com/jr-leary7/SCISSORS).
 
 # Libraries
 
 ## R
 
 ```{r}
-library(pals)        # high N discrete color palettes
 library(VAM)         # single cell GSEA
 library(dplyr)       # tidy data 
 library(Seurat)      # single cell infrastructure
-library(ggplot2)     # plots
+library(ggplot2)     # pretty plots
 library(SingleR)     # cell type assignment
 library(decoderr)    # de novo deconvolution 
 library(SCISSORS)    # our package
 library(mixtools)    # Gaussian mixture model estimation
-library(patchwork)   # plot grids
+library(patchwork)   # align plots
 library(latex2exp)   # LaTeX
-library(paletteer)   # more color palettes
+library(paletteer)   # color palettes
 library(CONICSmat)   # CNV estimation
-library(ggbeeswarm)  # beeswarm plots
 library(reticulate)  # Python interface
 library(kableExtra)  # pretty tables
-library(wesanderson) # even more color palettes
+library(wesanderson) # more color palettes
 ```
 
 ## Python
@@ -121,7 +119,7 @@ pdac <- PrepareData(seurat.object = pdac,
                     random.seed = 629)
 ```
 
-Let's check out the t-SNE embedding. It looks decent, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. 
+Let's check out the t-SNE embedding. It looks decent, but could definitely be improved. Globally, the clusters are arranged in a blob - which isn't very informative - though the local structure seems to have been preserved fairly well. Visually, there are several clusters that contain subgroups - clusters 3, 4, 5, 6, & 9 look like good candidates for reclustering. 
 
 ```{r}
 p0a <- DimPlot(pdac, reduction = "tsne", pt.size = 0.75) + 
@@ -159,6 +157,36 @@ Looking at the silhouette score distribution for each cluster, we see that Clust
 
 ```{r}
 p0b
+```
+
+Lastly we'll identify marker genes for each of the clusters. 
+
+```{r}
+pdac_markers <- FindAllMarkers(pdac, 
+                               logfc.threshold = .5, 
+                               test.use = "wilcox", 
+                               only.pos = TRUE, 
+                               random.seed = 629, 
+                               verbose = FALSE) %>% 
+                filter(p_val_adj < .05) %>% 
+                group_by(cluster) %>% 
+                arrange(desc(avg_log2FC)) %>% 
+                slice_head(n = 5)
+p0c <- DotPlot(pdac, features = unique(pdac_markers$gene), dot.scale = 10) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Expression", size = "% Expressed", y = "Louvain Cluster") + 
+       theme(axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), 
+             legend.position = "right", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 14), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_text(size = 14), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", 
+                                     barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+p0c
 ```
 
 ## Optimize Dimension Reduction
@@ -235,8 +263,9 @@ pdac@reductions$bh_tsne <- pdac@reductions$tsne
 pdac@reductions$tsne <- pdac@reductions$fitsne
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, results='hide'}
 rm(embed, pc_df)
+gc(verbose = FALSE)
 ```
 
 # SingleR Cell Type Identification
@@ -306,8 +335,9 @@ p4 <- DimPlot(pdac, reduction = "tsne", group.by = "SingleR.labels.bulk", pt.siz
 p4
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, results='hide'}
 rm(sc_preds, bulk_preds, bulk_ref, sc_ref)
+gc(verbose = FALSE)
 ```
 
 One shouldn't use `SingleR` as the final authority for cell types, but we were able to confirm the identities of the ductal and fibroblast clusters, which is important for this dataset as the cells we are most interested in are the cancer-associated fibroblasts (CAFs). 
@@ -702,6 +732,7 @@ p23a
 Here's the marker genes for each cluster. 
 
 ```{r}
+DefaultAssay(fibro) <- "SCT"
 fibro_markers2 <- FindAllMarkers(fibro, 
                                  logfc.threshold = .5, 
                                  test.use = "wilcox", 
@@ -712,7 +743,7 @@ fibro_markers2 <- FindAllMarkers(fibro,
                   group_by(cluster) %>% 
                   arrange(desc(avg_log2FC)) %>% 
                   slice_head(n = 5)
-p23b <- DotPlot(fibro, features = unique(fibro_markers2$gene), dot.scale = 10) + 
+p23b <- DotPlot(fibro, features = fibro_markers2$gene, dot.scale = 10) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
         theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
@@ -763,8 +794,6 @@ nkt_tumor <- ReclusterCells(nkt_tumor,
                             redo.embedding = TRUE, 
                             random.seed = 629)
 nkt_tumor_pc <- Embeddings(nkt_tumor, "pca")
-DimPlot(nkt_tumor, reduction = "tsne")
-FeaturePlot(nkt_tumor, reduction = "tsne", features = "")
 ```
 
 Once again we'll run Fit-SNE on the reclustered cells. 
@@ -1215,7 +1244,7 @@ nkt_norm_markers2 <- FindAllMarkers(nkt_norm,
                       group_by(cluster) %>% 
                       arrange(desc(avg_log2FC)) %>% 
                       slice_head(n = 5)
-p50b <- DotPlot(nkt_norm, features = unique(nkt_norm_markers2$gene), dot.scale = 10) + 
+p51b <- DotPlot(nkt_norm, features = unique(nkt_norm_markers2$gene), dot.scale = 10) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
         theme(axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), 
@@ -1229,7 +1258,7 @@ p50b <- DotPlot(nkt_norm, features = unique(nkt_norm_markers2$gene), dot.scale =
         guides(color = guide_colorbar(title.position = "top", 
                                       barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                size = guide_legend(title.position = "top", title.hjust = 0.5))
-p50b
+p51b
 ```
 
 ## Ductal Cells
@@ -1260,9 +1289,6 @@ ductal <- ReclusterCells(pdac,
                          resolution.vals = c(.2, .3, .4), 
                          redo.embedding = TRUE, 
                          random.seed = 629)
-```
-
-```{r}
 ductal_markers <- FindAllMarkers(ductal, 
                                  logfc.threshold = .5, 
                                  min.diff.pct = .2, 
@@ -1317,7 +1343,7 @@ p53
 
 #### Lipid Processing
 
-We use ANPEP expression to identify the lipid processing ductal cells in cluster 6. 
+We use ANPEP & FABP1 expression to identify the lipid processing ductal cells in cluster 6. 
 
 ```{r}
 p54 <- FeaturePlot(ductal, reduction = "tsne", features = "ANPEP", pt.size = 1.5) + 
@@ -1326,7 +1352,13 @@ p54 <- FeaturePlot(ductal, reduction = "tsne", features = "ANPEP", pt.size = 1.5
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p54 / p53
+p55 <- FeaturePlot(ductal, reduction = "tsne", features = "FABP1", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p54 | p55) / p53
 ```
 
 #### Secretory
@@ -1396,7 +1428,7 @@ The basal compartment weights from `DECODER` are highest in cluster 4, which we 
 ```{r}
 p62 <- FeaturePlot(ductal, reduction = "tsne", features = "basal") + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Basal-like") + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Basal") + 
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
@@ -2279,118 +2311,129 @@ SaveFigure <- function(my.plot = NULL, name = NULL, height = 8, width = 8) {
 This section isn't worth reading; it's here solely to prove that the figures we present in our publication were dynamically generated during the knitting of this document.
 
 ```{r}
-SaveFigure(plot = p0a, name = "Seurat_Clusters_Sil_Scores")
-SaveFigure(plot = p0b, name = "Seurat_Clusters_tSNE")
-SaveFigure(plot = p1, name = "Seurat_Clusters_UMAP")
-SaveFigure(plot = p2, name = "Seurat_Clusters_FitSNE")
-SaveFigure(plot = p3, name = "SingleR_Annos_sc_ref")
-SaveFigure(plot = p4, name = "SingleR_Annos_bulk_ref")
-SaveFigure(plot = p5, name = "CONICSmat_Annos")
-SaveFigure(plot = p6, name = "DECODER_basal")
-SaveFigure(plot = p7, name = "DECODER_classical")
-SaveFigure(plot = p8, name = "DECODER_exocrine")
-SaveFigure(plot = p9, name = "DECODER_endocrine")
-SaveFigure(plot = p10, name = "DECODER_immune")
-SaveFigure(plot = p11, name = "DECODER_normal_stroma")
-SaveFigure(plot = p12, name = "DECODER_act_stroma")
-SaveFigure(plot = p13, name = "Fibro_all_cells_COL1A1")
-SaveFigure(plot = p14, name = "Fibro_all_cells_COL3A1")
-SaveFigure(plot = p15, name = "Fibro_all_cells_LUM")
-SaveFigure(plot = p16, name = "Fibro_all_cells_DCN")
-SaveFigure(plot = p17, name = "Fibro_SCISSORS_FitSNE")
-SaveFigure(plot = p18, name = "Fibro_SCISSORS_PLVAP")
-SaveFigure(plot = p19, name = "Fibro_SCISSORS_RGS5")
-SaveFigure(plot = p20, name = "Fibro_apCAF_VAM")
-SaveFigure(plot = p23, name = "Fibro_final_labels", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p24, name = "Endo_Perivascular_SCISSORS_FitSNE")
-SaveFigure(plot = p25, name = "Perivascular_IGFBP7")
-SaveFigure(plot = p26, name = "Perivascular_ACTA2")
-SaveFigure(plot = p27, name = "Perivascular_RGS5")
-SaveFigure(plot = p28, name = "Endothelial_PLVAP")
-SaveFigure(plot = p29, name = "Endothelial_VWF")
-SaveFigure(plot = p30, name = "Endo_Perivascular_final_labels", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p31, name = "NKT_all_cells_CD3D")
-SaveFigure(plot = p32, name = "NKT_Tumor_SCISSORS_FitSNE")
-SaveFigure(plot = p33, name = "NKT_Tumor_CD4T_IL7R")
-SaveFigure(plot = p34, name = "NKT_Tumor_CD4T_CD69")
-SaveFigure(plot = p35, name = "NKT_Tumor_Treg_IL2RA")
-SaveFigure(plot = p36, name = "NKT_Tumor_Treg_FOXP3")
-SaveFigure(plot = p37, name = "NKT_Tumor_Prolif_Treg_TOP2A")
-SaveFigure(plot = p38, name = "NKT_Tumor_Mast_TPSAB1")
-SaveFigure(plot = p39, name = "NKT_Tumor_NK_NKG7")
-SaveFigure(plot = p40, name = "NKT_Tumor_NK_PRF1")
-SaveFigure(plot = p41, name = "NKT_Tumor_CD8T_CD8A")
-SaveFigure(plot = p42, name = "NKT_Tumor_CD8T_CD2")
-SaveFigure(plot = p43, name = "NKT_Tumor_Intermediate_Mono_LYZ")
-SaveFigure(plot = p44, name = "NKT_Tumor_Intermediate_Mono_HLADRA")
-SaveFigure(plot = p45, name = "NKT_Tumor_Intermediate_Mono_CD74")
-SaveFigure(plot = p46, name = "NKT_Tumor_Intermediate_Mono_HLADPB1")
-SaveFigure(plot = p47, name = "NKT_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p48, name = "NKT_Norm_SCISSORS_FitSNE")
-SaveFigure(plot = p49, name = "NKT_Norm_CD4T_IL7R")
-SaveFigure(plot = p50, name = "NKT_Norm_CD4T_S100A4")
-SaveFigure(plot = p51, name = "NKT_Norm_CD4T_CCR7")
-SaveFigure(plot = p52, name = "NKT_Norm_CD8T_CD8A")
-SaveFigure(plot = p53, name = "NKT_Norm_Treg_TIGIT")
-SaveFigure(plot = p54, name = "NKT_Norm_Treg_FOXP3")
-SaveFigure(plot = p55, name = "NKT_Norm_NK_PRF1")
-SaveFigure(plot = p56, name = "NKT_Norm_NK_NKG7")
-SaveFigure(plot = p57, name = "NKT_Norm_Prolif_Treg_TOP2A")
-SaveFigure(plot = p58, name = "NKT_Norm_Intermediate_Mono_LYZ")
-SaveFigure(plot = p59, name = "NKT_Norm_Intermediate_Mono_HLADRA")
-SaveFigure(plot = p60, name = "NKT_Norm_Intermediate_Mono_LST1")
-SaveFigure(plot = p61, name = "NKT_Norm_Intermediate_Mono_TYROBP")
-SaveFigure(plot = p62, name = "NKT_Norm_SCISSORS_FitSNE", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p63, name = "Ductal_all_cells_KRT8")
-SaveFigure(plot = p64, name = "Ductal_SCISSORS_FitSNE")
-SaveFigure(plot = p65, name = "Ductal_Lipid_Proc_ANPEP")
-SaveFigure(plot = p66, name = "Ductal_Secretory_SOD3")
-SaveFigure(plot = p67, name = "Ductal_Secretory_CFTR")
-SaveFigure(plot = p68, name = "Ductal_Classical1_TFF1")
-SaveFigure(plot = p69, name = "Ductal_Classical1_TFF2")
-SaveFigure(plot = p70, name = "Ductal_Classical1_SampleID")
-SaveFigure(plot = p71, name = "Ductal_Classical2_CRISP3")
-SaveFigure(plot = p72, name = "Ductal_basal_DECODER")
-SaveFigure(plot = p73, name = "Ductal_CD16_Mono_CD14")
-SaveFigure(plot = p74, name = "Ductal_CD16_Mono_FCGR3A")
-SaveFigure(plot = p75, name = "Ductal_CD16_Mono_MS4A7")
-SaveFigure(plot = p76, name = "Ductal_Acinar_CTRB2")
-SaveFigure(plot = p77, name = "Ductal_final_labels", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p78, name = "Plasma_all_cells_IGJ")
-SaveFigure(plot = p79, name = "Plasma_all_cells_IRF7")
-SaveFigure(plot = p80, name = "Plasma_SCISSORS_FitSNE")
-SaveFigure(plot = p81, name = "Plasma_Plasma_JCHAIN")
-SaveFigure(plot = p82, name = "Plasma_pDC_IGJ")
-SaveFigure(plot = p83, name = "Plasma_final_labels", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p84, name = "B_all_cells_MS4A1")
-SaveFigure(plot = p85, name = "B_all_cells_CD79A")
-SaveFigure(plot = p86, name = "B_all_cells_tissue_type")
-SaveFigure(plot = p87, name = "Myeloid_Tumor_original_FitSNE")
-SaveFigure(plot = p88, name = "Myeloid_Tumor_Resident_Macro_CD14")
-SaveFigure(plot = p89, name = "Myeloid_Tumor_Resident_Macro_C1QA")
-SaveFigure(plot = p90, name = "Myeloid_Tumor_Classic_Mono_LYZ")
-SaveFigure(plot = p91, name = "Myeloid_Tumor_Classic_Mono_S100A8")
-SaveFigure(plot = p92, name = "Myeloid_Tumor_Alternative_Macro_Spp1")
-SaveFigure(plot = p93, name = "Myeloid_Tumor_DC_FCER1A")
-SaveFigure(plot = p94, name = "Monocyte_Tumor_SCISSORS_FitSNE")
-SaveFigure(plot = p95, name = "DC_Tumor_SCISSORS_FitSNE")
-SaveFigure(plot = p96, name = "Monocyte_Tumor_Neutrophil_S100A8")
-SaveFigure(plot = p97, name = "Monocyte_Tumor_Neutrophil_S100A9")
-SaveFigure(plot = p98, name = "Monocyte_Tumor_Classic_Mono_CD14")
-SaveFigure(plot = p99, name = "Monocyte_Tumor_CD16_Mono_FCGR3A")
-SaveFigure(plot = p100, name = "DC_Tumor_cDC1_CLEC9A")
-SaveFigure(plot = p101, name = "DC_Tumor_Langerhans_DC_CD1A")
-SaveFigure(plot = p102, name = "DC_Tumor_Langerhans_DC_CD207")
-SaveFigure(plot = p103, name = "DC_Tumor_Activated_DC_LAMP3")
-SaveFigure(plot = p104, name = "DC_Tumor_cDC2_CLEC10A")
-SaveFigure(plot = p105, name = "DC_Tumor_cDC2_KLF4")
-SaveFigure(plot = p106, name = "DC_Tumor_cDC2_SAMPLEID")
-SaveFigure(plot = p107, name = "Mono_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p108, name = "DC_Tumor_final_labels", pub.ready = TRUE, border = FALSE)
-SaveFigure(plot = p109, name = "Mono_Norm_SCISSORS_FitSNE")
-SaveFigure(plot = p110, name = "DC_Norm_SCISSORS_FitSNE")
-SaveFigure(plot = p111, name = "Mono_Norm_Neutrophil_S100A8")
-SaveFigure(plot = p112, name = "Mono_Norm_Neutrophil_S100A9")
+SaveFigure(my.plot = p0a, name = "Seurat_Clusters_tSNE")
+SaveFigure(my.plot = p0b, name = "Seurat_Clusters_Sil_Score")
+SaveFigure(my.plot = p0c, name = "Seurat_Clusters_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p1, name = "Seurat_Clusters_UMAP")
+SaveFigure(my.plot = p2, name = "Seurat_Clusters_FitSNE")
+SaveFigure(my.plot = p3, name = "SingleR_Annos_SC_Ref")
+SaveFigure(my.plot = p4, name = "SingleR_Annos_Bulk_Ref")
+SaveFigure(my.plot = p5, name = "CONICSmat_Annos")
+SaveFigure(my.plot = p6, name = "DECODER_Basal")
+SaveFigure(my.plot = p7, name = "DECODER_Classical")
+SaveFigure(my.plot = p8, name = "DECODER_Exocrine")
+SaveFigure(my.plot = p9, name = "DECODER_Endocrine")
+SaveFigure(my.plot = p10, name = "DECODER_Immune")
+SaveFigure(my.plot = p11, name = "DECODER_Normal_Stroma")
+SaveFigure(my.plot = p12, name = "DECODER_Act_Stroma")
+SaveFigure(my.plot = p13, name = "Fibro_All_Cells_COL1A1")
+SaveFigure(my.plot = p14, name = "Fibro_All_Cells_COL3A1")
+SaveFigure(my.plot = p15, name = "Fibro_All_Cells_LUM")
+SaveFigure(my.plot = p16, name = "Fibro_All_Cells_DCN")
+SaveFigure(my.plot = p17, name = "Fibro_SCISSORS_FitSNE")
+SaveFigure(my.plot = p18, name = "Fibro_Endothelial_PLVAP")
+SaveFigure(my.plot = p19, name = "Fibro_Perivascular_RGS5")
+SaveFigure(my.plot = p20, name = "Fibro_VAM_iCAF")
+SaveFigure(my.plot = p21, name = "Fibro_VAM_myCAF")
+SaveFigure(my.plot = p22, name = "Fibro_VAM_apCAF")
+SaveFigure(my.plot = p23a, name = "Fibro_Final_Labels")
+SaveFigure(my.plot = p23b, name = "Fibro_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p24, name = "NKT_All_Cells_CD3D")
+SaveFigure(my.plot = p25, name = "NKT_Tumor_SCISSORS_FitSNE")
+SaveFigure(my.plot = p26, name = "NKT_Tumor_CD4T_IL7R")
+SaveFigure(my.plot = p27, name = "NKT_Tumor_CD4T_CD69")
+SaveFigure(my.plot = p28, name = "NKT_Tumor_Treg_IL2RA")
+SaveFigure(my.plot = p29, name = "NKT_Tumor_Treg_FOXP3")
+SaveFigure(my.plot = p30, name = "NKT_Tumor_Prolif_Treg_TOP2A")
+SaveFigure(my.plot = p31, name = "NKT_Tumor_Mast_TPSAB1")
+SaveFigure(my.plot = p32, name = "NKT_Tumor_NK_NKG7")
+SaveFigure(my.plot = p33, name = "NKT_Tumor_NK_PRF1")
+SaveFigure(my.plot = p34, name = "NKT_Tumor_CD8T_CD8A")
+SaveFigure(my.plot = p35, name = "NKT_Tumor_CD8T_CD2")
+SaveFigure(my.plot = p36, name = "NKT_Tumor_Intermediate_Mono_LYZ")
+SaveFigure(my.plot = p37, name = "NKT_Tumor_Intermediate_Mono_HLADRA")
+SaveFigure(my.plot = p38, name = "NKT_Tumor_Intermediate_Mono_CD74")
+SaveFigure(my.plot = p39, name = "NKT_Tumor_Intermediate_Mono_HLADPB1")
+SaveFigure(my.plot = p40a, name = "NKT_Tumor_Final_Labels")
+SaveFigure(my.plot = p40b, name = "NKT_Tumor_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p41, name = "NKT_Norm_SCISSORS_FitSNE")
+SaveFigure(my.plot = p42, name = "NKT_Norm_CD4T_IL7R")
+SaveFigure(my.plot = p43, name = "NKT_Norm_CD4T_S100A4")
+SaveFigure(my.plot = p44, name = "NKT_Norm_CD4T_CCR7")
+SaveFigure(my.plot = p45, name = "NKT_Norm_CD8T_CD8A")
+SaveFigure(my.plot = p46, name = "NKT_Norm_Treg_TIGIT")
+SaveFigure(my.plot = p47, name = "NKT_Norm_Treg_FOXP3")
+SaveFigure(my.plot = p48, name = "NKT_Norm_NK_PRF1")
+SaveFigure(my.plot = p49, name = "NKT_Norm_NK_NKG7")
+SaveFigure(my.plot = p50, name = "NKT_Norm_Prolif_Treg_TOP2A")
+SaveFigure(my.plot = p51a, name = "NKT_Norm_Final_Labels")
+SaveFigure(my.plot = p51b, name = "NKT_Norm_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p52, name = "Ductal_All_Cells_KRT8")
+SaveFigure(my.plot = p53, name = "Ductal_SCISSORS_FitSNE")
+SaveFigure(my.plot = p54, name = "Ductal_Lipid_Proc_ANPEP")
+SaveFigure(my.plot = p55, name = "Ductal_Lipid_Proc_FABP1")
+SaveFigure(my.plot = p56, name = "Ductal_Secretory_SOD3")
+SaveFigure(my.plot = p57, name = "Ductal_Secretory_CFTR")
+SaveFigure(my.plot = p58, name = "Ductal_Classical1_TFF1")
+SaveFigure(my.plot = p59, name = "Ductal_Classical1_TFF2")
+SaveFigure(my.plot = p60, name = "Ductal_Classical1_SampleID")
+SaveFigure(my.plot = p61, name = "Ductal_Classical2_CRISP3")
+SaveFigure(my.plot = p62, name = "Ductal_DECODER_Basal")
+SaveFigure(my.plot = p63, name = "Ductal_Acinar_CTRB2")
+SaveFigure(my.plot = p64a, name = "Ductal_Final_Labels")
+SaveFigure(my.plot = p64b, name = "Ductal_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p65, name = "Plasma_All_Cells_IGJ")
+SaveFigure(my.plot = p66, name = "Plasmacytoid_DC_All_Cells_IRF7")
+SaveFigure(my.plot = p67, name = "B_All_Cells_MS4A1")
+SaveFigure(my.plot = p68, name = "B_All_Cells_CD79A")
+SaveFigure(my.plot = p69, name = "B_All_Cells_Tissue_Type")
+SaveFigure(my.plot = p70, name = "Myeloid_Tumor_All_Cells_FitSNE")
+SaveFigure(my.plot = p71, name = "Myeloid_Tumor_All_Cells_CD14")
+SaveFigure(my.plot = p72, name = "Myeloid_Tumor_All_Cells_C1QA")
+SaveFigure(my.plot = p73, name = "Myeloid_Tumor_All_Cells_SPP1")
+SaveFigure(my.plot = p74, name = "Myeloid_Tumor_All_Cells_LYZ")
+SaveFigure(my.plot = p75, name = "Myeloid_Tumor_All_Cells_S100A8")
+SaveFigure(my.plot = p76, name = "Myeloid_Tumor_All_Cells_FCER1A")
+SaveFigure(my.plot = p77, name = "Myeloid_Tumor_SCISSORS_FitSNE")
+SaveFigure(my.plot = p78, name = "DC_Tumor_SCISSORS_FitSNE")
+SaveFigure(my.plot = p79, name = "Myeloid_Tumor_Neutrophil_S100A8")
+SaveFigure(my.plot = p80, name = "Myeloid_Tumor_Neutrophil_S100A9")
+SaveFigure(my.plot = p81, name = "Myeloid_Tumor_Classic_Mono_CD14")
+SaveFigure(my.plot = p82, name = "Myeloid_Tumor_CD16_Mono_FCGR3A")
+SaveFigure(my.plot = p83, name = "Myeloid_Tumor_CD16_Mono_MS4A7")
+SaveFigure(my.plot = p84, name = "Myeloid_Tumor_CD16_Mono_S100A10")
+SaveFigure(my.plot = p85, name = "Myeloid_Tumor_Resident_Macro_C1QA")
+SaveFigure(my.plot = p86, name = "Myeloid_Tumor_Alt_Activated_Macro_APOE")
+SaveFigure(my.plot = p87, name = "Myeloid_Tumor_Alt_Activated_Macro_SPP1")
+SaveFigure(my.plot = p88, name = "DC_Tumor_cDC1_CLEC9A")
+SaveFigure(my.plot = p89, name = "DC_Tumor_Langerhans_DC_CD1A")
+SaveFigure(my.plot = p90, name = "DC_Tumor_Langerhans_DC_CD207")
+SaveFigure(my.plot = p91, name = "DC_Tumor_Activated_DC_LAMP3")
+SaveFigure(my.plot = p92, name = "DC_Tumor_cDC2_CLEC10A")
+SaveFigure(my.plot = p93, name = "DC_Tumor_cDC2_KLF4")
+SaveFigure(my.plot = p94, name = "DC_Tumor_Sample_ID")
+SaveFigure(my.plot = p95a, name = "Myeloid_Tumor_Final_Labels")
+SaveFigure(my.plot = p95b, name = "Myeloid_Tumor_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p96a, name = "DC_Tumor_Final_Labels")
+SaveFigure(my.plot = p96b, name = "DC_Tumor_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p97, name = "Myeloid_Norm_SCISSORS_FitSNE")
+SaveFigure(my.plot = p98, name = "DC_Norm_SCISSORS_FitSNE")
+SaveFigure(my.plot = p99, name = "Myeloid_Norm_Neutrophil_S100A8")
+SaveFigure(my.plot = p100, name = "Myeloid_Norm_Neutrophil_S100A9")
+SaveFigure(my.plot = p101, name = "Myeloid_Norm_Classic_Mono_LYZ")
+SaveFigure(my.plot = p102, name = "Myeloid_Norm_Classic_Mono_CD14")
+SaveFigure(my.plot = p103, name = "Myeloid_Norm_Sample_ID")
+SaveFigure(my.plot = p104, name = "Myeloid_Norm_Resident_Macro_C1QA")
+SaveFigure(my.plot = p105, name = "Myeloid_Norm_Alt_Activated_Macro_APOE")
+SaveFigure(my.plot = p106, name = "Myeloid_Norm_CD8T_CD3D")
+SaveFigure(my.plot = p107, name = "Myeloid_Norm_CD8T_CD8A")
+SaveFigure(my.plot = p108, name = "Myeloid_Norm_CD8T_NKG7")
+SaveFigure(my.plot = p109, name = "DC_Norm_cDC1_CLEC9A")
+SaveFigure(my.plot = p110, name = "DC_Norm_cDC2_CLEC10A")
+SaveFigure(my.plot = p111a, name = "Myeloid_Norm_Final_Labels")
+SaveFigure(my.plot = p111b, name = "Myeloid_Norm_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p112a, name = "DC_Norm_Final_Labels")
+SaveFigure(my.plot = p112b, name = "DC_Norm_Dotplot", height = 8, width = 12)
 ```
 
 And of course:
