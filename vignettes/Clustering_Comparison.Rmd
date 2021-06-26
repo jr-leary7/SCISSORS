@@ -58,7 +58,16 @@ First we'll read in both our `SCISSORS`-processed PBMC3k dataset as well as the 
 ```{r}
 pbmc_SCISSORS <- readRDS("~/Desktop/Data/pbmc3k.Rds")
 sils_SCISSORS <- ComputeSilhouetteScores(pbmc_SCISSORS, avg = FALSE)
-pbmc_Seurat <- pbmc3k.final %>% subset(subset = nFeature_RNA < 2500)
+pbmc_Seurat <- LoadData("pbmc3k") %>% 
+               subset(subset = nFeature_RNA < 2500) %>% 
+               NormalizeData(verbose = FALSE) %>% 
+               FindVariableFeatures(selection.method = "vst", nfeatures = 2000, verbose = FALSE) %>% 
+               ScaleData(verbose = FALSE) %>% 
+               RunPCA(verbose = FALSE) %>% 
+               FindNeighbors(dims = 1:10, verbose = FALSE) %>% 
+               FindClusters(resolution = 0.5, verbose = FALSE) %>% 
+               RunTSNE(reduction = "pca", dims = 1:10, dim.embed = 2, verbose = FALSE)
+pbmc_Seurat@reductions$fitsne <- pbmc_SCISSORS@reductions$tsne
 pbmc <- LoadData("pbmc3k") %>% 
         subset(subset = nFeature_RNA < 2500) %>% 
         PrepareData(n.HVG = 4000, 
@@ -68,14 +77,37 @@ pbmc <- LoadData("pbmc3k") %>%
                     which.dim.reduc = "tsne",
                     initial.resolution = .4, 
                     random.seed = 629)
+pbmc@reductions$fitsne <- pbmc_SCISSORS@reductions$tsne
 sils_satija <- ComputeSilhouetteScores(pbmc_Seurat, avg = FALSE)
+```
+
+Here's what the default Satija Lab clustering looks like: 
+
+```{r}
+p0a <- DimPlot(pbmc_Seurat, reduction = "fitsne", group.by = "seurat_clusters", 
+               pt.size = 0.75, cols = paletteer_d("ggsci::category20_d3")) + 
+       labs(x = NULL, y = NULL, title = NULL) + 
+       theme_yehlab() + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p0a
+```
+
+And our results: 
+
+```{r}
+p0b <- DimPlot(pbmc_SCISSORS, pt.size = 0.75, group.by = "seurat_clusters", 
+               reduction = "tsne", cols = paletteer_d("ggsci::category20_d3")) + 
+       labs(x = NULL, y = NULL, title = NULL) + 
+       theme_yehlab() + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p0b
 ```
 
 # Analysis 
 
 ## SAFEclustering
 
-```{r}
+```{r, results='hide'}
 SAFE_res <- individual_clustering(inputTags = data.frame(GetAssayData(pbmc, slot = "counts")), 
                                   mt_filter = FALSE, 
                                   nGene_filter = FALSE, 
@@ -94,8 +126,19 @@ clust_ensembl <- SAFE(cluster_results = SAFE_res,
                       CSPA = TRUE, 
                       SEED = 629)
 pbmc@meta.data$SAFE_clust <- clust_ensembl$optimal_clustering
-cos_dist<- CosineDist(input = Embeddings(pbmc, "pca"))
-sils_safe <- silhouette(dist = cos_dist_safe, x = clust_ensembl$optimal_clustering)
+cos_dist <- CosineDist(input = Embeddings(pbmc, "pca"))
+sils_safe <- silhouette(dist = cos_dist, x = clust_ensembl$optimal_clustering)
+```
+
+Here's what the results from `SAFE` look like on our t-SNE embedding:
+
+```{r}
+p0c <- DimPlot(pbmc, pt.size = 0.75, group.by = "SAFE_clust", 
+               reduction = "fitsne", cols = paletteer_d("ggsci::category20_d3")) + 
+       labs(x = NULL, y = NULL, title = NULL) + 
+       theme_yehlab() + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p0c
 ```
 
 # GiniClust3
@@ -111,18 +154,18 @@ counts <- GetAssayData(pbmc, assay = "SCT", slot = "counts") %>%
 
 We bring the cells into Python. 
 
-```{python, eval=FALSE}
+```{python}
 counts = r.counts 
 adata = anndata.AnnData(X=counts.T)
 sc.pp.normalize_per_cell(adata, counts_per_cell_after=1e4)
 ```
 
-Next we process them using `GiniClust` and `FanoClust`, and the consensus between the two. We write the data to a file that we'll later read into R. 
+Next we process them using `GiniClust` and `FanoClust`, and the consensus between the two. 
 
 ```{python}
 # GiniIndexClust
 gc.gini.calGini(adata)
-adataGini = gc.gini.clusterGini(adata, neighbors=5)
+adataGini = gc.gini.clusterGini(adata, neighbors=7)
 # FanoClust
 gc.fano.calFano(adata)
 adataFano = gc.fano.clusterFano(adata)
@@ -134,12 +177,23 @@ gc.consensus.generateMtilde(consensusCluster)
 gc.consensus.clusterMtilde(consensusCluster)
 ```
 
-## Import GiniCluster Results to R 
+We bring the results back into R. 
 
-```{r, eval=FALSE}
+```{r}
 gini_clusts <- as.integer(py$consensusCluster$finalCluster)
 pbmc@meta.data$gini_clust <- gini_clusts
 sils_gini <- cluster::silhouette(dist = cos_dist, x = gini_clusts)
+```
+
+Here's what the `GiniClust3` results look like on our t-SNE embedding:
+
+```{r}
+p0d <- DimPlot(pbmc, pt.size = 0.75, group.by = "gini_clust", 
+               reduction = "fitsne", cols = paletteer_d("ggsci::category20_d3")) + 
+       labs(x = NULL, y = NULL, title = NULL) + 
+       theme_yehlab() + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p0d
 ```
 
 # Compare Results
@@ -148,7 +202,7 @@ We build a dataframe of the results that we'll pass into `ggplot2`.
 
 ```{r}
 clust_sils <- data.frame(Method = c(rep("SCISSORS", 2695), 
-                                    rep("Seurat", 2638), 
+                                    rep("Seurat", 2695), 
                                     rep("SAFE", 2695), 
                                     rep("GiniClust3", 2695)), 
                          Silhouette = c(sils_SCISSORS$Score, 
@@ -158,38 +212,65 @@ clust_sils <- data.frame(Method = c(rep("SCISSORS", 2695),
 clust_sils %<>% mutate(Method = factor(Method,levels = c("GiniClust3", "Seurat", "SAFE", "SCISSORS"))) 
 ```
 
-We see that our method gives the highest median silhouette score over the `Seurat` vignette's results, `GiniClust3`, and `SAFE`; the differences between `SCISSORS` and the other methods are statistically significant 
+We see that our method gives the highest median silhouette score over the `Seurat` vignette's results, `GiniClust3`, and `SAFE`; the differences between `SCISSORS` and the other methods are statistically significant
 
 ```{r}
 p1 <- ggplot(clust_sils, aes(x = Method, y = Silhouette, fill = Method)) + 
-      geom_violin(draw_quantiles = 0.5, color = "black") +
-      geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .1, size = 1.2, textsize = 8, 
+      geom_violin(draw_quantiles = 0.5, color = "black", scale = "width") +
+      geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .12, size = 1.2, textsize = 8, 
                   comparisons = list(c("SCISSORS", "GiniClust3"), 
                                      c("SCISSORS", "Seurat"), 
                                      c("SCISSORS", "SAFE"))) + 
       scale_fill_paletteer_d("ggsci::default_locuszoom") + 
-      scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1, 1.45)) + 
-      labs(y = "Silhouette Score") + 
+      scale_y_continuous(breaks = c(-1, -0.5, 0, 0.5, 1), limits = c(-1, 1.6)) + 
+      labs(y = "Silhouette Score", x = "Method", fill = NULL) + 
       theme(panel.grid = element_blank(), 
+            legend.position = "none", 
             panel.background = element_blank(), 
             panel.border = element_rect(fill = NA, size = 1), 
-            axis.title.x = element_blank(), 
+            axis.title.x = element_text(size = 22), 
             axis.title.y = element_text(size = 22), 
-            legend.title = element_text(size = 22), 
-            legend.text = element_text(size = 16), 
             axis.text.y = element_text(size = 16), 
             axis.text.x = element_text(size = 16))
 p1
 ```
 
-# Save Figure 
+# Save Figures
 
 ```{r}
-ggsave(p1, 
-       filename = "Method_Comparison.pdf", 
+ggsave(p0a, 
+       filename = "Seurat_Clusters.pdf", 
        device = "pdf", 
        units = "in",
-       path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC", 
+       path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC/Method Comparison", 
+       height = 8, 
+       width = 8) 
+ggsave(p0b, 
+       filename = "SCISSORS_Clusters.pdf", 
+       device = "pdf", 
+       units = "in",
+       path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC/Method Comparison", 
+       height = 8, 
+       width = 8) 
+ggsave(p0c, 
+       filename = "SAFE_Clusters.pdf", 
+       device = "pdf", 
+       units = "in",
+       path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC/Method Comparison", 
+       height = 8, 
+       width = 8) 
+ggsave(p0d, 
+       filename = "GiniClust3_Clusters.pdf", 
+       device = "pdf", 
+       units = "in",
+       path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC/Method Comparison", 
+       height = 8, 
+       width = 8) 
+ggsave(p1, 
+       filename = "Sil_Scores.pdf", 
+       device = "pdf", 
+       units = "in",
+       path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC/Method Comparison", 
        height = 8, 
        width = 8) 
 ```

@@ -113,7 +113,7 @@ pdac <- PrepareData(seurat.object = pdac,
                     n.HVG = 4000, 
                     n.PC = 20, 
                     regress.mt = FALSE, 
-                    regress.cc = FALSE, 
+                    regress.cc = FALSE,
                     which.dim.reduc = "tsne", 
                     initial.resolution = 0.4, 
                     random.seed = 629)
@@ -138,15 +138,12 @@ sil_df <- ComputeSilhouetteScores(pdac, avg = FALSE)
 p0b <- ggplot(sil_df, aes(x = Cluster, y = Score, fill = Cluster)) + 
        geom_violin(draw_quantiles = .5, color = "black", scale = "width") + 
        scale_fill_paletteer_d("ggthemes::Classic_20") + 
-       labs(y = "Silhouette Score", fill = "Louvain\nClusters") + 
+       labs(y = "Silhouette Score", x = "Louvain Clusters") + 
        theme_minimal() + 
        theme(panel.grid = element_blank(), 
              panel.border = element_rect(fill = NA, size = 1), 
-             legend.position = "right", 
-             legend.direction = "vertical", 
-             axis.title.x = element_blank(), 
-             legend.title = element_text(size = 22), 
-             legend.text = element_text(size = 16), 
+             legend.position = "none", 
+             axis.title.x = element_text(size = 22), 
              axis.title.y = element_text(size = 22), 
              axis.text = element_text(size = 16), 
              axis.ticks = element_line(), 
@@ -365,7 +362,6 @@ cnv_est <- plotAll(mat = cpm,
 ```{r, echo=FALSE, results='hide'}
 gc(verbose = FALSE)
 ```
-
 
 ## Visualizing CNVs
 
@@ -2269,11 +2265,17 @@ p112b <- DotPlot(dc_norm_reclust, features = unique(dc_norm_reclust_markers2$gen
 p112b
 ```
 
-# Conclusions
+# Conclusions 
 
-
+In this vignette, we've showed that `SCISSORS` is effective (in combination with other tools) at picking out biologically relevant subclusters from an initial coarse clustering. We rigorously evaluated our method using the data from Elyada *et al* (2019), and not only replicated their results but added new celltypes to their annotations. 
 
 # Save Figures & Data
+
+First we'll save the final PDAC object. 
+
+```{r}
+saveRDS(pdac, "~/Desktop/Data/Elyada.Rds")
+```
 
 We'll create a quick convenience function to help us save the figures.
 
