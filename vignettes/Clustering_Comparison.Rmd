@@ -127,7 +127,7 @@ clust_ensembl <- SAFE(cluster_results = SAFE_res,
                       SEED = 629)
 pbmc@meta.data$SAFE_clust <- as.factor(as.integer(clust_ensembl$optimal_clustering) - 1)
 cos_dist <- CosineDist(input = Embeddings(pbmc, "pca"))
-sils_safe <- silhouette(dist = cos_dist, x = pbmc@meta.data$SAFE_clust)
+sils_safe <- silhouette(dist = cos_dist, x = as.integer(pbmc@meta.data$SAFE_clust) - 1)
 ```
 
 Here's what the results from `SAFE` look like on our t-SNE embedding:
