@@ -14,7 +14,7 @@ output:
     df_print: kable
 ---
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
                       message = FALSE, 
                       warning = FALSE, 
