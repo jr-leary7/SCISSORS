@@ -33,22 +33,23 @@ In 2017, the Tuveson Lab at Cold Spring Harbor Cancer Center published a paper w
 
 ## R
 
-```{r}
-library(VAM)         # single cell GSEA
-library(dplyr)       # tidy data 
-library(Seurat)      # single cell infrastructure
-library(ggplot2)     # pretty plots
-library(SingleR)     # cell type assignment
-library(decoderr)    # de novo deconvolution 
-library(SCISSORS)    # our package
-library(mixtools)    # Gaussian mixture model estimation
-library(patchwork)   # align plots
-library(latex2exp)   # LaTeX
-library(paletteer)   # color palettes
-library(CONICSmat)   # CNV estimation
-library(reticulate)  # Python interface
-library(kableExtra)  # pretty tables
-library(wesanderson) # more color palettes
+```{r, results='hide'}
+library(VAM)           # single cell GSEA
+library(dplyr)         # tidy data 
+library(Seurat)        # single cell infrastructure
+library(ggplot2)       # pretty plots
+library(SingleR)       # cell type assignment
+library(janitor)       # clean data
+library(decoderr)      # de novo deconvolution 
+library(SCISSORS)      # our package
+library(mixtools)      # Gaussian mixture model estimation
+library(patchwork)     # align plots
+library(latex2exp)     # LaTeX
+library(paletteer)     # color palettes
+library(CONICSmat)     # CNV estimation
+library(reticulate)    # Python interface
+library(kableExtra)    # pretty tables
+library(wesanderson)   # more color palettes
 ```
 
 ## Python
@@ -104,6 +105,15 @@ pdac@meta.data$sex <- case_when(grepl("-1", rownames(pdac@meta.data)) ~ "female"
 rm(raw_counts)
 ```
 
+Next, we read in a dataset of basal-like and classical PDAC marker genes that we'll use later on to perform enrichment analysis. 
+
+```{r}
+load("~/Desktop/Data/cmbSubtypes.RData")
+pdac_50_genes <- subtypeGeneList[[4]]
+basal_genes <- pdac_50_genes[pdac_50_genes$BasalLike, ]$geneSymbol
+classical_genes <- pdac_50_genes[!pdac_50_genes$BasalLike, ]$geneSymbol
+```
+
 # Preprocessing
 
 We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. 
@@ -113,7 +123,7 @@ pdac <- PrepareData(seurat.object = pdac,
                     n.HVG = 4000, 
                     n.PC = 20, 
                     regress.mt = FALSE, 
-                    regress.cc = FALSE,
+                    regress.cc = FALSE, 
                     which.dim.reduc = "tsne", 
                     initial.resolution = 0.4, 
                     random.seed = 629)
@@ -138,7 +148,7 @@ sil_df <- ComputeSilhouetteScores(pdac, avg = FALSE)
 p0b <- ggplot(sil_df, aes(x = Cluster, y = Score, fill = Cluster)) + 
        geom_violin(draw_quantiles = .5, color = "black", scale = "width") + 
        scale_fill_paletteer_d("ggthemes::Classic_20") + 
-       labs(y = "Silhouette Score", x = "Louvain Clusters") + 
+       labs(y = "Silhouette Score", x = "Louvain Clusters", fill = NULL) + 
        theme_minimal() + 
        theme(panel.grid = element_blank(), 
              panel.border = element_rect(fill = NA, size = 1), 
@@ -169,16 +179,16 @@ pdac_markers <- FindAllMarkers(pdac,
                 group_by(cluster) %>% 
                 arrange(desc(avg_log2FC)) %>% 
                 slice_head(n = 5)
-p0c <- DotPlot(pdac, features = unique(pdac_markers$gene), dot.scale = 10) + 
+p0c <- DotPlot(pdac, features = unique(pdac_markers$gene), dot.scale = 15) + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
        labs(color = "Expression", size = "% Expressed", y = "Louvain Cluster") + 
-       theme(axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
              legend.position = "right", legend.justification = "center", 
              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
              axis.line = element_blank(), 
-             legend.title = element_text(size = 14), 
+             legend.title = element_text(size = 18), 
              axis.title.x = element_blank(), 
-             axis.title.y = element_text(size = 14), 
+             axis.title.y = element_text(size = 20), 
              axis.text.y = element_text(size = 18)) + 
        guides(color = guide_colorbar(title.position = "top", 
                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
@@ -555,6 +565,18 @@ p16 <- FeaturePlot(pdac, reduction = "tsne", features = "DCN", pt.size = 0.75) +
 (p13 | p14) / (p15 | p16)
 ```
 
+Here's the cells we'll be reclustering. 
+
+```{r}
+fibro_cells <- rownames(pdac@meta.data[pdac@meta.data$seurat_clusters == 6, ])
+p17 <- DimPlot(pdac, reduction = "tsne", cells.highlight = fibro_cells, 
+               cols.highlight = "navy", pt.size = 0.75) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend()
+p17 / p2
+```
+
 ### Reclustering
 
 Here we use `ReclusterCells()` to identify subclusters within cluster 6. We find five distinct subclusters.
@@ -736,20 +758,22 @@ fibro_markers2 <- FindAllMarkers(fibro,
                                  random.seed = 629, 
                                  verbose = FALSE) %>% 
                   filter(p_val_adj < .05) %>% 
-                  group_by(cluster) %>% 
-                  arrange(desc(avg_log2FC)) %>% 
-                  slice_head(n = 5)
-p23b <- DotPlot(fibro, features = fibro_markers2$gene, dot.scale = 10) + 
+                  mutate(source = "Stroma")
+top5_fibro_markers <- fibro_markers2 %>% 
+                      group_by(cluster) %>% 
+                      arrange(desc(avg_log2FC)) %>% 
+                      slice_head(n = 5)
+p23b <- DotPlot(fibro, features = top5_fibro_markers$gene, dot.scale = 15) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
-        theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
+        theme(axis.text.x = element_text(angle = 90, size = 18, vjust = 0.5), 
               legend.position = "right", legend.justification = "center", 
               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
               axis.line = element_blank(), 
               legend.title = element_text(size = 16), 
               axis.title.y = element_blank(), 
               axis.title.x = element_blank(), 
-              axis.text.y = element_text(size = 18)) + 
+              axis.text.y = element_text(size = 22)) + 
         guides(color = guide_colorbar(title.position = "top", 
                                       barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                size = guide_legend(title.position = "top", title.hjust = 0.5))
@@ -767,6 +791,18 @@ p24 <- FeaturePlot(pdac, reduction = "tsne", features = "CD3D", pt.size = 0.75) 
        NoLegend() + 
        theme(axis.title = element_blank())
 p24 / p2
+```
+
+Here's the cells we'll be reclustering. 
+
+```{r}
+nkt_cells <- rownames(pdac@meta.data[pdac@meta.data$seurat_clusters %in% c(0, 3, 8), ])
+p25 <- DimPlot(pdac, reduction = "tsne", cells.highlight = nkt_cells, 
+               cols.highlight = "navy", pt.size = 0.75) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend()
+p25 / p2
 ```
 
 ### Tumor
@@ -1019,10 +1055,12 @@ nkt_tumor_markers2 <- FindAllMarkers(nkt_tumor,
                                      random.seed = 629, 
                                      verbose = FALSE) %>% 
                       filter(p_val_adj < .05) %>% 
-                      group_by(cluster) %>% 
-                      arrange(desc(avg_log2FC)) %>% 
-                      slice_head(n = 5)
-p40b <- DotPlot(nkt_tumor, features = unique(nkt_tumor_markers2$gene), dot.scale = 10) + 
+                      mutate(source = "NK/T Tumor")
+top5_nkt_tumor_markers <- nkt_tumor_markers2 %>% 
+                          group_by(cluster) %>% 
+                          arrange(desc(avg_log2FC)) %>% 
+                          slice_head(n = 5)
+p40b <- DotPlot(nkt_tumor, features = unique(top5_nkt_tumor_markers$gene), dot.scale = 10) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
         theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
@@ -1237,10 +1275,12 @@ nkt_norm_markers2 <- FindAllMarkers(nkt_norm,
                                     random.seed = 629, 
                                     verbose = FALSE) %>% 
                       filter(p_val_adj < .05) %>% 
-                      group_by(cluster) %>% 
-                      arrange(desc(avg_log2FC)) %>% 
-                      slice_head(n = 5)
-p51b <- DotPlot(nkt_norm, features = unique(nkt_norm_markers2$gene), dot.scale = 10) + 
+                      mutate(source = "NK/T Adjacent Normal")
+top5_nkt_norm_markers <- nkt_norm_markers2%>% 
+                         group_by(cluster) %>% 
+                         arrange(desc(avg_log2FC)) %>% 
+                         slice_head(n = 5)
+p51b <- DotPlot(nkt_norm, features = unique(top5_nkt_norm_markers$gene), dot.scale = 10) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
         theme(axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), 
@@ -1273,6 +1313,19 @@ p52 <- FeaturePlot(pdac, reduction = "tsne", features = "KRT8", pt.size = 0.75) 
 p52 / p2
 ```
 
+These are the cells we'll be reclustering. 
+
+```{r}
+ductal_cells <- rownames(pdac@meta.data[pdac@meta.data$seurat_clusters %in% c(5, 9), ])
+p53 <- DimPlot(pdac, reduction = "tsne", cells.highlight = ductal_cells, 
+               cols.highlight = "navy", pt.size = 0.75) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend()
+p53 / p2
+```
+
+
 We run `SCISSORS`, then use a Wilcoxon differential expression test to determine potential markers for each cluster. 
 
 ```{r}
@@ -1281,10 +1334,17 @@ ductal <- ReclusterCells(pdac,
                          merge.clusters = TRUE, 
                          n.HVG = 4000, 
                          n.PC = 20, 
-                         k.vals = c(20, 30, 40, 50), nn.metric = "euclidean", 
+                         k.vals = c(20, 30, 40, 50), 
+                         nn.metric = "euclidean", 
                          resolution.vals = c(.2, .3, .4), 
                          redo.embedding = TRUE, 
                          random.seed = 629)
+ductal$cluster_color <- case_when(ductal$seurat_clusters == 0 ~ paletteer_d("ggsci::default_nejm")[1],
+                                  ductal$seurat_clusters == 1 ~ paletteer_d("ggsci::default_nejm")[2],
+                                  ductal$seurat_clusters == 2 ~ paletteer_d("ggsci::default_nejm")[3],
+                                  ductal$seurat_clusters == 3 ~ paletteer_d("ggsci::default_nejm")[4],
+                                  ductal$seurat_clusters == 4 ~ paletteer_d("ggsci::default_nejm")[5],
+                                  ductal$seurat_clusters == 5 ~ paletteer_d("ggsci::default_nejm")[6])
 ductal_markers <- FindAllMarkers(ductal, 
                                  logfc.threshold = .5, 
                                  min.diff.pct = .2, 
@@ -1335,6 +1395,38 @@ p53 <- DimPlot(ductal, reduction = "tsne", pt.size = 1.5) +
 p53
 ```
 
+We'll also run `VAM`, using the Yeh Lab's gene sets for basal and classical PDAC. 
+
+```{r}
+pdac_gene_sets <- list(classical_genes, basal_genes)
+names(pdac_gene_sets) <- c("Classical PDAC", "Basal-like PDAC")
+for (i in seq(pdac_gene_sets)) {
+  pdac_gene_sets[[i]] <- pdac_gene_sets[[i]][pdac_gene_sets[[i]] %in% rownames(ductal)]
+}
+ductal <- vamForSeurat(ductal, 
+                       gene.set.collection = pdac_gene_sets, 
+                       gamma = TRUE)
+DefaultAssay(ductal) <- "VAMcdf"
+```
+
+Examining the `VAM` results, we see that clusters 0 & 1 are enriched for Classical PDAC, and cluster 4 has very high Basal PDAC scores. 
+
+```{r}
+p54 <- FeaturePlot(ductal, reduction = "tsne", features = "Classical PDAC") + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+p55 <- FeaturePlot(ductal, reduction = "tsne", features = "Basal-like PDAC") + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p54 | p55) / p53
+```
+
 ### Cell Type Identification 
 
 #### Lipid Processing
@@ -1342,6 +1434,7 @@ p53
 We use ANPEP & FABP1 expression to identify the lipid processing ductal cells in cluster 6. 
 
 ```{r}
+DefaultAssay(ductal) <- "SCT"
 p54 <- FeaturePlot(ductal, reduction = "tsne", features = "ANPEP", pt.size = 1.5) + 
        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
@@ -1405,7 +1498,7 @@ p60 <- DimPlot(ductal, reduction = "tsne", group.by = "sample", pt.size = 1.5) +
 
 #### Classical 2
 
-The classical 2 cells are located in cluster 6, as evidenced by their expression of CRISP3. 
+The classical 2 cells are located in cluster 6, as evidenced by their expression of CRISP3. We also see that GATA6, a canonical classical PDAC marker, is expressed in both classical clusters, but not in the putative basal cluster. 
 
 ```{r}
 p61 <- FeaturePlot(ductal, reduction = "tsne", features = "CRISP3", pt.size = 1.5) + 
@@ -1414,21 +1507,45 @@ p61 <- FeaturePlot(ductal, reduction = "tsne", features = "CRISP3", pt.size = 1.
        theme_yehlab() + 
        NoLegend() + 
        theme(axis.title = element_blank())
-p61 / p53
+p62 <- FeaturePlot(ductal, reduction = "tsne", features = "GATA6", pt.size = 1.5) + 
+       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend() + 
+       theme(axis.title = element_blank())
+(p61 | p62) / p53
 ```
 
-#### Basal-like
+#### Basal
 
 The basal compartment weights from `DECODER` are highest in cluster 4, which we will denote as being composed of basal-like PDAC. 
 
 ```{r}
-p62 <- FeaturePlot(ductal, reduction = "tsne", features = "basal") + 
-       scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Basal") + 
-       theme_yehlab() + 
-       NoLegend() + 
-       theme(axis.title = element_blank())
-p62 / p53
+p62a <- FeaturePlot(ductal, reduction = "tsne", features = "basal", pt.size = 1.5) + 
+        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Basal") + 
+        theme_yehlab() + 
+        NoLegend() + 
+        theme(axis.title = element_blank())
+p62b <- FeaturePlot(ductal, reduction = "tsne", features = "classical", pt.size = 1.5) + 
+        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Classical") + 
+        theme_yehlab() + 
+        NoLegend() + 
+        theme(axis.title = element_blank())
+p62c <- FeaturePlot(ductal, reduction = "tsne", features = "bc_ratio", pt.size = 1.5) + 
+        scale_color_gradientn(colors = wesanderson::wes_palette("Zissou1")) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Basal:Classical") + 
+        theme_yehlab() + 
+        NoLegend() + 
+        theme(axis.title = element_blank())
+p62d <- FeaturePlot(ductal, reduction = "tsne", features = "malig", pt.size = 1.5) + 
+        scale_color_manual(values = wes_palette("Zissou1", n = 5)[c(5, 2)])  + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2", title = "Malignant") + 
+        theme_yehlab() + 
+        NoLegend() + 
+        theme(axis.title = element_blank())
+(p62a | p62b | p62c | p62d) / p53
 ```
 
 #### Acinar
@@ -1467,6 +1584,18 @@ p64a <- DimPlot(ductal, reduction = "tsne",pt.size = 1.5) +
 p64a
 ```
 
+The Basal cluster, along with the Classical 2 cluster, shows a high percentage of malignant cells as identified by `CONICSmat`. 
+
+```{r}
+ductal@meta.data %>% 
+  mutate(malig2 = case_when(malig == "Malignant" ~ 1, TRUE ~ 0)) %>% 
+  group_by(label) %>% 
+  summarise(M = mean(malig2)) %>% 
+  mutate(M = formattable::percent(M, digits = 2)) %>% 
+  kbl(booktabs = TRUE, col.names = c("Celltype", "Mean % Malignant")) %>% 
+  kable_minimal(full_width = FALSE)
+```
+
 Here's the marker genes. 
 
 ```{r}
@@ -1477,10 +1606,12 @@ ductal_markers2 <- FindAllMarkers(ductal,
                                   random.seed = 629, 
                                   verbose = FALSE) %>% 
                    filter(p_val_adj < .05) %>% 
-                   group_by(cluster) %>% 
-                   arrange(desc(avg_log2FC)) %>% 
-                   slice_head(n = 5)
-p64b <- DotPlot(ductal, features = unique(ductal_markers2$gene), dot.scale = 10) + 
+                   mutate(source = "Ductal")
+top5_ductal_markers <- ductal_markers2 %>% 
+                       group_by(cluster) %>% 
+                       arrange(desc(avg_log2FC)) %>% 
+                       slice_head(n = 5)
+p64b <- DotPlot(ductal, features = unique(top5_ductal_markers$gene), dot.scale = 10) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
         theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
@@ -1547,6 +1678,16 @@ p69 <- DimPlot(pdac, reduction = "tsne", group.by = "condition", pt.size = 0.75)
 
 Lastly, we'll split up the myeloid population by tissue condition (PDAC vs. adjacent normal) just like we did with the NK / T cells. We'll run `SCISSORS`, annotate the clusters, and visualize the results. 
 
+```{r}
+myeloid_cells <- rownames(pdac@meta.data[pdac@meta.data$seurat_clusters %in% c(1, 2, 7), ])
+p70 <- DimPlot(pdac, reduction = "tsne", cells.highlight = myeloid_cells, 
+               cols.highlight = "navy", pt.size = 0.75) + 
+       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+       theme_yehlab() + 
+       NoLegend()
+p70 / p2
+```
+
 ### Tumor 
 
 First we'll attempt to assign broad cell type labels to each of the four putative myeloid clusters. We'll use the marker genes from Elyada *et al* once again. 
@@ -1561,6 +1702,8 @@ p70 <- DimPlot(myo_tumor, reduction = "tsne", pt.size = 1.5) +
        guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p70
 ```
+
+Here's the cells we'll be reclustering. 
 
 Cluster 1 appears to be composed of our resident & alternatively activated macrophages due to its expression of CD14 & C1QA and SPP1, respectively. 
 
@@ -1895,10 +2038,12 @@ myo_reclust_markers2 <- FindAllMarkers(myo_reclust,
                                        random.seed = 629, 
                                        verbose = FALSE) %>% 
                         filter(p_val_adj < .05) %>% 
-                        group_by(cluster) %>% 
-                        arrange(desc(avg_log2FC)) %>% 
-                        slice_head(n = 5)
-p95b <- DotPlot(myo_reclust, features = unique(myo_reclust_markers2$gene), dot.scale = 10) + 
+                        mutate(source = "Myeloid Tumor")
+top5_myo_reclust_markers <- myo_reclust_markers2 %>% 
+                            group_by(cluster) %>% 
+                            arrange(desc(avg_log2FC)) %>% 
+                            slice_head(n = 5)
+p95b <- DotPlot(myo_reclust, features = unique(top5_myo_reclust_markers$gene), dot.scale = 10) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
         theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
@@ -1937,10 +2082,12 @@ dc_reclust_markers2 <- FindAllMarkers(dc_reclust,
                                       random.seed = 629, 
                                       verbose = FALSE) %>% 
                        filter(p_val_adj < .05) %>% 
-                       group_by(cluster) %>% 
-                       arrange(desc(avg_log2FC)) %>% 
-                       slice_head(n = 5)
-p96b <- DotPlot(dc_reclust, features = unique(dc_reclust_markers2$gene), dot.scale = 8) + 
+                       mutate(source = "DC Tumor")
+top5_dc_reclust_markers <- dc_reclust_markers2 %>% 
+                           group_by(cluster) %>% 
+                           arrange(desc(avg_log2FC)) %>% 
+                           slice_head(n = 5)
+p96b <- DotPlot(dc_reclust, features = unique(top5_dc_reclust_markers$gene), dot.scale = 10) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
         theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
@@ -2202,10 +2349,12 @@ myo_norm_reclust_markers2 <- FindAllMarkers(myo_norm_reclust,
                                             random.seed = 629, 
                                             verbose = FALSE) %>% 
                              filter(p_val_adj < .05) %>% 
-                             group_by(cluster) %>% 
-                             arrange(desc(avg_log2FC)) %>% 
-                             slice_head(n = 5)
-p111b <- DotPlot(myo_norm_reclust, features = unique(myo_norm_reclust_markers2$gene), dot.scale = 10) + 
+                             mutate(source = "Myeloid Adjacent Normal")
+top5_myo_norm_reclust_markers <- myo_norm_reclust_markers2 %>% 
+                                 group_by(cluster) %>% 
+                                 arrange(desc(avg_log2FC)) %>% 
+                                 slice_head(n = 5)
+p111b <- DotPlot(myo_norm_reclust, features = unique(top5_myo_norm_reclust_markers$gene), dot.scale = 10) + 
          scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
          labs(color = "Expression", size = "% Expressed") + 
          theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
@@ -2222,7 +2371,7 @@ p111b <- DotPlot(myo_norm_reclust, features = unique(myo_norm_reclust_markers2$g
 p111b
 ```
 
-Here's the final DC annotations .
+Here's the final DC annotations.
 
 ```{r}
 p112a <- DimPlot(dc_norm_reclust, reduction = "tsne", pt.size = 1.5) + 
@@ -2244,10 +2393,12 @@ dc_norm_reclust_markers2 <- FindAllMarkers(dc_norm_reclust,
                                            random.seed = 629, 
                                            verbose = FALSE) %>% 
                             filter(p_val_adj < .05) %>% 
-                            group_by(cluster) %>% 
-                            arrange(desc(avg_log2FC)) %>% 
-                            slice_head(n = 5)
-p112b <- DotPlot(dc_norm_reclust, features = unique(dc_norm_reclust_markers2$gene), dot.scale = 10) + 
+                            mutate(source = "DC Adjacent Normal")
+top5_dc_norm_reclust_markers <- dc_norm_reclust_markers2 %>% 
+                                group_by(cluster) %>% 
+                                arrange(desc(avg_log2FC)) %>% 
+                                slice_head(n = 5)
+p112b <- DotPlot(dc_norm_reclust, features = unique(top5_dc_norm_reclust_markers$gene), dot.scale = 10) + 
          scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
          labs(color = "Expression", size = "% Expressed") + 
          theme(axis.text.x = element_text(angle = 90, size = 14, vjust = 0.5), 
@@ -2265,16 +2416,38 @@ p112b <- DotPlot(dc_norm_reclust, features = unique(dc_norm_reclust_markers2$gen
 p112b
 ```
 
-# Conclusions 
+# Conclusions
 
-In this vignette, we've showed that `SCISSORS` is effective (in combination with other tools) at picking out biologically relevant subclusters from an initial coarse clustering. We rigorously evaluated our method using the data from Elyada *et al* (2019), and not only replicated their results but added new celltypes to their annotations. 
+`SCISSORS` was able to, with the help of several other methods, identify many celltypes, including celltypes that were not discovered in the original analysis done by Elyada *et al*. It also did so in a reproducible way, which is paramount in the era of computational biology. We believe this analysis shows the promise of `SCISSORS` as a valuable piece of the scRNA-seq data exploration and annotation processes. 
 
-# Save Figures & Data
+# Save Data & Figures
 
 First we'll save the final PDAC object. 
 
 ```{r}
 saveRDS(pdac, "~/Desktop/Data/Elyada.Rds")
+saveRDS(nkt_tumor, "~/Desktop/Data/Elyada_nkt_tumor.Rds")
+saveRDS(nkt_norm, "~/Desktop/Data/Elyada_nkt_adjNorm.Rds")
+saveRDS(fibro, "~/Desktop/Data/Elyada_fibro.Rds")
+saveRDS(ductal, "~/Desktop/Data/Elyada_ductal.Rds")
+saveRDS(myo_reclust, "~/Desktop/Data/Elyada_myeloid_tumor.Rds")
+saveRDS(myo_norm_reclust, "~/Desktop/Data/Elyada_myeloid_adjNorm.Rds")
+saveRDS(dc_reclust, "~/Desktop/Data/Elyada_DC_tumor.Rds")
+saveRDS(dc_norm_reclust, "~/Desktop/Data/Elyada_DC_adjNorm.Rds")
+```
+
+Next we'll create a final table of all the differentially expressed genes from the `SCISSORS` results for each celltype, and save them into one large Excel document. 
+
+```{r}
+fibro_markers2 %>% 
+  bind_rows(nkt_tumor_markers2) %>% 
+  bind_rows(nkt_norm_markers2) %>% 
+  bind_rows(ductal_markers2) %>% 
+  bind_rows(myo_reclust_markers2) %>% 
+  bind_rows(dc_reclust_markers2) %>% 
+  bind_rows(myo_norm_reclust_markers2) %>% 
+  bind_rows(dc_norm_reclust_markers2) -> SCISSORS_de_results
+openxlsx::write.xlsx(SCISSORS_de_results, file = "./Data/Elyada_SCISSORS_Marker_Genes.xlsx")
 ```
 
 We'll create a quick convenience function to help us save the figures.
@@ -2312,10 +2485,10 @@ SaveFigure <- function(my.plot = NULL, name = NULL, height = 8, width = 8) {
 
 This section isn't worth reading; it's here solely to prove that the figures we present in our publication were dynamically generated during the knitting of this document.
 
-```{r}
+```{r, eval=FALSE}
 SaveFigure(my.plot = p0a, name = "Seurat_Clusters_tSNE")
 SaveFigure(my.plot = p0b, name = "Seurat_Clusters_Sil_Score")
-SaveFigure(my.plot = p0c, name = "Seurat_Clusters_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p0c, name = "Seurat_Clusters_Dotplot", height = 8, width = 18)
 SaveFigure(my.plot = p1, name = "Seurat_Clusters_UMAP")
 SaveFigure(my.plot = p2, name = "Seurat_Clusters_FitSNE")
 SaveFigure(my.plot = p3, name = "SingleR_Annos_SC_Ref")
@@ -2339,7 +2512,7 @@ SaveFigure(my.plot = p20, name = "Fibro_VAM_iCAF")
 SaveFigure(my.plot = p21, name = "Fibro_VAM_myCAF")
 SaveFigure(my.plot = p22, name = "Fibro_VAM_apCAF")
 SaveFigure(my.plot = p23a, name = "Fibro_Final_Labels")
-SaveFigure(my.plot = p23b, name = "Fibro_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p23b, name = "Fibro_Dotplot", height = 8, width = 16)
 SaveFigure(my.plot = p24, name = "NKT_All_Cells_CD3D")
 SaveFigure(my.plot = p25, name = "NKT_Tumor_SCISSORS_FitSNE")
 SaveFigure(my.plot = p26, name = "NKT_Tumor_CD4T_IL7R")
@@ -2357,7 +2530,7 @@ SaveFigure(my.plot = p37, name = "NKT_Tumor_Intermediate_Mono_HLADRA")
 SaveFigure(my.plot = p38, name = "NKT_Tumor_Intermediate_Mono_CD74")
 SaveFigure(my.plot = p39, name = "NKT_Tumor_Intermediate_Mono_HLADPB1")
 SaveFigure(my.plot = p40a, name = "NKT_Tumor_Final_Labels")
-SaveFigure(my.plot = p40b, name = "NKT_Tumor_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p40b, name = "NKT_Tumor_Dotplot", height = 8, width = 18)
 SaveFigure(my.plot = p41, name = "NKT_Norm_SCISSORS_FitSNE")
 SaveFigure(my.plot = p42, name = "NKT_Norm_CD4T_IL7R")
 SaveFigure(my.plot = p43, name = "NKT_Norm_CD4T_S100A4")
@@ -2369,7 +2542,7 @@ SaveFigure(my.plot = p48, name = "NKT_Norm_NK_PRF1")
 SaveFigure(my.plot = p49, name = "NKT_Norm_NK_NKG7")
 SaveFigure(my.plot = p50, name = "NKT_Norm_Prolif_Treg_TOP2A")
 SaveFigure(my.plot = p51a, name = "NKT_Norm_Final_Labels")
-SaveFigure(my.plot = p51b, name = "NKT_Norm_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p51b, name = "NKT_Norm_Dotplot", height = 8, width = 18)
 SaveFigure(my.plot = p52, name = "Ductal_All_Cells_KRT8")
 SaveFigure(my.plot = p53, name = "Ductal_SCISSORS_FitSNE")
 SaveFigure(my.plot = p54, name = "Ductal_Lipid_Proc_ANPEP")
@@ -2380,10 +2553,13 @@ SaveFigure(my.plot = p58, name = "Ductal_Classical1_TFF1")
 SaveFigure(my.plot = p59, name = "Ductal_Classical1_TFF2")
 SaveFigure(my.plot = p60, name = "Ductal_Classical1_SampleID")
 SaveFigure(my.plot = p61, name = "Ductal_Classical2_CRISP3")
-SaveFigure(my.plot = p62, name = "Ductal_DECODER_Basal")
+SaveFigure(my.plot = p62a, name = "Ductal_DECODER_Basal")
+SaveFigure(my.plot = p62b, name = "Ductal_DECODER_Classical")
+SaveFigure(my.plot = p62c, name = "Ductal_DECODER_BC_Ratio")
+SaveFigure(my.plot = p62d, name = "Ductal_CONICSmat_Annos")
 SaveFigure(my.plot = p63, name = "Ductal_Acinar_CTRB2")
 SaveFigure(my.plot = p64a, name = "Ductal_Final_Labels")
-SaveFigure(my.plot = p64b, name = "Ductal_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p64b, name = "Ductal_Dotplot", height = 8, width = 18)
 SaveFigure(my.plot = p65, name = "Plasma_All_Cells_IGJ")
 SaveFigure(my.plot = p66, name = "Plasmacytoid_DC_All_Cells_IRF7")
 SaveFigure(my.plot = p67, name = "B_All_Cells_MS4A1")
@@ -2415,9 +2591,9 @@ SaveFigure(my.plot = p92, name = "DC_Tumor_cDC2_CLEC10A")
 SaveFigure(my.plot = p93, name = "DC_Tumor_cDC2_KLF4")
 SaveFigure(my.plot = p94, name = "DC_Tumor_Sample_ID")
 SaveFigure(my.plot = p95a, name = "Myeloid_Tumor_Final_Labels")
-SaveFigure(my.plot = p95b, name = "Myeloid_Tumor_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p95b, name = "Myeloid_Tumor_Dotplot", height = 8, width = 18)
 SaveFigure(my.plot = p96a, name = "DC_Tumor_Final_Labels")
-SaveFigure(my.plot = p96b, name = "DC_Tumor_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p96b, name = "DC_Tumor_Dotplot", height = 8, width = 18)
 SaveFigure(my.plot = p97, name = "Myeloid_Norm_SCISSORS_FitSNE")
 SaveFigure(my.plot = p98, name = "DC_Norm_SCISSORS_FitSNE")
 SaveFigure(my.plot = p99, name = "Myeloid_Norm_Neutrophil_S100A8")
@@ -2433,9 +2609,9 @@ SaveFigure(my.plot = p108, name = "Myeloid_Norm_CD8T_NKG7")
 SaveFigure(my.plot = p109, name = "DC_Norm_cDC1_CLEC9A")
 SaveFigure(my.plot = p110, name = "DC_Norm_cDC2_CLEC10A")
 SaveFigure(my.plot = p111a, name = "Myeloid_Norm_Final_Labels")
-SaveFigure(my.plot = p111b, name = "Myeloid_Norm_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p111b, name = "Myeloid_Norm_Dotplot", height = 8, width = 18)
 SaveFigure(my.plot = p112a, name = "DC_Norm_Final_Labels")
-SaveFigure(my.plot = p112b, name = "DC_Norm_Dotplot", height = 8, width = 12)
+SaveFigure(my.plot = p112b, name = "DC_Norm_Dotplot", height = 8, width = 18)
 ```
 
 And of course:
