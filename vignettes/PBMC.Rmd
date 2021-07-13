@@ -42,8 +42,8 @@ library(ggsignif)    # significance bars
 library(paletteer)   # advanced colors
 library(latex2exp)   # LaTeX
 library(reticulate)  # Python interface
-library(SeuratData)  # PBMC3k dataset
 library(ggbeeswarm)  # beeswarm plots
+library(SeuratData)  # PBMC3k dataset
 ```
 
 ## Python
@@ -80,40 +80,38 @@ pbmc <- PrepareData(pbmc,
                     random.seed = 629)
 ```
 
+We see clear visual evidence of subclusters. 
+
+```{r}
+p0a <- DimPlot(pbmc, pt.size = 1.75, cols = paletteer_d("ggthemes::Classic_10")) + 
+       labs(x = "t-SNE 1", y = "t-SNE 2") + 
+       theme_yehlab() + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p0a
+```
+
 We compute the distribution of the silhouette scores for each cluster. 
 
 ```{r}
 sil_df <- ComputeSilhouetteScores(pbmc, avg = FALSE)
-p0a <- ggplot(sil_df, aes(x = Cluster, y = Score, color = Cluster)) + 
-       geom_quasirandom() + 
-       stat_summary(fun = "mean", geom = "crossbar", width = 0.5, color = "black") + 
-       geom_signif(comparisons = list(c("1", "4"), c("1", "2"), c("0", "1"), c("3", "4"), c("4", "5")), 
-                   test = wilcox.test, map_signif_level = TRUE, step_increase = .075) + 
-       scale_y_continuous(limits = c(min(sil_df$Score), 1.5)) + 
-       scale_color_paletteer_d("ggthemes::Classic_10") + 
-       labs(y = "Silhouette Score", color = "Louvain Clusters", 
-            caption = TeX(paste0("$\\bar{S}$ = ", round(mean(sil_df$Score), 2)))) + 
+p0b <- ggplot(sil_df, aes(x = Cluster, y = Score, fill = Cluster)) + 
+       geom_violin(draw_quantiles = 0.5, color = "black", scale = "width") + 
+       scale_fill_paletteer_d("ggthemes::Classic_10") + 
+       labs(y = "Silhouette Score", x = "Louvain Clusters", fill = NULL) + 
        theme_minimal() + 
        theme(panel.grid = element_blank(), 
              panel.border = element_rect(fill = NA, size = 1), 
-             legend.position = "bottom", 
-             axis.title.x = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+             legend.position = "none", 
+             axis.ticks = element_line(), 
+             axis.title.x = element_text(size = 24), 
+             axis.title.y = element_text(size = 24), 
+             axis.text.x = element_text(size = 20),
+             axis.text.y = element_text(size = 20))
 ```
 
-Clusters 0, 1, and 2 have statistically significantly lower silhouette scores than the other three clusters. We also see a small clump of cells in Cluster 4 that has lower scores than the rest of the cluster. We'll focus on these four clusters when reclustering, as clusters 3 and 5 seem correct. 
+Clusters 0, 1, and 2 have statistically significantly lower silhouette scores than the other three clusters. We also see a small clump of cells in Cluster 4 that has lower scores than the rest of the cluster. We'll focus on these four clusters when reclustering, as clusters 3 and 5 seem mostly correct. 
 
 ```{r}
-p0a
-```
-
-We see clear visual evidence of subclusters. 
-
-```{r}
-p0b <- DimPlot(pbmc, pt.size = 1.75, cols = paletteer_d("ggthemes::Classic_10")) + 
-       labs(x = "t-SNE 1", y = "t-SNE 2") + 
-       theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
 p0b
 ```
 
@@ -176,22 +174,25 @@ pbmc_de <- FindAllMarkers(pbmc,
 pbmc_de %>% 
   filter(p_val_adj < 0.05) %>% 
   group_by(cluster) %>% 
-  top_n(n = 5, wt = avg_log2FC) -> top_de
+  top_n(n = 5, wt = avg_log2FC) -> top5_de
 ```
 
 From the top 5 differentially expressed genes for each cluster, we can deduce some basic cluster identities. Clusters 0 & 2 look like T cells. Clusters 1 & 4 appear to be monocytes. Cluster 3 strongly expresses B cell markers. Lastly, Cluster 5 is pretty clearly identifiable as being composed of NK cells. When we recluster our cells, we'll keep the biological context of these broad cell types in mind. 
 
 ```{r}
-p2 <- DotPlot(pbmc, features = unique(top_de$gene)) + 
+p2 <- DotPlot(pbmc, features = unique(top5_de$gene), dot.scale = 15) + 
       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
-      labs(color = "Scaled Mean Expression", size = "% Expressed", x = "Marker Genes", y = "Cluster") + 
-      theme(axis.text.x = element_text(angle = 45, size = 7, vjust = 0.65), 
-            legend.position = "bottom", legend.justification = "center", 
+      labs(color = "Expression", size = "% Expressed", y = "Cluster") + 
+      theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+            legend.position = "right", 
+            legend.justification = "center", 
             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
-            axis.line = element_blank()) + 
-      guides(color = guide_colorbar(title.position = "top", 
-                                    barwidth = unit(6, units = "cm"), 
-                                    title.hjust = 0.5), 
+            axis.line = element_blank(), 
+            legend.title = element_text(size = 18), 
+            axis.title.x = element_blank(), 
+            axis.title.y = element_text(size = 20), 
+            axis.text.y = element_text(size = 18)) + 
+      guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
              size = guide_legend(title.position = "top", title.hjust = 0.5))
 p2
 ```
@@ -252,7 +253,7 @@ embed2_t = embed1_t.optimize(n_iter=950, exaggeration=1, momentum=0.8)
 
 Now we bring the results back in to R.
 
-```{r}
+```{r, warning=FALSE}
 embed_mono <- as.matrix(py$embed2_mono)
 rownames(embed_mono) <- colnames(mono_reclust)
 mono_reclust@reductions$bh_tsne <- mono_reclust@reductions$tsne
@@ -272,11 +273,11 @@ t_reclust@reductions$tsne <- CreateDimReducObject(embeddings = embed_t,
 Here's what our reclusterings look like. There's clear visual separation between the main clusters and the subgroups we've discovered using `SCISSORS`.
 
 ```{r}
-p3 <- DimPlot(mono_reclust, pt.size = 1.75, cols = paletteer_d("ggsci::nrc_npg")) + 
+p3 <- DimPlot(mono_reclust, pt.size = 1.75, cols = paletteer_d("ggsci::default_nejm")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
-p4 <- DimPlot(t_reclust, pt.size = 1.75, cols = paletteer_d("ggsci::nrc_npg")) + 
+p4 <- DimPlot(t_reclust, pt.size = 1.75, cols = paletteer_d("ggsci::default_nejm")) + 
       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
       theme_yehlab() + 
       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
@@ -382,7 +383,6 @@ p15 <- FeaturePlot(pbmc, pt.size = 1.75, features = "HLA-DRA") +
 (p13 | p14 | p15) / p5
 ```
 
-
 ## B Cells
 
 Expression of MS4A1 allows us to isolate the B cells in cluster 0.
@@ -473,7 +473,9 @@ pbmc$label <- case_when(pbmc$seurat_clusters == 0 ~ "B",
                         pbmc$seurat_clusters == 7 ~ "Naive CD4+ T", 
                         pbmc$seurat_clusters == 8 ~ "Memory CD4+ T", 
                         pbmc$seurat_clusters == 9 ~ "CD8+ T")
-pbmc$label <- as.factor(pbmc$label)
+pbmc$label <- factor(pbmc$label, levels = c("B", "NK", "CD14+ Monocyte", "Intermediate Monocyte", 
+                                            "FCGR3A+ Monocyte", "DC", "Platelet", "Naive CD4+ T", 
+                                            "Memory CD4+ T", "CD8+ T"))
 Idents(pbmc) <- "label"
 ```
 
@@ -500,17 +502,19 @@ final_de %>%
   filter(p_val_adj < 0.05) %>% 
   group_by(cluster) %>% 
   top_n(n = 5, wt = avg_log2FC) -> top_de_final
-p24 <- DotPlot(pbmc, features = unique(top_de_final$gene)) + 
+p24 <- DotPlot(pbmc, features = unique(top_de_final$gene), dot.scale = 15) + 
        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
-       labs(color = "Scaled Mean Expression", size = "% Expressed", x = "Marker Genes") + 
-       theme(axis.text.x = element_text(angle = 45, size = 7, vjust = 1, hjust = 1), 
-             legend.position = "bottom", legend.justification = "center", 
+       labs(color = "Expression", size = "% Expressed", y = NULL) + 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", 
+             legend.justification = "center", 
              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
-             axis.line = element_blank(), axis.title.y = element_blank(), 
-             axis.text.y = element_text(size = 9)) + 
-       guides(color = guide_colorbar(title.position = "top", 
-                                     barwidth = unit(5, units = "cm"), 
-                                     title.hjust = 0.5), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_text(size = 20), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
               size = guide_legend(title.position = "top", title.hjust = 0.5))
 ```
 
@@ -536,10 +540,16 @@ First we save the finalized `Seurat` object.
 saveRDS(pbmc, file = "~/Desktop/Data/pbmc3k.Rds")
 ```
 
+We'll also save the final DE genes as an Excel spreadsheet. 
+
+```{r}
+openxlsx::write.xlsx(final_de, file = "~/Desktop/Data/PBMC_DE.xlsx")
+```
+
 We'll create a quick convenience function to help us save the figures.
 
 ```{r}
-SaveFigure <- function(my.plot = NULL, name = NULL) {
+SaveFigure <- function(my.plot = NULL, name = NULL, height = 8, width = 8) {
   if (is.null(plot) | is.null(name)) stop("You forgot some arguments.")
   # save figure as is - w/ axis labels, titles, etc. 
   dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/PBMC"
@@ -548,8 +558,8 @@ SaveFigure <- function(my.plot = NULL, name = NULL) {
          device = "pdf", 
          units = "in",
          path = dir, 
-         height = 8, 
-         width = 8) 
+         height = height, 
+         width = width) 
   # save "blank" figure w/ no labels, legends, etc.
   dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC"
   plot_blank <- my.plot + 
@@ -563,18 +573,18 @@ SaveFigure <- function(my.plot = NULL, name = NULL) {
          device = "pdf", 
          units = "in",
          path = dir, 
-         height = 8, 
-         width = 8) 
+         height = height, 
+         width = width) 
 }
 ```
 
 Lastly, we'll save the figures under `./vignettes/figures/`. 
 
 ```{r}
-SaveFigure(p0a, name = "Seurat_Clusters_Silhouettes")
-SaveFigure(p0b, name = "Seurat_Clusters")
+SaveFigure(p0a, name = "Seurat_Clusters")
+SaveFigure(p0b, name = "Seurat_Clusters_Silhouettes")
 SaveFigure(p1, name = "Seurat_Clusters_FitSNE")
-SaveFigure(p2, name = "Marker_Genes_For_Seurat_Clusters")
+SaveFigure(p2, name = "Marker_Genes_For_Seurat_Clusters", height = 8, width = 18)
 SaveFigure(p3, name = "Monocyte_Cluster_SCISSORS")
 SaveFigure(p4, name = "T_Cluster_SCISSORS")
 SaveFigure(p5, name = "SCISSORS_Clusters_Final")
@@ -596,12 +606,11 @@ SaveFigure(p20, name = "DC_FCER1A")
 SaveFigure(p21, name = "DC_CST3")
 SaveFigure(p22, name = "Platelet_PPBP")
 SaveFigure(p23, name = "SCISSORS_Celltypes_Final")
-SaveFigure(p24, name = "Marker_Genes_For_SCISSORS_Celltypes")
+SaveFigure(p24, name = "Marker_Genes_For_SCISSORS_Celltypes", height = 8, width = 18)
 ```
 
 And of course:
 
 ```{r}
 sessionInfo()
-getwd()
 ```

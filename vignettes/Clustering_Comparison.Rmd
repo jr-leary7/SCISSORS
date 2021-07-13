@@ -125,9 +125,9 @@ clust_ensembl <- SAFE(cluster_results = SAFE_res,
                       MCLA = TRUE, 
                       CSPA = TRUE, 
                       SEED = 629)
-pbmc@meta.data$SAFE_clust <- clust_ensembl$optimal_clustering
+pbmc@meta.data$SAFE_clust <- as.factor(as.integer(clust_ensembl$optimal_clustering) - 1)
 cos_dist <- CosineDist(input = Embeddings(pbmc, "pca"))
-sils_safe <- silhouette(dist = cos_dist, x = clust_ensembl$optimal_clustering)
+sils_safe <- silhouette(dist = cos_dist, x = pbmc@meta.data$SAFE_clust)
 ```
 
 Here's what the results from `SAFE` look like on our t-SNE embedding:
@@ -228,10 +228,10 @@ p1 <- ggplot(clust_sils, aes(x = Method, y = Silhouette, fill = Method)) +
             legend.position = "none", 
             panel.background = element_blank(), 
             panel.border = element_rect(fill = NA, size = 1), 
-            axis.title.x = element_text(size = 22), 
-            axis.title.y = element_text(size = 22), 
-            axis.text.y = element_text(size = 16), 
-            axis.text.x = element_text(size = 16))
+            axis.title.x = element_text(size = 24), 
+            axis.title.y = element_text(size = 24), 
+            axis.text.y = element_text(size = 20), 
+            axis.text.x = element_text(size = 20))
 p1
 ```
 
