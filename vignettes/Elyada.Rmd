@@ -168,7 +168,7 @@ p0b
 
 Lastly we'll identify marker genes for each of the clusters. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 pdac_markers <- FindAllMarkers(pdac, 
                                logfc.threshold = .5, 
                                test.use = "wilcox", 
@@ -749,7 +749,7 @@ p23a
 
 Here's the marker genes for each cluster. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 DefaultAssay(fibro) <- "SCT"
 fibro_markers2 <- FindAllMarkers(fibro, 
                                  logfc.threshold = .5, 
@@ -766,16 +766,16 @@ top5_fibro_markers <- fibro_markers2 %>%
 p23b <- DotPlot(fibro, features = top5_fibro_markers$gene, dot.scale = 15) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
-        theme(axis.text.x = element_text(angle = 90, size = 18, vjust = 0.5), 
-              legend.position = "right", legend.justification = "center", 
-              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
-              axis.line = element_blank(), 
-              legend.title = element_text(size = 16), 
-              axis.title.y = element_blank(), 
-              axis.title.x = element_blank(), 
-              axis.text.y = element_text(size = 22)) + 
-        guides(color = guide_colorbar(title.position = "top", 
-                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", 
+             legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_blank(), 
+             axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                size = guide_legend(title.position = "top", title.hjust = 0.5))
 p23b
 ```
@@ -1047,7 +1047,7 @@ p40a
 
 Here's the marker genes. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 nkt_tumor_markers2 <- FindAllMarkers(nkt_tumor, 
                                      logfc.threshold = .5, 
                                      test.use = "wilcox", 
@@ -1060,20 +1060,20 @@ top5_nkt_tumor_markers <- nkt_tumor_markers2 %>%
                           group_by(cluster) %>% 
                           arrange(desc(avg_log2FC)) %>% 
                           slice_head(n = 5)
-p40b <- DotPlot(nkt_tumor, features = unique(top5_nkt_tumor_markers$gene), dot.scale = 10) + 
+p40b <- DotPlot(nkt_tumor, features = unique(top5_nkt_tumor_markers$gene), dot.scale = 15) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
-        theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
-              legend.position = "right", legend.justification = "center", 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", 
+              legend.justification = "center", 
               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
               axis.line = element_blank(), 
-              legend.title = element_text(size = 14), 
-              axis.title.y = element_blank(), 
+              legend.title = element_text(size = 18), 
               axis.title.x = element_blank(), 
-              axis.text.y = element_text(size = 14)) + 
-        guides(color = guide_colorbar(title.position = "top", 
-                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
-               size = guide_legend(title.position = "top", title.hjust = 0.5))
+              axis.title.y = element_blank(), 
+              axis.text.y = element_text(size = 18)) + 
+         guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+                size = guide_legend(title.position = "top", title.hjust = 0.5))
 p40b
 ```
 
@@ -1267,7 +1267,7 @@ p51a
 
 Here's the marker genes. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 nkt_norm_markers2 <- FindAllMarkers(nkt_norm, 
                                     logfc.threshold = .5, 
                                     test.use = "wilcox", 
@@ -1280,20 +1280,20 @@ top5_nkt_norm_markers <- nkt_norm_markers2%>%
                          group_by(cluster) %>% 
                          arrange(desc(avg_log2FC)) %>% 
                          slice_head(n = 5)
-p51b <- DotPlot(nkt_norm, features = unique(top5_nkt_norm_markers$gene), dot.scale = 10) + 
+p51b <- DotPlot(nkt_norm, features = unique(top5_nkt_norm_markers$gene), dot.scale = 15) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
-        theme(axis.text.x = element_text(angle = 90, size = 10, vjust = 0.5), 
-              legend.position = "right", legend.justification = "center", 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", 
+              legend.justification = "center", 
               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
               axis.line = element_blank(), 
-              legend.title = element_text(size = 14), 
-              axis.title.y = element_blank(), 
+              legend.title = element_text(size = 18), 
               axis.title.x = element_blank(), 
-              axis.text.y = element_text(size = 14)) + 
-        guides(color = guide_colorbar(title.position = "top", 
-                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
-               size = guide_legend(title.position = "top", title.hjust = 0.5))
+              axis.title.y = element_blank(), 
+              axis.text.y = element_text(size = 18)) + 
+         guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+                size = guide_legend(title.position = "top", title.hjust = 0.5))
 p51b
 ```
 
@@ -1598,7 +1598,7 @@ ductal@meta.data %>%
 
 Here's the marker genes. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 ductal_markers2 <- FindAllMarkers(ductal, 
                                   logfc.threshold = .5, 
                                   test.use = "wilcox", 
@@ -1611,19 +1611,19 @@ top5_ductal_markers <- ductal_markers2 %>%
                        group_by(cluster) %>% 
                        arrange(desc(avg_log2FC)) %>% 
                        slice_head(n = 5)
-p64b <- DotPlot(ductal, features = unique(top5_ductal_markers$gene), dot.scale = 10) + 
+p64b <- DotPlot(ductal, features = unique(top5_ductal_markers$gene), dot.scale = 15) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
-        theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
-              legend.position = "right", legend.justification = "center", 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", 
+              legend.justification = "center", 
               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
               axis.line = element_blank(), 
-              legend.title = element_text(size = 14), 
-              axis.title.y = element_blank(), 
+              legend.title = element_text(size = 18), 
               axis.title.x = element_blank(), 
-              axis.text.y = element_text(size = 14)) + 
-        guides(color = guide_colorbar(title.position = "top", 
-                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              axis.title.y = element_blank(), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                size = guide_legend(title.position = "top", title.hjust = 0.5))
 p64b
 ```
@@ -2030,7 +2030,7 @@ p95a
 
 Here's the marker genes. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 myo_reclust_markers2 <- FindAllMarkers(myo_reclust, 
                                        logfc.threshold = .5, 
                                        test.use = "wilcox", 
@@ -2043,19 +2043,19 @@ top5_myo_reclust_markers <- myo_reclust_markers2 %>%
                             group_by(cluster) %>% 
                             arrange(desc(avg_log2FC)) %>% 
                             slice_head(n = 5)
-p95b <- DotPlot(myo_reclust, features = unique(top5_myo_reclust_markers$gene), dot.scale = 10) + 
+p95b <- DotPlot(myo_reclust, features = unique(top5_myo_reclust_markers$gene), dot.scale = 15) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
-        theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
-              legend.position = "right", legend.justification = "center", 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", 
+              legend.justification = "center", 
               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
               axis.line = element_blank(), 
-              legend.title = element_text(size = 14), 
-              axis.title.y = element_blank(), 
+              legend.title = element_text(size = 18), 
               axis.title.x = element_blank(), 
-              axis.text.y = element_text(size = 14)) + 
-        guides(color = guide_colorbar(title.position = "top", 
-                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              axis.title.y = element_blank(), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                size = guide_legend(title.position = "top", title.hjust = 0.5))
 p95b
 ```
@@ -2074,7 +2074,7 @@ p96a
 
 Here's the marker genes. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 dc_reclust_markers2 <- FindAllMarkers(dc_reclust, 
                                       logfc.threshold = .5, 
                                       test.use = "wilcox", 
@@ -2087,19 +2087,19 @@ top5_dc_reclust_markers <- dc_reclust_markers2 %>%
                            group_by(cluster) %>% 
                            arrange(desc(avg_log2FC)) %>% 
                            slice_head(n = 5)
-p96b <- DotPlot(dc_reclust, features = unique(top5_dc_reclust_markers$gene), dot.scale = 10) + 
+p96b <- DotPlot(dc_reclust, features = unique(top5_dc_reclust_markers$gene), dot.scale = 15) + 
         scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
         labs(color = "Expression", size = "% Expressed") + 
-        theme(axis.text.x = element_text(angle = 90, size = 9, vjust = 0.5), 
-              legend.position = "right", legend.justification = "center", 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", 
+              legend.justification = "center", 
               panel.border = element_rect(fill = NA, size = 1, color = "black"), 
               axis.line = element_blank(), 
-              legend.title = element_text(size = 14), 
-              axis.title.y = element_blank(), 
+              legend.title = element_text(size = 18), 
               axis.title.x = element_blank(), 
-              axis.text.y = element_text(size = 14)) + 
-        guides(color = guide_colorbar(title.position = "top", 
-                                      barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              axis.title.y = element_blank(), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                size = guide_legend(title.position = "top", title.hjust = 0.5))
 p96b
 ```
@@ -2327,6 +2327,8 @@ Idents(dc_norm_reclust) <- "label"
 
 #### Visualization
 
+##### Monocytes, Macrophages, & Neutrophils
+
 Here are the final annotations for the adjacent normal tissue myeloid population. 
 
 ```{r}
@@ -2341,7 +2343,7 @@ p111a
 
 And here's their marker genes. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 myo_norm_reclust_markers2 <- FindAllMarkers(myo_norm_reclust, 
                                             logfc.threshold = .5, 
                                             test.use = "wilcox", 
@@ -2354,19 +2356,19 @@ top5_myo_norm_reclust_markers <- myo_norm_reclust_markers2 %>%
                                  group_by(cluster) %>% 
                                  arrange(desc(avg_log2FC)) %>% 
                                  slice_head(n = 5)
-p111b <- DotPlot(myo_norm_reclust, features = unique(top5_myo_norm_reclust_markers$gene), dot.scale = 10) + 
+p111b <- DotPlot(myo_norm_reclust, features = unique(top5_myo_norm_reclust_markers$gene), dot.scale = 15) + 
          scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
          labs(color = "Expression", size = "% Expressed") + 
-         theme(axis.text.x = element_text(angle = 90, size = 12, vjust = 0.5), 
-               legend.position = "right", legend.justification = "center", 
+         theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+               legend.position = "right", 
+               legend.justification = "center", 
                panel.border = element_rect(fill = NA, size = 1, color = "black"), 
                axis.line = element_blank(), 
-               legend.title = element_text(size = 14), 
-               axis.title.y = element_blank(), 
+               legend.title = element_text(size = 18), 
                axis.title.x = element_blank(), 
-               axis.text.y = element_text(size = 14)) + 
-         guides(color = guide_colorbar(title.position = "top", 
-                                       barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               axis.title.y = element_blank(), 
+               axis.text.y = element_text(size = 18)) + 
+         guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                 size = guide_legend(title.position = "top", title.hjust = 0.5))
 p111b
 ```
@@ -2385,7 +2387,7 @@ p112a
 
 And here are their marker genes. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 dc_norm_reclust_markers2 <- FindAllMarkers(dc_norm_reclust, 
                                            logfc.threshold = .5, 
                                            test.use = "wilcox", 
@@ -2398,20 +2400,19 @@ top5_dc_norm_reclust_markers <- dc_norm_reclust_markers2 %>%
                                 group_by(cluster) %>% 
                                 arrange(desc(avg_log2FC)) %>% 
                                 slice_head(n = 5)
-p112b <- DotPlot(dc_norm_reclust, features = unique(top5_dc_norm_reclust_markers$gene), dot.scale = 10) + 
+p112b <- DotPlot(dc_norm_reclust, features = unique(top5_dc_norm_reclust_markers$gene), dot.scale = 15) + 
          scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
          labs(color = "Expression", size = "% Expressed") + 
-         theme(axis.text.x = element_text(angle = 90, size = 14, vjust = 0.5), 
+         theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
                legend.position = "right", 
                legend.justification = "center", 
                panel.border = element_rect(fill = NA, size = 1, color = "black"), 
                axis.line = element_blank(), 
-               legend.title = element_text(size = 16), 
-               axis.title.y = element_blank(), 
+               legend.title = element_text(size = 18), 
                axis.title.x = element_blank(), 
-               axis.text.y = element_text(size = 16)) + 
-         guides(color = guide_colorbar(title.position = "top", 
-                                       barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               axis.title.y = element_blank(), 
+               axis.text.y = element_text(size = 18)) + 
+         guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
                 size = guide_legend(title.position = "top", title.hjust = 0.5))
 p112b
 ```
