@@ -179,7 +179,7 @@ pbmc_de %>%
 
 From the top 5 differentially expressed genes for each cluster, we can deduce some basic cluster identities. Clusters 0 & 2 look like T cells. Clusters 1 & 4 appear to be monocytes. Cluster 3 strongly expresses B cell markers. Lastly, Cluster 5 is pretty clearly identifiable as being composed of NK cells. When we recluster our cells, we'll keep the biological context of these broad cell types in mind. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 p2 <- DotPlot(pbmc, features = unique(top5_de$gene), dot.scale = 15) + 
       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
       labs(color = "Expression", size = "% Expressed", y = "Cluster") + 
@@ -520,7 +520,7 @@ p24 <- DotPlot(pbmc, features = unique(top_de_final$gene), dot.scale = 15) +
 
 Our differential expression results confirm our manual annotations. Each of the celltypes expresses some of its canonical markers, so we can be pretty confident that we got the annotations right. 
 
-```{r}
+```{r, fig.width=12, fig.height=5}
 p24
 ```
 
