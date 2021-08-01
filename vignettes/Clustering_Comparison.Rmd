@@ -1,6 +1,9 @@
 ---
 title: "A Comparison of Clustering Methods Using the Silhouette Score"
-author: "Jack Leary"
+subtitle: "Jack Leary"
+author: 
+  - "University of North Carolina at Chapel Hill - Lineberger Comprehensive Cancer Center"
+  - "University of Florida - Department of Biostatistics"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -83,23 +86,25 @@ sils_satija <- ComputeSilhouetteScores(pbmc_Seurat, avg = FALSE)
 
 Here's what the default Satija Lab clustering looks like: 
 
-```{r}
+```{r, fig.width=5, fig.height=3}
 p0a <- DimPlot(pbmc_Seurat, reduction = "fitsne", group.by = "seurat_clusters", 
-               pt.size = 0.75, cols = paletteer_d("ggsci::category20_d3")) + 
+               pt.size = 1.5, cols = paletteer_d("ggsci::category20_d3")) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+       theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 8)))
 p0a
 ```
 
 And our results: 
 
-```{r}
-p0b <- DimPlot(pbmc_SCISSORS, pt.size = 0.75, group.by = "seurat_clusters", 
+```{r, fig.width=5, fig.height=3}
+p0b <- DimPlot(pbmc_SCISSORS, pt.size = 1.5, group.by = "seurat_clusters", 
                reduction = "tsne", cols = paletteer_d("ggsci::category20_d3")) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+       theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 8)))
 p0b
 ```
 
@@ -132,12 +137,13 @@ sils_safe <- silhouette(dist = cos_dist, x = as.integer(pbmc@meta.data$SAFE_clus
 
 Here's what the results from `SAFE` look like on our t-SNE embedding:
 
-```{r}
-p0c <- DimPlot(pbmc, pt.size = 0.75, group.by = "SAFE_clust", 
+```{r, fig.width=5, fig.height=3}
+p0c <- DimPlot(pbmc, pt.size = 1.5, group.by = "SAFE_clust", 
                reduction = "fitsne", cols = paletteer_d("ggsci::category20_d3")) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+       theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 8)))
 p0c
 ```
 
@@ -187,12 +193,13 @@ sils_gini <- cluster::silhouette(dist = cos_dist, x = gini_clusts)
 
 Here's what the `GiniClust3` results look like on our t-SNE embedding:
 
-```{r}
-p0d <- DimPlot(pbmc, pt.size = 0.75, group.by = "gini_clust", 
+```{r, fig.width=5, fig.height=3}
+p0d <- DimPlot(pbmc, pt.size = 1.5, group.by = "gini_clust", 
                reduction = "fitsne", cols = paletteer_d("ggsci::category20_d3")) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+       theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
+       guides(color = guide_legend(nrow = 1, override.aes = list(size = 8)))
 p0d
 ```
 
@@ -214,9 +221,9 @@ clust_sils %<>% mutate(Method = factor(Method,levels = c("GiniClust3", "Seurat",
 
 We see that our method gives the highest median silhouette score over the `Seurat` vignette's results, `GiniClust3`, and `SAFE`; the differences between `SCISSORS` and the other methods are statistically significant
 
-```{r}
+```{r, fig.height=4, fig.width=5}
 p1 <- ggplot(clust_sils, aes(x = Method, y = Silhouette, fill = Method)) + 
-      geom_violin(draw_quantiles = 0.5, color = "black", scale = "width") +
+      geom_violin(draw_quantiles = 0.5, color = "black", scale = "width", size = 1.2) +
       geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .12, size = 1.2, textsize = 8, 
                   comparisons = list(c("SCISSORS", "GiniClust3"), 
                                      c("SCISSORS", "Seurat"), 
@@ -264,8 +271,8 @@ ggsave(p0d,
        device = "pdf", 
        units = "in",
        path = "~/Desktop/R/SCISSORS/vignettes/figures_pub/PBMC/Method Comparison", 
-       height = 8, 
-       width = 8) 
+       height = 9.5, 
+       width = 9.5) 
 ggsave(p1, 
        filename = "Sil_Scores.pdf", 
        device = "pdf", 
