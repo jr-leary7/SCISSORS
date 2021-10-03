@@ -84,6 +84,56 @@ pbmc@reductions$fitsne <- pbmc_SCISSORS@reductions$tsne
 sils_satija <- ComputeSilhouetteScores(pbmc_Seurat, avg = FALSE)
 ```
 
+```{r}
+pbmc_raw <- LoadData("pbmc3k") %>% subset(subset = nFeature_RNA < 2500) 
+system.time(
+  mk <- MultiK(seu = pbmc_raw, seed = 312)
+)
+pbmc_raw@reductions$fitsne <- pbmc_SCISSORS@reductions$tsne
+```
+
+```{r}
+DiagMultiKPlot(mk$k, mk$consensus)
+```
+
+```{r}
+clusters_k3 <- getClusters(pbmc_raw, optK = 3)
+clusters_k7 <- getClusters(pbmc_raw, optK = 7)
+clusters_k9 <- getClusters(pbmc_raw, optK = 9)
+clusters_k10 <- getClusters(pbmc_raw, optK = 10)
+pbmc_raw <- AddMetaData(pbmc_raw, metadata = clusters_k3$clusters, col.name = "MultiK_k3")
+pbmc_raw <- AddMetaData(pbmc_raw, metadata = clusters_k7$clusters, col.name = "MultiK_k7")
+pbmc_raw <- AddMetaData(pbmc_raw, metadata = clusters_k9$clusters, col.name = "MultiK_k9")
+pbmc_raw <- AddMetaData(pbmc_raw, metadata = clusters_k10$clusters, col.name = "MultiK_k10")
+pbmc_raw@reductions$fitsne <- pbmc_SCISSORS@reductions$tsne
+```
+
+```{r}
+DimPlot(pbmc_raw, reduction = "fitsne", group.by = "MultiK_k3", cols = paletteer_d("ggsci::category20_d3"))
+DimPlot(pbmc_raw, reduction = "fitsne", group.by = "MultiK_k7", cols = paletteer_d("ggsci::category20_d3"))
+DimPlot(pbmc_raw, reduction = "fitsne", group.by = "MultiK_k9", cols = paletteer_d("ggsci::category20_d3"))
+DimPlot(pbmc_raw, reduction = "fitsne", group.by = "MultiK_k10", cols = paletteer_d("ggsci::category20_d3"))
+```
+
+```{r}
+pbmc_raw <- pbmc_raw %>% 
+            NormalizeData(verbose = FALSE) %>% 
+            FindVariableFeatures(selection.method = "vst", nfeatures = 2000, verbose = FALSE) %>% 
+            ScaleData(verbose = FALSE) %>% 
+            RunPCA(verbose = FALSE)
+Idents(pbmc_raw) <- "MultiK_k10"
+multik_k10_markers <- FindAllMarkers(pbmc_raw,
+                                     test.use = "wilcox", 
+                                     only.pos = TRUE, 
+                                     verbose = FALSE, 
+                                     random.seed = 629)
+multik_k10_top5 <- multik_k10_markers %>% 
+                   group_by(cluster) %>% 
+                   slice_head(n = 5)
+DotPlot(pbmc_raw, features = unique(multik_k10_top5$gene)) + 
+  theme(axis.text.x = element_text(angle = 90, size = 9))
+```
+
 Here's what the default Satija Lab clustering looks like: 
 
 ```{r, fig.width=5, fig.height=3}
@@ -208,10 +258,7 @@ p0d
 We build a dataframe of the results that we'll pass into `ggplot2`. 
 
 ```{r}
-clust_sils <- data.frame(Method = c(rep("SCISSORS", 2695), 
-                                    rep("Seurat", 2695), 
-                                    rep("SAFE", 2695), 
-                                    rep("GiniClust3", 2695)), 
+clust_sils <- data.frame(Method = rep(c("SCISSORS", "Seurat", "SAFE", "GiniClust3"), each = ncol(pbmc)), 
                          Silhouette = c(sils_SCISSORS$Score, 
                                         sils_satija$Score, 
                                         sils_safe[, 3], 

@@ -12,7 +12,7 @@
 #' @param regress.cc Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using `ChoosePCs()`. Defaults to "auto".
 #' @param var.cutoff (Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
-#' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have `phateR` installed.
+#' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("umap"), as most users will likely not have `phateR` installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param umap.lr (Optional) What learning rate should be used for the UMAP embedding? Defaults to 0.05.
 #' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
@@ -32,7 +32,7 @@ PrepareData <- function(seurat.object = NULL,
                         regress.cc = TRUE,
                         n.PC = "auto",
                         var.cutoff = .15,
-                        which.dim.reduc = c("tsne", "umap"),
+                        which.dim.reduc = c("umap"),
                         perplexity = 30,
                         umap.lr = 0.05,
                         initial.resolution = .3,

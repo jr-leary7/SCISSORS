@@ -11,7 +11,7 @@
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
 #' @param resolution.vals (Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).
 #' @param k.vals (Optional) The parameters *k* to be tested. Defaults to c(10, 25, 50).
-#' @param cutoff.score (Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are [2, .3].
+#' @param cutoff.score (Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are [.1, .3].
 #' @param nn.metric (Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
