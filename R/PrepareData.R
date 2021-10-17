@@ -1,22 +1,19 @@
 #' Prepare scRNA-seq data for reclustering.
 #'
-#' This function prepares a `Seurat` object for reclustering analysis.
-#' The input is a `Seurat` object in any stage of pre-processing, or even a `SingleCellExperiment` object that will be converted to `Seurat` format.
-#' The function checks which metadata features (% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings),
-#' then runs an initial graph-based clustering.
+#' @description This function prepares  single cell data for reclustering analysis. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features (% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 #' @import Seurat
 #' @importClassesFrom SingleCellExperiment SingleCellExperiment
-#' @param seurat.object The object containing the cells you'd like to analyze.
+#' @param seurat.object The object containing the cells you'd like to analyze. Defaults to NULL.
 #' @param n.HVG The number of highly variable genes to compute. Defaults to 4000.
 #' @param regress.mt Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to TRUE.
 #' @param regress.cc Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.
-#' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using `ChoosePCs()`. Defaults to "auto".
+#' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using \code{ChoosePCs()}. Defaults to "auto".
 #' @param var.cutoff (Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
-#' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("umap"), as most users will likely not have `phateR` installed.
+#' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("umap"), as most users will likely not have \code{phateR} installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param umap.lr (Optional) What learning rate should be used for the UMAP embedding? Defaults to 0.05.
-#' @param initial.resolution The initial resolution parameter used in the `FindClusters` function. Defaults to 0.3.
-#' @param k.val (Optional) The parameter *k* to be used when creating the shared nearest-neighbor graph. Defaults to *k* ~ sqrt(*n*).
+#' @param initial.resolution The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.3.
+#' @param k.val (Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \eqn{k \approx \sqrt{n}}.
 #' @param do.plot (Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @export
@@ -25,6 +22,7 @@
 #' PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 100)
 #' @references
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
+#' @seealso \code{\link{ChoosePCs}}
 
 PrepareData <- function(seurat.object = NULL,
                         n.HVG = 4000,

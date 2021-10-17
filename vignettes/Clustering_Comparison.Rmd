@@ -138,7 +138,7 @@ Here's what the default Satija Lab clustering looks like:
 
 ```{r, fig.width=5, fig.height=3}
 p0a <- DimPlot(pbmc_Seurat, reduction = "fitsne", group.by = "seurat_clusters", 
-               pt.size = 1.5, cols = paletteer_d("ggsci::category20_d3")) + 
+               pt.size = 1.5, cols = paletteer_d("ggthemes::Classic_10")[c(1, 2, 7, 4, 3, 5, 6, 8, 9)]) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
        theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
@@ -150,7 +150,7 @@ And our results:
 
 ```{r, fig.width=5, fig.height=3}
 p0b <- DimPlot(pbmc_SCISSORS, pt.size = 1.5, group.by = "seurat_clusters", 
-               reduction = "tsne", cols = paletteer_d("ggsci::category20_d3")) + 
+               reduction = "tsne", cols = paletteer_d("ggthemes::Classic_10")[c(4, 6, 2, 10, 5, 8, 9, 1, 7, 3)]) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
        theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
@@ -189,7 +189,7 @@ Here's what the results from `SAFE` look like on our t-SNE embedding:
 
 ```{r, fig.width=5, fig.height=3}
 p0c <- DimPlot(pbmc, pt.size = 1.5, group.by = "SAFE_clust", 
-               reduction = "fitsne", cols = paletteer_d("ggsci::category20_d3")) + 
+               reduction = "fitsne", cols = paletteer_d("ggthemes::Classic_10")[c(4, 8, 2, 1, 5, 7, 6, 3, 9)]) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
        theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
@@ -245,7 +245,8 @@ Here's what the `GiniClust3` results look like on our t-SNE embedding:
 
 ```{r, fig.width=5, fig.height=3}
 p0d <- DimPlot(pbmc, pt.size = 1.5, group.by = "gini_clust", 
-               reduction = "fitsne", cols = paletteer_d("ggsci::category20_d3")) + 
+               reduction = "fitsne", cols = c(paletteer_d("ggthemes::Classic_10")[c(1, 2, 4)], 
+                                              paletteer_d("ggsci::category20_d3")[-c(1:4)])) + 
        labs(x = NULL, y = NULL, title = NULL) + 
        theme_yehlab() + 
        theme(panel.border = element_blank(), legend.text = element_text(size = 20)) + 
@@ -263,7 +264,7 @@ clust_sils <- data.frame(Method = rep(c("SCISSORS", "Seurat", "SAFE", "GiniClust
                                         sils_satija$Score, 
                                         sils_safe[, 3], 
                                         sils_gini[, 3]))
-clust_sils %<>% mutate(Method = factor(Method,levels = c("GiniClust3", "Seurat", "SAFE", "SCISSORS"))) 
+clust_sils %<>% mutate(Method = factor(Method, levels = c("GiniClust3", "Seurat", "SAFE", "SCISSORS"))) 
 ```
 
 We see that our method gives the highest median silhouette score over the `Seurat` vignette's results, `GiniClust3`, and `SAFE`; the differences between `SCISSORS` and the other methods are statistically significant
