@@ -33,7 +33,7 @@ In 2017, the Tuveson Lab at Cold Spring Harbor Cancer Center published a paper w
 
 ## R
 
-```{r, results='hide'}
+```{r, results="hide"}
 library(VAM)           # single cell GSEA
 library(dplyr)         # tidy data 
 library(Seurat)        # single cell infrastructure
@@ -72,51 +72,50 @@ pdac <- CreateSeuratObject(raw_counts,
                            project = "Elyada", 
                            min.cells = 3, 
                            min.features = 500)
-pdac@meta.data %<>%
-  mutate(sample = case_when(substr(rownames(.), 17, 18) == "-1" ~ "SRR9274536", 
-                            substr(rownames(.), 17, 18) == "-2" ~ "SRR9274537", 
-                            substr(rownames(.), 17, 18) == "-3" ~ "SRR9274538", 
-                            substr(rownames(.), 17, 18) == "-4" ~ "SRR9274539", 
-                            substr(rownames(.), 17, 18) == "-5" ~ "SRR9274541", 
-                            substr(rownames(.), 17, 18) == "-6" ~ "SRR9274542", 
-                            substr(rownames(.), 17, 18) == "-7" ~ "SRR9274543",
-                            substr(rownames(.), 17, 18) == "-8" ~ "SRR9274544"), 
-         sex = case_when(sample == "SRR9274536" ~ "F", 
-                         sample == "SRR9274537" ~ "M", 
-                         sample == "SRR9274538" ~ "M", 
-                         sample == "SRR9274539" ~ "M", 
-                         sample == "SRR9274541" ~ "F", 
-                         sample == "SRR9274542" ~ "F", 
-                         sample == "SRR9274543" ~ "M", 
-                         sample == "SRR9274544" ~ "M"), 
-         condition = case_when(sample == "SRR9274536" ~ "PDAC", 
-                               sample == "SRR9274537" ~ "PDAC", 
-                               sample == "SRR9274538" ~ "PDAC", 
-                               sample == "SRR9274539" ~ "PDAC", 
-                               sample == "SRR9274541" ~ "AdjNorm", 
-                               sample == "SRR9274542" ~ "PDAC", 
-                               sample == "SRR9274543" ~ "AdjNorm", 
-                               sample == "SRR9274544" ~ "PDAC"))
+pdac@meta.data %<>% mutate(sample = case_when(substr(rownames(.), 17, 18) == "-1" ~ "SRR9274536", 
+                                              substr(rownames(.), 17, 18) == "-2" ~ "SRR9274537", 
+                                              substr(rownames(.), 17, 18) == "-3" ~ "SRR9274538", 
+                                              substr(rownames(.), 17, 18) == "-4" ~ "SRR9274539", 
+                                              substr(rownames(.), 17, 18) == "-5" ~ "SRR9274541", 
+                                              substr(rownames(.), 17, 18) == "-6" ~ "SRR9274542", 
+                                              substr(rownames(.), 17, 18) == "-7" ~ "SRR9274543",
+                                              substr(rownames(.), 17, 18) == "-8" ~ "SRR9274544"), 
+                           sex = case_when(sample == "SRR9274536" ~ "F", 
+                                           sample == "SRR9274537" ~ "M", 
+                                           sample == "SRR9274538" ~ "M", 
+                                           sample == "SRR9274539" ~ "M", 
+                                           sample == "SRR9274541" ~ "F", 
+                                           sample == "SRR9274542" ~ "F", 
+                                           sample == "SRR9274543" ~ "M", 
+                                           sample == "SRR9274544" ~ "M"), 
+                           condition = case_when(sample == "SRR9274536" ~ "PDAC", 
+                                                 sample == "SRR9274537" ~ "PDAC", 
+                                                 sample == "SRR9274538" ~ "PDAC", 
+                                                 sample == "SRR9274539" ~ "PDAC", 
+                                                 sample == "SRR9274541" ~ "AdjNorm", 
+                                                 sample == "SRR9274542" ~ "PDAC", 
+                                                 sample == "SRR9274543" ~ "AdjNorm", 
+                                                 sample == "SRR9274544" ~ "PDAC"))
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, results="hide"}
 rm(raw_counts)
+gc(verbose = FALSE)
 ```
 
 Next, we read in a dataset of basal-like and classical PDAC marker genes that we'll use later on to perform enrichment analysis. 
 
 ```{r}
 load("~/Desktop/Data/cmbSubtypes.RData")
-pdac_50_genes <- subtypeGeneList[[4]]
-basal_genes <- pdac_50_genes[pdac_50_genes$BasalLike, ]$geneSymbol
-classical_genes <- pdac_50_genes[!pdac_50_genes$BasalLike, ]$geneSymbol
+basal_genes <- subtypeGeneList[[4]][subtypeGeneList[[4]]$BasalLike, ]$geneSymbol
+classical_genes <- subtypeGeneList[[4]][!subtypeGeneList[[4]]$BasalLike, ]$geneSymbol
 ```
 
 # Preprocessing
 
 We run the typical single cell pre-processing steps on our cells - normalization, dimension reduction, and clustering. 
 
-```{r, warning=FALSE}
+```{r warning=FALSE}
 pdac <- PrepareData(seurat.object = pdac, 
                     n.HVG = 4000, 
                     n.PC = 20, 
@@ -168,25 +167,55 @@ p1
 Lastly, we'll identify marker genes for each of the clusters. 
 
 ```{r, fig.width=8, fig.height=4}
-pdac_markers <- FindSpecificMarkers(pdac, de.method = "wilcox", log2fc.cutoff = 0.1)
+pdac_markers <- FindAllMarkers(pdac, 
+                               logfc.threshold = 0.25, 
+                               test.use = "wilcox", 
+                               only.pos = TRUE, 
+                               verbose = FALSE, 
+                               random.seed = 312) %>% 
+                filter(p_val_adj < 0.05)
 top5_pdac_markers <- pdac_markers %>% 
                      group_by(cluster) %>% 
                      arrange(desc(avg_log2FC)) %>% 
                      slice_head(n = 5)
-p2 <- DotPlot(pdac, features = unique(top5_pdac_markers$gene), dot.scale = 15) + 
-      scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
-      labs(color = "Expression", size = "% Expressed", y = "Louvain Cluster") + 
-      theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
-            legend.position = "right", legend.justification = "center", 
-            panel.border = element_rect(fill = NA, size = 1, color = "black"), 
-            axis.line = element_blank(), 
-            legend.title = element_text(size = 18), 
-            axis.title.x = element_blank(), 
-            axis.title.y = element_text(size = 20), 
-            axis.text.y = element_text(size = 18)) + 
-      guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
-             size = guide_legend(title.position = "top", title.hjust = 0.5))
-p2
+p2a <- DotPlot(pdac, features = unique(top5_pdac_markers$gene), dot.scale = 15) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Expression", size = "% Expressed", y = "Louvain Cluster") + 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_text(size = 20), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+p2a
+```
+
+Next we'll repeat the process, excluding marker genes for each cluster that are highly expressed in other clusters. 
+
+```{r, fig.width=8, fig.height=4}
+pdac_markers_specific <- FindSpecificMarkers(pdac, de.method = "wilcox", log2fc.cutoff = 0.1)
+top5_pdac_markers_specific <- pdac_markers_specific %>% 
+                              group_by(cluster) %>% 
+                              arrange(desc(avg_log2FC)) %>% 
+                              slice_head(n = 5)
+p2b <- DotPlot(pdac, features = unique(top5_pdac_markers_specific$gene), dot.scale = 15) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Expression", size = "% Expressed", y = "Louvain Cluster") + 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_text(size = 20), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+p2b
 ```
 
 ## Fit-SNE
@@ -235,7 +264,7 @@ pdac@reductions$bh_tsne <- pdac@reductions$tsne
 pdac@reductions$tsne <- pdac@reductions$fitsne
 ```
 
-```{r, echo=FALSE, results='hide'}
+```{r, echo=FALSE, results="hide"}
 rm(embed, pc_df)
 gc(verbose = FALSE)
 ```
@@ -334,7 +363,7 @@ cnv_est <- plotAll(mat = cpm,
                    fname = "Elyada")
 ```
 
-```{r, echo=FALSE, results='hide'}
+```{r, echo=FALSE, results="hide"}
 gc(verbose = FALSE)
 ```
 
@@ -354,11 +383,12 @@ hist1 <- plotHistogram(cnv_est[, cand_regions],
                        cpm, 
                        clusters = 3, 
                        zscoreThreshold = 3, 
-                       celltypes = pdac$SingleR.labels.bulk, 
+                       celltypes = pdac$SingleR.labels.sc, 
                        patients = pdac$sample)
 dev.off()
 ```
 
+We add the CNV-based annotations to our `Seurat` object. 
 
 ```{r}
 normal <- which(hist1 == 1)
@@ -378,19 +408,19 @@ p6 <- DimPlot(pdac, reduction = "tsne", group.by = "malig", pt.size = 0.75) +
 p6
 ```
 
-When looking at the `SingleR` labels from the bulk reference, we see that the Epithelial (Ductal) and Mesenchymal Stem Cell (Fibroblast) clusters have the highest proportions of malignant cells, which is exactly what we expected to see. 
+When looking at the `SingleR` labels from the bulk reference, we see that the Ductal and Stellate cell (Fibroblast) clusters have the highest proportions of malignant cells, which is exactly what we expected to see. 
 
 ```{r}
 pdac@meta.data %>% 
-  group_by(SingleR.labels.bulk) %>% 
+  group_by(SingleR.labels.sc) %>% 
   summarise(MeanMalig = mean(case_when(malig == "Malignant" ~ 1, TRUE ~ 0))) %>% 
   mutate(MeanMalig = formattable::percent(MeanMalig)) %>% 
-  kbl(booktabs = TRUE, col.names = c("Bulk Reference SingleR Label", "% Malignant Cells")) %>% 
+  kbl(booktabs = TRUE, col.names = c("Single Cell Reference SingleR Label", "% Malignant Cells")) %>% 
   kable_minimal(full_width = FALSE)
 ```
 
 ```{r, echo=FALSE, results="hide"}
-rm(cpm, bic_table, chrom_regions, cnv_est, gene_pos, cand_regions, hist1, normal, norm_factor, malignant)
+rm(cpm, bic_table, chrom_regions, cnv_est, gene_pos, cand_regions, hist1, normal, norm_factor, malignant, sil_df)
 gc(verbose = FALSE)
 ```
 
@@ -411,6 +441,11 @@ pdac <- AddMetaData(pdac, sample_wts$BasalTumor, "basal_like")
 pdac <- AddMetaData(pdac, sample_wts$ClassicalTumor, "classical")
 pdac <- AddMetaData(pdac, sample_wts$NormalStroma, "norm_stroma")
 pdac <- AddMetaData(pdac, sample_wts$ActivatedStroma, "act_stroma")
+```
+
+```{r, echo=FALSE, results="hide"}
+rm(sample_wts, sample_wts_unscaled)
+gc(verbose = FALSE)
 ```
 
 ## Visualizing DECODER Weights
@@ -445,7 +480,7 @@ p8
 
 ### Exocrine Pancreas
 
-The cluster identified through `SingleR` as acinar cells is the only cluster with high exocrine pancreas weights. 
+Part of the cluster identified through `SingleR` as acinar cells is the only cell group with high exocrine pancreas weights. 
 
 ```{r}
 p9 <- FeaturePlot(pdac, reduction = "tsne", features = "exocrine", pt.size = 0.75) +
@@ -605,19 +640,11 @@ p19 <- DimPlot(fibro, reduction = "tsne", pt.size = 1.5) +
 p19
 ```
 
-
-```{r}
-fibro_markers <- FindAllMarkers(fibro, 
-                                logfc.threshold = 0.25, 
-                                test.use = "wilcox", 
-                                only.pos = TRUE, 
-                                verbose = FALSE, 
-                                random.seed = 312) %>% 
-                 filter(p_val_adj < 0.05)
-DotPlot(fibro, 
-        features = (fibro_markers %>% group_by(cluster) %>% arrange(desc(avg_log2FC)) %>% slice_head(n = 5) %>% pull(gene))) + 
-  theme(axis.text.x = element_text(angle = 90))
+```{r, echo=FALSE, results="hide"}
+rm(fibro_pc, embed_fibro)
+gc(verbose = FALSE)
 ```
+
 
 ### Cell Type Identification
 
@@ -656,7 +683,7 @@ pan_caf_genes <- c("COL1A1", "FAP", "PDPN", "DCN", "VIM")
 ```
 
 ```{r}
-gene_sets <- list(icaf_genes, mycaf_genes, apcaf_genes, pan_caf_genes)
+gene_sets <- list(icaf_genes, mycaf_genes, apcaf_genes_human, pan_caf_genes)
 names(gene_sets) <- c("iCAF", "myCAF", "apCAF", "Pan-CAF")
 for (i in seq(gene_sets)) {
   gene_sets[[i]] <- gene_sets[[i]][gene_sets[[i]] %in% rownames(fibro)]
@@ -786,7 +813,7 @@ p26d <- data.frame(t(caf@assays$VAMcdf@data)) %>%
               plot.subtitle = element_text(face = "italic", size = 10))
 ```
 
-The `VAM` score distributions differ significantly between our labelled clusters. 
+The `VAM` score distributions differ significantly between our labeled clusters. 
 
 ```{r, fig.width=3, fig.height=4.8}
 p26e <- (p26a | p26b)/ (p26c | p26d)
@@ -832,7 +859,6 @@ ductal <- ReclusterCells(pdac,
                          nn.metric = "euclidean", 
                          redo.embedding = TRUE, 
                          random.seed = 629)
-DimPlot(ductal)
 duct_pc <- Embeddings(ductal, reduction = "pca")
 ```
 
@@ -996,7 +1022,7 @@ ductal <- vamForSeurat(ductal,
 DefaultAssay(ductal) <- "VAMcdf"
 ```
 
-The Classical PDAC scores are highest in clusters 0 & 1 and very low in cluster 4, while the Basal-like scores are highest in cluster 4. 
+The Classical PDAC scores are highest in clusters 0 & 1 and very low in cluster 4, while the Basal-like scores are highest in cluster 4. There is some mixing, reflecting the intra-tumor heterogeneity present in PDAC. 
 
 ```{r}
 p43 <- FeaturePlot(ductal, reduction = "tsne", features = "Classical PDAC", pt.size = 1.5) + 
@@ -1057,7 +1083,7 @@ p46a <- t(data.frame(pdac_ductal@assays$SCT@data)) %>%
               panel.background = element_blank(), 
               panel.border = element_rect(fill = NA, size = 1), 
               axis.title.x = element_text(size = 24), 
-              axis.title.y = element_text(size = 24), 
+              axis.title.y = element_text(size = 22), 
               axis.text.y = element_text(size = 20), 
               axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust = 1))
 p46b <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = basal_like)) + 
@@ -1072,7 +1098,7 @@ p46b <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = basal_lik
               panel.background = element_blank(), 
               panel.border = element_rect(fill = NA, size = 1), 
               axis.title.x = element_text(size = 24), 
-              axis.title.y = element_text(size = 24), 
+              axis.title.y = element_text(size = 22), 
               axis.text.y = element_text(size = 20), 
               axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust = 1))
 p46c <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = classical)) + 
@@ -1087,7 +1113,7 @@ p46c <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = classical
               panel.background = element_blank(), 
               panel.border = element_rect(fill = NA, size = 1), 
               axis.title.x = element_text(size = 24), 
-              axis.title.y = element_text(size = 24), 
+              axis.title.y = element_text(size = 22), 
               axis.text.y = element_text(size = 20), 
               axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust = 1))
 p46d <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = bc_ratio)) + 
@@ -1102,7 +1128,7 @@ p46d <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = bc_ratio)
               panel.background = element_blank(), 
               panel.border = element_rect(fill = NA, size = 1), 
               axis.title.x = element_text(size = 24), 
-              axis.title.y = element_text(size = 24), 
+              axis.title.y = element_text(size = 22), 
               axis.text.y = element_text(size = 20), 
               axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust = 1))
 p46e <- t(data.frame(pdac_ductal@assays$VAMcdf@data)) %>% 
@@ -1120,7 +1146,7 @@ p46e <- t(data.frame(pdac_ductal@assays$VAMcdf@data)) %>%
               panel.background = element_blank(), 
               panel.border = element_rect(fill = NA, size = 1), 
               axis.title.x = element_text(size = 24), 
-              axis.title.y = element_text(size = 24), 
+              axis.title.y = element_text(size = 22), 
               axis.text.y = element_text(size = 20), 
               axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust = 1))
 p46f <- t(data.frame(pdac_ductal@assays$VAMcdf@data)) %>% 
@@ -1138,7 +1164,7 @@ p46f <- t(data.frame(pdac_ductal@assays$VAMcdf@data)) %>%
               panel.background = element_blank(), 
               panel.border = element_rect(fill = NA, size = 1), 
               axis.title.x = element_text(size = 24), 
-              axis.title.y = element_text(size = 24), 
+              axis.title.y = element_text(size = 22), 
               axis.text.y = element_text(size = 20), 
               axis.text.x = element_text(size = 20, angle = 45, vjust = 1, hjust = 1))
 ```
@@ -1148,4 +1174,288 @@ The markers / gene sets match up with our cluster labels.
 ```{r, fig.width=6.5, fig.height=3}
 p47 <- (p46f | p46e | p46b | p46d | p46c | p46c)
 p47
+```
+
+```{r, echo=FALSE, results="hide"}
+rm(duct_pc, embed_duct)
+gc(verbose = FALSE)
+```
+
+# Identify Marker Genes
+
+We'll add final celltype labels to all cluster in the full `Seurat` object. 
+
+```{r}
+basal_cells <- rownames(pdac_ductal@meta.data)[pdac_ductal@meta.data$label == "Basal-like"]
+classical1_cells <- rownames(pdac_ductal@meta.data)[pdac_ductal@meta.data$label == "Classical 1"]
+classical2_cells <- rownames(pdac_ductal@meta.data)[pdac_ductal@meta.data$label == "Classical 2"]
+icaf_cells <- rownames(caf@meta.data)[caf@meta.data$label == "iCAF"]
+mycaf_cells <- rownames(caf@meta.data)[caf@meta.data$label == "myCAF"]
+apcaf_cells <- rownames(caf@meta.data)[caf@meta.data$label == "apCAF"]
+pdac@meta.data %<>% mutate(label_broad = case_when(seurat_clusters == 0 ~ "Macrophage", 
+                                                   seurat_clusters == 1 ~ "NK", 
+                                                   seurat_clusters == 2 ~ "Monocyte", 
+                                                   seurat_clusters == 3 ~ "T", 
+                                                   seurat_clusters == 4 ~ "B", 
+                                                   seurat_clusters == 5 ~ "Ductal", 
+                                                   seurat_clusters == 6 ~ "DC", 
+                                                   seurat_clusters == 7 ~ "T", 
+                                                   seurat_clusters == 8 ~ "Fibroblast", 
+                                                   seurat_clusters == 9 ~ "Acinar", 
+                                                   seurat_clusters == 10 ~ "Normal Stroma", 
+                                                   seurat_clusters == 11 ~ "Plasma", 
+                                                   seurat_clusters == 12 ~ "pDC") ,
+                             label_fine = case_when(rownames(.) %in% basal_cells ~ "Basal-like PDAC", 
+                                                    rownames(.) %in% classical1_cells ~ "Classical PDAC 1", 
+                                                    rownames(.) %in% classical2_cells ~ "Classical PDAC 2", 
+                                                    rownames(.) %in% icaf_cells ~ "iCAF", 
+                                                    rownames(.) %in% mycaf_cells ~ "myCAF", 
+                                                    rownames(.) %in% apcaf_cells ~ "apCAF", 
+                                                    TRUE ~ label_broad))
+Idents(pdac) <- "label_fine"
+```
+
+Let's generate a plot of the CAF-specific marker genes. First, we'll exclude genes that are highly expressed in any other celltypes. Second, we'll want to exclude any genes highly expressed in macrophages because apCAFs in particular ("ap" = "antigen-presenting") have an immune-like transcriptomic profile. We should have removed those genes in the previous step, but just to make sure we'll pull some macrophage RNA-seq samples and grab their most highly expressed genes. 
+
+```{r}
+caf_markers_final <- FindAllMarkers(caf, 
+                                    logfc.threshold = 0.25, 
+                                    test.use = "wilcox", 
+                                    only.pos = TRUE, 
+                                    verbose = FALSE, 
+                                    random.seed = 312) %>% 
+                     filter(p_val_adj < 0.05)
+# determine highly expressed genes in other celltypes 
+gene_means_by_clust <- t(pdac@assays$SCT@data) %>% 
+                       as.data.frame() %>% 
+                       mutate(label_fine = pdac$label_fine) %>% 
+                       group_by(label_fine) %>% 
+                       summarise(across(where(is.numeric), mean))
+# find list of genes w/ mean expression above 90th percentile of expression in each celltype
+high_exp_genes <- c()
+loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("iCAF", "myCAF", "apCAF")])
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_fine == i) %>% 
+                   dplyr::select(-label_fine) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes <- c(high_exp_genes, top_exp_genes)
+}
+high_exp_genes <- unique(high_exp_genes)
+
+bed <- celldex::BlueprintEncodeData()
+bed <- bed[, bed$label.main == "Macrophages"]
+top_macro_genes <- bed@assays@data@listData[["logcounts"]] %>% 
+                   as.data.frame() %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   summarise(across(everything(), mean)) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+caf_markers_final %<>% filter(!(gene %in% high_exp_genes), !(gene %in% top_macro_genes))
+```
+
+The plot:
+
+```{r, fig.height=3, fig.width=4}
+DefaultAssay(caf) <- "SCT"
+top5_caf_markers_final <- caf_markers_final %>% 
+                          group_by(cluster) %>% 
+                          arrange(desc(avg_log2FC)) %>% 
+                          slice_head(n = 5)
+p48 <- DotPlot(caf, features = unique(top5_caf_markers_final$gene), dot.scale = 15) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Expression", size = "% Expressed", y = "Louvain Cluster") + 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_blank(), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+p48
+```
+
+We'll do the same for the PDAC cells:
+
+```{r}
+Idents(pdac_ductal) <- "label"
+pdac_ductal_markers_final <- FindAllMarkers(pdac_ductal, 
+                                            logfc.threshold = 0.25, 
+                                            test.use = "wilcox", 
+                                            only.pos = TRUE, 
+                                            verbose = FALSE, 
+                                            random.seed = 312) %>% 
+                             filter(p_val_adj < 0.05)
+loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("Classical PDAC 1", 
+                                                                                               "Basal-like PDAC", 
+                                                                                               "Classical PDAC 2")])
+high_exp_genes <- c()
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_fine == i) %>% 
+                   dplyr::select(-label_fine) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes <- c(high_exp_genes, top_exp_genes)
+}
+high_exp_genes <- unique(high_exp_genes)
+pdac_ductal_markers_final %<>% filter(!(gene %in% high_exp_genes))
+```
+
+The plot:
+
+```{r, fig.height=3, fig.width=4}
+top5_pdac_ductal_markers_final <- pdac_ductal_markers_final %>% 
+                                  group_by(cluster) %>% 
+                                  arrange(desc(avg_log2FC)) %>% 
+                                  slice_head(n = 5)
+p49 <- DotPlot(pdac_ductal, features = unique(top5_pdac_ductal_markers_final$gene), dot.scale = 15) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Expression", size = "% Expressed", y = "Louvain Cluster") + 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_blank(), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+p49
+```
+
+# Save Results 
+
+## Data 
+
+First the `Seurat` objects. 
+
+```{r}
+saveRDS(pdac, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada.Rds")
+saveRDS(fibro, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_fibro.Rds")
+saveRDS(caf, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_caf.Rds")
+saveRDS(ductal, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_ductal_acinar.Rds")
+saveRDS(pdac_ductal, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_PDAC.Rds")
+```
+
+And now the gene sets for CAF and PDAC cells.
+
+```{r}
+openxlsx::write.xlsx(caf_markers_final, file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes.xlsx")
+openxlsx::write.xlsx(pdac_ductal_markers_final, file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes.xlsx")
+```
+
+## Figures 
+
+First we'll define a convenience function to save the figures to PDFs.
+
+```{r}
+SaveFigure <- function(my.plot = NULL, name = NULL, height = 8, width = 8) {
+  if (is.null(plot) | is.null(name)) stop("You forgot some arguments.")
+  # save figure as is - w/ axis labels, titles, etc. 
+  dir <- "~/Desktop/R/SCISSORS/vignettes/figures_supp/Elyada"
+  ggsave(my.plot, 
+         filename = paste0(name, ".pdf"), 
+         device = "pdf", 
+         units = "in",
+         path = dir, 
+         height = height, 
+         width = width) 
+  # save "blank" figure w/ no labels, legends, etc.
+  dir <- "~/Desktop/R/SCISSORS/vignettes/figures_pub/Elyada"
+  plot_blank <- my.plot + 
+                theme(axis.title = element_blank(), 
+                      panel.border = element_blank(), 
+                      plot.title = element_blank(), 
+                      plot.subtitle = element_blank(), 
+                      plot.caption = element_blank(), 
+                      legend.position = "none")
+  ggsave(plot_blank, 
+         filename = paste0(name, ".pdf"), 
+         device = "pdf", 
+         units = "in",
+         path = dir, 
+         height = height, 
+         width = width) 
+}
+```
+
+And now we save. 
+
+```{r}
+SaveFigure(my.plot = p0, name = "Seurat_Clusters_tSNE")
+SaveFigure(my.plot = p1, name = "Seurat_Clusters_Sil_Score_Violin")
+SaveFigure(my.plot = p2a, name = "Seurat_Clusters_DotPlot", height = 8, width = 18)
+SaveFigure(my.plot = p2b, name = "Seurat_Clusters_DotPlot_Specific", height = 8, width = 18)
+SaveFigure(my.plot = p3, name = "Seurat_Clusters_FitSNE")
+SaveFigure(my.plot = p4, name = "SingleR_scRNAseq_Annos_FitSNE")
+SaveFigure(my.plot = p5, name = "SingleR_Bulk_Annos_FitSNE")
+SaveFigure(my.plot = p6, name = "CONICSmat_Annos_FitSNE")
+SaveFigure(my.plot = p7, name = "DECODER_Basal_PDAC_FitSNE")
+SaveFigure(my.plot = p8, name = "DECODER_Classical_PDAC_FitSNE")
+SaveFigure(my.plot = p9, name = "DECODER_Exocrine_FitSNE")
+SaveFigure(my.plot = p10, name = "DECODER_Endocrine_FitSNE")
+SaveFigure(my.plot = p11, name = "DECODER_Immune_FitSNE")
+SaveFigure(my.plot = p12, name = "DECODER_Norm_Stroma_FitSNE")
+SaveFigure(my.plot = p13, name = "DECODER_Act_Stroma_FitSNE")
+SaveFigure(my.plot = p14, name = "All_Cells_Stroma_COL1A1_FitSNE")
+SaveFigure(my.plot = p15, name = "All_Cells_Stroma_COL3A1_FitSNE")
+SaveFigure(my.plot = p16, name = "All_Cells_Stroma_LUM_FitSNE")
+SaveFigure(my.plot = p17, name = "All_Cells_Stroma_DCN_FitSNE")
+SaveFigure(my.plot = p18, name = "All_Cells_Highlight_Stroma_FitSNE")
+SaveFigure(my.plot = p19, name = "SCISSORS_Clusters_Stroma_FitSNE")
+SaveFigure(my.plot = p20, name = "SCISSORS_Clusters_Stroma_Endothelial_PLVAP")
+SaveFigure(my.plot = p21, name = "SCISSORS_Clusters_Stroma_Perivascular_RGS5")
+SaveFigure(my.plot = p22, name = "SCISSORS_Clusters_Stroma_VAM_iCAF_FitSNE")
+SaveFigure(my.plot = p23, name = "SCISSORS_Clusters_Stroma_VAM_myCAF_FitSNE")
+SaveFigure(my.plot = p24, name = "SCISSORS_Clusters_Stroma_VAM_apCAF_FitSNE")
+SaveFigure(my.plot = p25, name = "SCISSORS_Clusters_Stroma_Labels_FitSNE")
+SaveFigure(my.plot = p26a, name = "SCISSORS_Clusters_CAF_apCAF_Violin")
+SaveFigure(my.plot = p26b, name = "SCISSORS_Clusters_CAF_iCAF_Violin")
+SaveFigure(my.plot = p26c, name = "SCISSORS_Clusters_CAF_myCAF_Violin")
+SaveFigure(my.plot = p26d, name = "SCISSORS_Clusters_CAF_panCAF_Violin")
+SaveFigure(my.plot = p26e, name = "SCISSORS_Clusters_CAF_Violin_Combined")
+SaveFigure(my.plot = p27, name = "All_Cells_Ductal_KRT8_FitSNE")
+SaveFigure(my.plot = p28, name = "All_Cells_Highlight_Ductal_FitSNE")
+SaveFigure(my.plot = p29, name = "SCISSORS_Clusters_Ductal_FitSNE")
+SaveFigure(my.plot = p30, name = "SCISSORS_Clusters_Ductal_Lipid_Proc_ANPEP")
+SaveFigure(my.plot = p31, name = "SCISSORS_Clusters_Ductal_Lipid_Proc_FABP1")
+SaveFigure(my.plot = p32, name = "SCISSORS_Clusters_Ductal_Secretory_SOD3_FitSNE")
+SaveFigure(my.plot = p33, name = "SCISSORS_Clusters_Ductal_Secretory_CFTR_FitSNE")
+SaveFigure(my.plot = p34, name = "SCISSORS_Clusters_Ductal_Acinar_CTRB2_FitSNE")
+SaveFigure(my.plot = p35, name = "SCISSORS_Clusters_Ductal_Classical1_TFF1_FitSNE")
+SaveFigure(my.plot = p36, name = "SCISSORS_Clusters_Ductal_Classical1_TFF2_FitSNE")
+SaveFigure(my.plot = p37, name = "SCISSORS_Clusters_Ductal_Classical2_CRISP3_FitSNE")
+SaveFigure(my.plot = p38, name = "SCISSORS_Clusters_Ductal_Classical2_GATA6_FitSNE")
+SaveFigure(my.plot = p39, name = "SCISSORS_Clusters_Ductal_DECODER_Basal_PDAC_FitSNE")
+SaveFigure(my.plot = p40, name = "SCISSORS_Clusters_Ductal_DECODER_Classical_PDAC_FitSNE")
+SaveFigure(my.plot = p41, name = "SCISSORS_Clusters_Ductal_DECODER_bcRatio_PDAC_FitSNE")
+SaveFigure(my.plot = p42, name = "SCISSORS_Clusters_Ductal_CONICSmat_Annos_FitSNE")
+SaveFigure(my.plot = p43, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Classical25_FitSNE")
+SaveFigure(my.plot = p44, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Basal25_FitSNE")
+SaveFigure(my.plot = p45, name = "SCISSORS_Clusters_Ductal_Labels_FitSNE")
+SaveFigure(my.plot = p46a, name = "SCISSORS_Clusters_Ductal_GATA6_Violin")
+SaveFigure(my.plot = p46b, name = "SCISSORS_Clusters_Ductal_DECODER_Basal_PDAC_Violin")
+SaveFigure(my.plot = p46c, name = "SCISSORS_Clusters_Ductal_DECODER_Classical_PDAC_Violin")
+SaveFigure(my.plot = p46d, name = "SCISSORS_Clusters_Ductal_DECODER_bcRatio_Violin")
+SaveFigure(my.plot = p46e, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Classical_25_Violin")
+SaveFigure(my.plot = p46f, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Basal_25_Violin")
+SaveFigure(my.plot = p47, name = "SCISSORS_Clusters_Ductal_Violin_Combined")
+SaveFigure(my.plot = p48, name = "SCISSORS_Clusters_CAF_Dotplot_Specific", height = 6, width = 12)
+SaveFigure(my.plot = p49, name = "SCISSORS_Clusters_Ductal_Dotplot_Specific", height = 6, width = 12)
 ```

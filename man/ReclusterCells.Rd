@@ -15,6 +15,7 @@ ReclusterCells(
   resolution.vals = c(0.1, 0.2, 0.3, 0.4),
   k.vals = c(10, 25, 50),
   cutoff.score = 0.25,
+  nn.metric = "cosine",
   random.seed = 629
 )
 }
@@ -37,7 +38,9 @@ ReclusterCells(
 
 \item{k.vals}{(Optional) The parameters \emph{k} to be tested. Defaults to c(10, 25, 50).}
 
-\item{cutoff.score}{(Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are \link{2, .3}.}
+\item{cutoff.score}{(Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are \link{.1, .3}.}
+
+\item{nn.metric}{(Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".}
 
 \item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 }

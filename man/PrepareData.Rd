@@ -11,7 +11,7 @@ PrepareData(
   regress.cc = TRUE,
   n.PC = "auto",
   var.cutoff = 0.15,
-  which.dim.reduc = c("tsne", "umap"),
+  which.dim.reduc = c("umap"),
   perplexity = 30,
   umap.lr = 0.05,
   initial.resolution = 0.3,
@@ -21,7 +21,7 @@ PrepareData(
 )
 }
 \arguments{
-\item{seurat.object}{The object containing the cells you'd like to analyze.}
+\item{seurat.object}{The object containing the cells you'd like to analyze. Defaults to NULL.}
 
 \item{n.HVG}{The number of highly variable genes to compute. Defaults to 4000.}
 
@@ -33,7 +33,7 @@ PrepareData(
 
 \item{var.cutoff}{(Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.}
 
-\item{which.dim.reduc}{(Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("tsne", "umap"), as most users will likely not have \code{phateR} installed.}
+\item{which.dim.reduc}{(Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("umap"), as most users will likely not have \code{phateR} installed.}
 
 \item{perplexity}{(Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.}
 
@@ -41,17 +41,14 @@ PrepareData(
 
 \item{initial.resolution}{The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.3.}
 
-\item{k.val}{(Optional) The parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \emph{k} ~ sqrt(\emph{n}).}
+\item{k.val}{(Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \eqn{k \approx \sqrt{n}}.}
 
 \item{do.plot}{(Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.}
 
 \item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 }
 \description{
-This function prepares a \code{Seurat} object for reclustering analysis.
-The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format.
-The function checks which metadata features (\% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings),
-then runs an initial graph-based clustering.
+This function prepares  single cell data for reclustering analysis. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features (\% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 }
 \examples{
 PrepareData(seurat.object, n.variable.genes = 5000, do.plot = TRUE)
@@ -59,4 +56,7 @@ PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 10
 }
 \references{
 Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph{Cell}.
+}
+\seealso{
+\code{\link{ChoosePCs}}
 }

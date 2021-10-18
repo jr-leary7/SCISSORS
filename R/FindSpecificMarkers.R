@@ -2,6 +2,7 @@
 #'
 #' @name FindSpecificMarkers
 #' @description This function finds marker genes for all clusters, and then filters those markers on a per-cluster basis against the most highly expressed genes in other clusters.
+#' @importFrom Matrix t
 #' @importFrom dplyr mutate group_by summarise across filter pull bind_rows `%>%`
 #' @importFrom Seurat FindAllMarkers
 #' @param seurat.object The \code{Seurat} object containing clusters for which you'd like marker genes identified. Defaults to NULL.
@@ -23,9 +24,9 @@ FindSpecificMarkers <- function(seurat.object = NULL,
   # check inputs
   if (is.null(seurat.object)) { stop("You forgot to provide a Seurat object!") }
   # get highly expressed genes for each cluster
-  gene_means_by_clust <- t(seurat.object@assays$SCT@data) %>%
+  gene_means_by_clust <- Matrix::t(seurat.object@assays$SCT@data) %>%
                          as.data.frame() %>%
-                         dplyr::mutate(cell_ident = seurat.objec[[ident.use]]) %>%
+                         dplyr::mutate(cell_ident = unname(unlist(seurat.object[[ident.use]]))) %>%
                          dplyr::group_by(cell_ident) %>%
                          dplyr::summarise(across(where(is.numeric), mean))
   # find list of genes w/ mean expression above 90th percentile of expression in each celltype

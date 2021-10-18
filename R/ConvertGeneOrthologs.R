@@ -3,13 +3,16 @@
 #' @name ConvertGeneOrthologs
 #' @description Converts gene names from human -> mouse and mouse -> human.
 #' @importFrom biomaRt useMart getLDS
-#' @param gene.vec
-#' @param species
+#' @param gene.vec A vector of genes to convert. Default to NULL.
+#' @param species One of "mm" or "hs". Defaults to "mm" (and thus converts to human).
 #' @export
 #' @examples
-#'
+#' ConvertGeneOrthologs(gene.vec = mouse_genes)
+#' ConvertGeneOrthologs(gene.vec = human_genes, species = "hs")
 
-ConvertGeneOrthologs <- function(gene.vec, species = "mm") {
+ConvertGeneOrthologs <- function(gene.vec = NULL, species = "mm") {
+  # check inputs
+  species <- tolower(species)
   human <- biomaRt::useMart("ensembl", dataset = "hsapiens_gene_ensembl")
   mouse <- biomaRt::useMart("ensembl", dataset = "mmusculus_gene_ensembl")
   if (species == "mm") {
