@@ -106,7 +106,7 @@ gc(verbose = FALSE)
 Next, we read in a dataset of basal-like and classical PDAC marker genes that we'll use later on to perform enrichment analysis. 
 
 ```{r}
-load("~/Desktop/Data/cmbSubtypes.RData")
+load("~/Desktop/Data/cmbSubtypes.211014.RData")
 basal_genes <- subtypeGeneList[[4]][subtypeGeneList[[4]]$BasalLike, ]$geneSymbol
 classical_genes <- subtypeGeneList[[4]][!subtypeGeneList[[4]]$BasalLike, ]$geneSymbol
 ```
@@ -673,9 +673,9 @@ p21 <- FeaturePlot(fibro, reduction = "tsne", features = "RGS5", pt.size = 1.5) 
 Next we'll use `VAM` to perform GSEA on the iCAF, myCAF, and apCAF gene sets. 
 
 ```{r}
-icaf_genes <- c("IL6", "PDGFRA", "CXCL12", "CFD", "LMNA", "AGTR1", 
-                "HAS1", "CXCL1", "CXCL2", "CCL2", "CXCL8")  # use CXCL8 instead of IL8
-mycaf_genes <- c("ACTA2", "TAGLN", "MMP11", "MYL9", "HOPX", "POSTN", "TPM1", "TPM2")
+icaf_genes <- subtypeGeneList[[9]][subtypeGeneList[[9]]$iCAF, ]$geneSymbol
+icaf_genes <- ifelse(icaf_genes == "IL8", "CXCL8", icaf_genes)
+mycaf_genes <- subtypeGeneList[[9]][subtypeGeneList[[9]]$myCAF, ]$geneSymbol
 apcaf_genes_mouse <- c("Slpi", "Ptgis", "Nkain4", "Hspb1", "Cav1", "Arhgdib", "Lgals7", "Spint2", 
                        "Dmkn", "Saa3", "Clu", "Slc9a3r1", "Krt8", "Cxadr", "Ezr", "H2-Ab1", "Cd74", "Fth1")
 apcaf_genes_human <- ConvertGeneOrthologs(gene.vec = apcaf_genes_mouse)
@@ -1218,6 +1218,7 @@ Idents(pdac) <- "label_fine"
 Let's generate a plot of the CAF-specific marker genes. First, we'll exclude genes that are highly expressed in any other celltypes. Second, we'll want to exclude any genes highly expressed in macrophages because apCAFs in particular ("ap" = "antigen-presenting") have an immune-like transcriptomic profile. We should have removed those genes in the previous step, but just to make sure we'll pull some macrophage RNA-seq samples and grab their most highly expressed genes. 
 
 ```{r}
+DefaultAssay(caf) <- "SCT"
 caf_markers_final <- FindAllMarkers(caf, 
                                     logfc.threshold = 0.25, 
                                     test.use = "wilcox", 
@@ -1232,7 +1233,7 @@ gene_means_by_clust <- t(pdac@assays$SCT@data) %>%
                        group_by(label_fine) %>% 
                        summarise(across(where(is.numeric), mean))
 # find list of genes w/ mean expression above 90th percentile of expression in each celltype
-high_exp_genes <- c()
+high_exp_genes_non_caf <- c()
 loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("iCAF", "myCAF", "apCAF")])
 for (i in loop_celltypes) {
   top_exp_genes <- gene_means_by_clust %>% 
@@ -1243,10 +1244,10 @@ for (i in loop_celltypes) {
                    filter(V1 > quantile(V1, .9)) %>% 
                    mutate(gene = rownames(.)) %>% 
                    pull(gene)
-  high_exp_genes <- c(high_exp_genes, top_exp_genes)
+  high_exp_genes_non_caf <- c(high_exp_genes_non_caf, top_exp_genes)
 }
-high_exp_genes <- unique(high_exp_genes)
-
+high_exp_genes_non_caf <- unique(high_exp_genes_non_caf)
+# get highly expressed macrophage genes
 bed <- celldex::BlueprintEncodeData()
 bed <- bed[, bed$label.main == "Macrophages"]
 top_macro_genes <- bed@assays@data@listData[["logcounts"]] %>% 
@@ -1259,7 +1260,11 @@ top_macro_genes <- bed@assays@data@listData[["logcounts"]] %>%
                    filter(V1 > quantile(V1, .9)) %>% 
                    mutate(gene = rownames(.)) %>% 
                    pull(gene)
-caf_markers_final %<>% filter(!(gene %in% high_exp_genes), !(gene %in% top_macro_genes))
+caf_markers_final %<>% filter(!(gene %in% high_exp_genes_non_caf), !(gene %in% top_macro_genes))
+caf_markers_final %>% 
+  arrange(desc(avg_log2FC)) %>% 
+  group_by(cluster) %>% 
+  slice_head(n = 25) -> top25_caf_markers
 ```
 
 The plot:
@@ -1300,7 +1305,7 @@ pdac_ductal_markers_final <- FindAllMarkers(pdac_ductal,
 loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("Classical PDAC 1", 
                                                                                                "Basal-like PDAC", 
                                                                                                "Classical PDAC 2")])
-high_exp_genes <- c()
+high_exp_genes_non_pdac1 <- c()
 for (i in loop_celltypes) {
   top_exp_genes <- gene_means_by_clust %>% 
                    filter(label_fine == i) %>% 
@@ -1310,10 +1315,10 @@ for (i in loop_celltypes) {
                    filter(V1 > quantile(V1, .9)) %>% 
                    mutate(gene = rownames(.)) %>% 
                    pull(gene)
-  high_exp_genes <- c(high_exp_genes, top_exp_genes)
+  high_exp_genes_non_pdac1 <- c(high_exp_genes_non_pdac1, top_exp_genes)
 }
-high_exp_genes <- unique(high_exp_genes)
-pdac_ductal_markers_final %<>% filter(!(gene %in% high_exp_genes))
+high_exp_genes_non_pdac1 <- unique(high_exp_genes_non_pdac1)
+pdac_ductal_markers_final %<>% filter(!(gene %in% high_exp_genes_non_pdac1))
 ```
 
 The plot:
@@ -1339,6 +1344,40 @@ p49 <- DotPlot(pdac_ductal, features = unique(top5_pdac_ductal_markers_final$gen
 p49
 ```
 
+Finally, we'll repeat the ductal marker gene identification for simple basal vs. classical:
+
+```{r}
+Idents(pdac_ductal) <- "label_broad"
+pdac_ductal_broad_markers_final <- FindAllMarkers(pdac_ductal, 
+                                                  logfc.threshold = 0.25, 
+                                                  test.use = "wilcox", 
+                                                  only.pos = TRUE, 
+                                                  verbose = FALSE, 
+                                                  random.seed = 312) %>% 
+                                   filter(p_val_adj < 0.05)
+loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("Classical PDAC 1", 
+                                                                                               "Basal-like PDAC", 
+                                                                                               "Classical PDAC 2")])
+high_exp_genes_non_pdac2 <- c()
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_fine == i) %>% 
+                   dplyr::select(-label_fine) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes_non_pdac2 <- c(high_exp_genes_non_pdac2, top_exp_genes)
+}
+high_exp_genes_non_pdac2 <- unique(high_exp_genes_non_pdac2)
+pdac_ductal_broad_markers_final %<>% filter(!(gene %in% high_exp_genes_non_pdac2))
+pdac_ductal_broad_markers_final %>% 
+  arrange(desc(avg_log2FC)) %>% 
+  group_by(cluster) %>% 
+  slice_head(n = 25) -> top25_pdac_broad_markers
+```
+
 # Save Results 
 
 ## Data 
@@ -1356,8 +1395,12 @@ saveRDS(pdac_ductal, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_PDAC.Rds"
 And now the gene sets for CAF and PDAC cells.
 
 ```{r}
+caf_markers_final %<>% filter(avg_log2FC >= 0.5) %>% mutate(log2FC_cutoff = 0.5, source = "CAF")
+pdac_ductal_markers_final %<>% filter(avg_log2FC >= 1) %>% mutate(log2FC_cutoff = 1, source = "PDAC")
 openxlsx::write.xlsx(caf_markers_final, file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes.xlsx")
+openxlsx::write.xlsx(top25_caf_markers, file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes_Top25.xlsx")
 openxlsx::write.xlsx(pdac_ductal_markers_final, file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes.xlsx")
+openxlsx::write.xlsx(top25_pdac_broad_markers, file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes_Top25.xlsx")
 ```
 
 ## Figures 
@@ -1458,4 +1501,72 @@ SaveFigure(my.plot = p46f, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Basal_25
 SaveFigure(my.plot = p47, name = "SCISSORS_Clusters_Ductal_Violin_Combined")
 SaveFigure(my.plot = p48, name = "SCISSORS_Clusters_CAF_Dotplot_Specific", height = 6, width = 12)
 SaveFigure(my.plot = p49, name = "SCISSORS_Clusters_Ductal_Dotplot_Specific", height = 6, width = 12)
+```
+
+# Supplementary Gene Sets 
+
+Lastly, we want specific gene sets for CAFs and PDAC cells that are larger than the restricted sets we generated earlier. We'll run the same process, but with relaxed parameters so that we get larger marker sets. 
+
+## CAFs
+
+```{r}
+caf_markers_final <- FindAllMarkers(caf, 
+                                    logfc.threshold = 0.25, 
+                                    test.use = "wilcox", 
+                                    only.pos = TRUE, 
+                                    verbose = FALSE, 
+                                    random.seed = 312) %>% 
+                     filter(p_val_adj < 0.05)
+high_exp_genes_non_caf2 <- c()
+loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("iCAF", "myCAF", "apCAF")])
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_fine == i) %>% 
+                   dplyr::select(-label_fine) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .95)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes_non_caf2 <- c(high_exp_genes_non_caf2, top_exp_genes)
+}
+high_exp_genes_non_caf2 <- unique(high_exp_genes_non_caf2)
+caf_markers_final_large <-  caf_markers_final %>% 
+                            filter(!(gene %in% high_exp_genes_non_caf2), !(gene %in% top_macro_genes))
+caf_markers_final_large %>% 
+  mutate(log2FC_cutoff = 0.25) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes_Large.xlsx")
+```
+
+## PDAC
+
+```{r}
+pdac_ductal_broad_markers_final <- FindAllMarkers(pdac_ductal, 
+                                                  logfc.threshold = 0.25, 
+                                                  test.use = "wilcox", 
+                                                  only.pos = TRUE, 
+                                                  verbose = FALSE, 
+                                                  random.seed = 312) %>% 
+                                   filter(p_val_adj < 0.05)
+loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("Classical PDAC 1", 
+                                                                                               "Basal-like PDAC", 
+                                                                                               "Classical PDAC 2")])
+high_exp_genes_non_pdac3 <- c()
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_fine == i) %>% 
+                   dplyr::select(-label_fine) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .95)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes_non_pdac3 <- c(high_exp_genes_non_pdac3, top_exp_genes)
+}
+high_exp_genes_non_pdac3 <- unique(high_exp_genes_non_pdac3)
+pdac_ductal_broad_markers_final_large <- pdac_ductal_broad_markers_final %>% 
+                                         filter(!(gene %in% high_exp_genes_non_pdac3))
+pdac_ductal_broad_markers_final_large %>% 
+  mutate(log2FC_cutoff = 0.25) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes_Large.xlsx")
 ```
