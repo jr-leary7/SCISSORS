@@ -197,7 +197,11 @@ p2a
 Next we'll repeat the process, excluding marker genes for each cluster that are highly expressed in other clusters. 
 
 ```{r, fig.width=8, fig.height=4}
-pdac_markers_specific <- FindSpecificMarkers(pdac, de.method = "wilcox", log2fc.cutoff = 0.1)
+pdac_markers_specific <- FindSpecificMarkers(seurat.object = pdac, 
+                                             ident.use = "seurat_clusters", 
+                                             de.method = "wilcox",
+                                             perc.cutoff = 0.9, 
+                                             log2fc.cutoff = 0.1)
 top5_pdac_markers_specific <- pdac_markers_specific %>% 
                               group_by(cluster) %>% 
                               arrange(desc(avg_log2FC)) %>% 
@@ -552,7 +556,7 @@ p13
 
 ## Fibroblasts
 
-The fibroblast marker genes provided by Elyada *et al* match the `SingleR` results defining cluster 6 as containing fibroblasts. 
+The fibroblast marker genes provided by Elyada *et al* match the `SingleR` results defining cluster 8 as containing fibroblasts. 
 
 ```{r}
 p14 <- FeaturePlot(pdac, reduction = "tsne", features = "COL1A1", pt.size = 0.75) +
@@ -595,7 +599,7 @@ p18 / p3
 
 ### Recluster Fibroblasts
 
-Here we use `ReclusterCells()` to identify subclusters within cluster 6. We find five distinct subclusters.
+Here we use `ReclusterCells()` to identify subclusters within cluster 8. We find five distinct subclusters.
 
 ```{r, warning=FALSE}
 fibro <- ReclusterCells(pdac,
@@ -1384,7 +1388,7 @@ pdac_ductal_broad_markers_final %>%
 
 First the `Seurat` objects. 
 
-```{r}
+```{r, eval=FALSE}
 saveRDS(pdac, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada.Rds")
 saveRDS(fibro, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_fibro.Rds")
 saveRDS(caf, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_caf.Rds")
@@ -1394,7 +1398,7 @@ saveRDS(pdac_ductal, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_PDAC.Rds"
 
 And now the gene sets for CAF and PDAC cells.
 
-```{r}
+```{r, eval=FALSE}
 caf_markers_final %<>% filter(avg_log2FC >= 0.5) %>% mutate(log2FC_cutoff = 0.5, source = "CAF")
 pdac_ductal_markers_final %<>% filter(avg_log2FC >= 1) %>% mutate(log2FC_cutoff = 1, source = "PDAC")
 openxlsx::write.xlsx(caf_markers_final, file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes.xlsx")
@@ -1440,7 +1444,7 @@ SaveFigure <- function(my.plot = NULL, name = NULL, height = 8, width = 8) {
 
 And now we save. 
 
-```{r}
+```{r, eval=FALSE}
 SaveFigure(my.plot = p0, name = "Seurat_Clusters_tSNE")
 SaveFigure(my.plot = p1, name = "Seurat_Clusters_Sil_Score_Violin")
 SaveFigure(my.plot = p2a, name = "Seurat_Clusters_DotPlot", height = 8, width = 18)
@@ -1533,9 +1537,6 @@ for (i in loop_celltypes) {
 high_exp_genes_non_caf2 <- unique(high_exp_genes_non_caf2)
 caf_markers_final_large <-  caf_markers_final %>% 
                             filter(!(gene %in% high_exp_genes_non_caf2), !(gene %in% top_macro_genes))
-caf_markers_final_large %>% 
-  mutate(log2FC_cutoff = 0.25) %>% 
-  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes_Large.xlsx")
 ```
 
 ## PDAC
@@ -1566,7 +1567,22 @@ for (i in loop_celltypes) {
 high_exp_genes_non_pdac3 <- unique(high_exp_genes_non_pdac3)
 pdac_ductal_broad_markers_final_large <- pdac_ductal_broad_markers_final %>% 
                                          filter(!(gene %in% high_exp_genes_non_pdac3))
+
+```
+
+Lastly we save the expanded gene sets. 
+
+```{r, eval=FALSE}
+caf_markers_final_large %>% 
+  mutate(log2FC_cutoff = 0.25) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes_Large.xlsx")
 pdac_ductal_broad_markers_final_large %>% 
   mutate(log2FC_cutoff = 0.25) %>% 
   openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes_Large.xlsx")
+```
+
+# R Session Details 
+
+```{r}
+sessionInfo()
 ```
