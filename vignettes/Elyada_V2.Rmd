@@ -168,7 +168,7 @@ Lastly, we'll identify marker genes for each of the clusters.
 
 ```{r, fig.width=8, fig.height=4}
 pdac_markers <- FindAllMarkers(pdac, 
-                               logfc.threshold = 0.25, 
+                               logfc.threshold = 1, 
                                test.use = "wilcox", 
                                only.pos = TRUE, 
                                verbose = FALSE, 
@@ -725,19 +725,51 @@ p24 <- FeaturePlot(fibro, reduction = "tsne", features = "apCAF", pt.size = 1.5)
 Here's the final cell labels for all of our stromal cells:
 
 ```{r}
+caf_colors <- c("darkslateblue", "coral", "darkgreen")
+fibro_colors <- c("firebrick", "darkgreen", "goldenrod", "coral", "darkslateblue")
 fibro$label <- case_when(fibro$seurat_clusters == 0 ~ "myCAF", 
                          fibro$seurat_clusters == 1 ~ "Perivascular", 
                          fibro$seurat_clusters == 2 ~ "iCAF", 
                          fibro$seurat_clusters == 3 ~ "Endothelial", 
                          fibro$seurat_clusters == 4 ~ "apCAF")
 Idents(fibro) <- "label"
-p25 <- DimPlot(fibro, reduction = "tsne", pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
-p25
+p25a <- DimPlot(fibro, reduction = "tsne", pt.size = 1.5) + 
+        scale_color_manual(values = fibro_colors) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p25a
+```
+
+We can generate marker genes for those final labels as follows: 
+
+```{r, fig.width=6, fig.height=3}
+DefaultAssay(fibro) <- "SCT"
+fibro_markers_specific <- FindSpecificMarkers(fibro, 
+                                              ident.use = "label",
+                                              de.method = "wilcox", 
+                                              log2fc.cutoff = .25, 
+                                              perc.cutoff = 0.9) %>% 
+                          filter(p_val_adj < 0.05)
+fibro_markers_specific_top5 <- fibro_markers_specific %>% 
+                               arrange(desc(avg_log2FC)) %>% 
+                               group_by(cluster) %>% 
+                               slice_head(n = 5)
+p25b <- DotPlot(fibro, features = unique(fibro_markers_specific_top5$gene), dot.scale = 15) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed", y = NULL) + 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 18), 
+              axis.title.x = element_blank(), 
+              axis.title.y = element_text(size = 20), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p25b
 ```
 
 ### CAF-only Visualization
@@ -746,13 +778,14 @@ Here we'll generate violin plots for each of the CAF `VAM` scores.
 
 ```{r}
 caf <- subset(fibro, subset = label %in% c("iCAF", "myCAF", "apCAF"))
+caf_markers_specific <- FindSpecificMarkers()
 p26a <- data.frame(t(caf@assays$VAMcdf@data)) %>% 
         bind_cols((caf@meta.data %>% dplyr::select(label))) %>% 
         ggplot(aes(x = label, y = apCAF, fill = label)) + 
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1.2) + 
         geom_signif(comparisons = list(c("apCAF", "iCAF"), c("apCAF", "myCAF")), size = 1.2, textsize = 8, margin_top = .075, 
                     test = wilcox.test, color = "black", map_signif_level = TRUE, step_increase = .15) +
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 4, 2)]) +
+        scale_fill_manual(values = caf_colors) +
         scale_y_continuous(breaks = seq(0, 1, 0.25), limits = c(0, 1.29)) + 
         labs(y = "Elyada apCAF", x = NULL, fill = NULL) + 
         theme_minimal() + 
@@ -770,7 +803,7 @@ p26b <- data.frame(t(caf@assays$VAMcdf@data)) %>%
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1.2) + 
         geom_signif(comparisons = list(c("iCAF", "apCAF"), c("iCAF", "myCAF")), size = 1.2, textsize = 8, margin_top = .075, 
                     test = wilcox.test, color = "black", map_signif_level = TRUE, step_increase = .15) +
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 4, 2)]) +
+        scale_fill_manual(values = caf_colors) +
         scale_y_continuous(breaks = seq(0, 1, 0.25), limits = c(0, 1.29)) + 
         labs(y = "Elyada iCAF", x = NULL, fill = NULL) + 
         theme_minimal() + 
@@ -788,7 +821,7 @@ p26c <- data.frame(t(caf@assays$VAMcdf@data)) %>%
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1.2) + 
         geom_signif(comparisons = list(c("myCAF", "iCAF"), c("myCAF", "apCAF")), size = 1.2, textsize = 8, margin_top = .075, 
                     test = wilcox.test, color = "black", map_signif_level = TRUE, step_increase = .15) +
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 4, 2)]) +
+        scale_fill_manual(values = caf_colors) +
         scale_y_continuous(breaks = seq(0, 1, 0.25), limits = c(0, 1.29)) + 
         labs(y = "Elyada myCAF", x = NULL, fill = NULL) + 
         theme_minimal() + 
@@ -804,7 +837,7 @@ p26d <- data.frame(t(caf@assays$VAMcdf@data)) %>%
         bind_cols((caf@meta.data %>% dplyr::select(label))) %>% 
         ggplot(aes(x = label, y = `Pan.CAF`, fill = label)) + 
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1.2) +
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 4, 2)]) +
+        scale_fill_manual(values = caf_colors) +
         labs(y = "Elyada Pan-CAF", x = NULL, fill = NULL) + 
         theme_minimal() + 
         theme(panel.grid = element_blank(), 
@@ -820,7 +853,7 @@ p26d <- data.frame(t(caf@assays$VAMcdf@data)) %>%
 The `VAM` score distributions differ significantly between our labeled clusters. 
 
 ```{r, fig.width=3, fig.height=4.8}
-p26e <- (p26a | p26b)/ (p26c | p26d)
+p26e <- (p26a | p26b) / (p26c | p26d)
 p26e
 ```
 
@@ -1047,6 +1080,8 @@ p44 <- FeaturePlot(ductal, reduction = "tsne", features = "Basal-like PDAC", pt.
 We assign celltype labels to our ductal cells. 
 
 ```{r}
+pdac_colors <- c("orange", "blue", "skyblue")
+ductal_colors <- c("blue", "forestgreen", "deeppink3", "skyblue", "orange", "peru")
 DefaultAssay(ductal) <- "SCT"
 ductal@meta.data %<>% mutate(label = case_when(seurat_clusters == 0 ~ "Classical 1", 
                                                seurat_clusters == 1 ~ "Classical 1", 
@@ -1054,15 +1089,44 @@ ductal@meta.data %<>% mutate(label = case_when(seurat_clusters == 0 ~ "Classical
                                                seurat_clusters == 3 ~ "Acinar", 
                                                seurat_clusters == 4 ~ "Basal-like", 
                                                seurat_clusters == 5 ~ "Lipid Proc.", 
-                                               seurat_clusters == 6 ~ "Classical 2")) 
+                                               seurat_clusters == 6 ~ "Classical 2"))
 Idents(ductal) <- "label"
-p45 <- DimPlot(ductal, reduction = "tsne",pt.size = 1.5) + 
-       scale_color_manual(values = paletteer_d("ggsci::default_nejm")) + 
-       labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
-       theme_yehlab() + 
-       theme(plot.title = element_blank()) + 
-       guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
-p45
+p45a <- DimPlot(ductal, reduction = "tsne",pt.size = 1.5) + 
+        scale_color_manual(values = ductal_colors) + 
+        labs(x = "Fit-SNE 1", y = "Fit-SNE 2") + 
+        theme_yehlab() + 
+        theme(plot.title = element_blank()) + 
+        guides(color = guide_legend(nrow = 1, override.aes = list(size = 4)))
+p45a
+```
+
+We can generate marker genes for those final labels as follows: 
+
+```{r, fig.width=6, fig.height=3}
+ductal_markers_specific <- FindSpecificMarkers(ductal, 
+                                               ident.use = "label",
+                                               de.method = "wilcox", 
+                                               log2fc.cutoff = .25, 
+                                               perc.cutoff = 0.9) %>% 
+                           filter(p_val_adj < 0.05)
+ductal_markers_specific_top5 <- ductal_markers_specific %>% 
+                                arrange(desc(avg_log2FC)) %>% 
+                                group_by(cluster) %>% 
+                                slice_head(n = 5)
+p45b <- DotPlot(ductal, features = unique(ductal_markers_specific_top5$gene), dot.scale = 15) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed", y = NULL) + 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 18), 
+              axis.title.x = element_blank(), 
+              axis.title.y = element_text(size = 20), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p45b
 ```
 
 Lastly, we'll also provide some visualizations of canonical markers for basal vs. classical PDAC. 
@@ -1079,8 +1143,8 @@ p46a <- t(data.frame(pdac_ductal@assays$SCT@data)) %>%
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1) + 
         geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .15, size = 1.2, textsize = 8, 
                     comparisons = list(c("Classical 1", "Basal-like"), c("Classical 2", "Basal-like"))) + 
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 1, 4)]) + 
-        scale_y_continuous(limits = c(0, 1.77), breaks = c(0, 0.5, 1)) + 
+        scale_fill_manual(values = pdac_colors) + 
+        scale_y_continuous(limits = c(0, 1.77), breaks = c(0, 0.5, 1, 1.5)) + 
         labs(y = "GATA6", title = NULL, x = NULL) + 
         theme(panel.grid = element_blank(), 
               legend.position = "none", 
@@ -1094,7 +1158,7 @@ p46b <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = basal_lik
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1) +
         geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .15, size = 1.2, textsize = 8, 
                     comparisons = list(c("Classical 1", "Basal-like"), c("Classical 2", "Basal-like"))) + 
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 1, 4)]) + 
+        scale_fill_manual(values = pdac_colors) + 
         scale_y_continuous(limits = c(0, 1.3), breaks = c(0, 0.25, 0.5, 0.75, 1)) + 
         labs(y = "DECODER basal-like", title = NULL, x = NULL) + 
         theme(panel.grid = element_blank(), 
@@ -1109,7 +1173,7 @@ p46c <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = classical
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1) +
         geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .15, size = 1.2, textsize = 8, 
                     comparisons = list(c("Classical 1", "Basal-like"), c("Classical 2", "Basal-like"))) + 
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 1, 4)]) + 
+        scale_fill_manual(values = pdac_colors) + 
         scale_y_continuous(limits = c(0, 1.25), breaks = c(0, 0.25, 0.5, 0.75, 1)) + 
         labs(y = "DECODER classical", title = NULL, x = NULL) + 
         theme(panel.grid = element_blank(), 
@@ -1124,7 +1188,7 @@ p46d <- ggplot(pdac_ductal@meta.data, aes(x = label, fill = label, y = bc_ratio)
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1) +
         geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .15, size = 1.2, textsize = 8, 
                     comparisons = list(c("Classical 1", "Basal-like"), c("Classical 2", "Basal-like"))) + 
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 1, 4)]) + 
+        scale_fill_manual(values = pdac_colors) + 
         scale_y_continuous(limits = c(0, 6.35)) + 
         labs(y = "DECODER bcRatio", title = NULL, x = NULL) + 
         theme(panel.grid = element_blank(), 
@@ -1142,7 +1206,7 @@ p46e <- t(data.frame(pdac_ductal@assays$VAMcdf@data)) %>%
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1) +
         geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .15, size = 1.2, textsize = 8, 
                     comparisons = list(c("Classical 1", "Basal-like"), c("Classical 2", "Basal-like"))) + 
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 1, 4)]) + 
+        scale_fill_manual(values = pdac_colors) + 
         scale_y_continuous(limits = c(0, 1.3), breaks = c(0, 0.25, 0.5, 0.75, 1)) + 
         labs(y = "Moffitt classical", title = NULL, x = NULL) + 
         theme(panel.grid = element_blank(), 
@@ -1160,7 +1224,7 @@ p46f <- t(data.frame(pdac_ductal@assays$VAMcdf@data)) %>%
         geom_violin(scale = "width", draw_quantiles = 0.5, size = 1) +
         geom_signif(test = wilcox.test, map_signif_level = TRUE, step_increase = .15, size = 1.2, textsize = 8, 
                     comparisons = list(c("Classical 1", "Basal-like"), c("Classical 2", "Basal-like"))) + 
-        scale_fill_manual(values = paletteer_d("ggsci::default_nejm")[c(5, 1, 4)]) + 
+        scale_fill_manual(values = pdac_colors) + 
         scale_y_continuous(limits = c(0, 1.3), breaks = c(0, 0.25, 0.5, 0.75, 1)) + 
         labs(y = "Moffitt basal-like", title = NULL, x = NULL) + 
         theme(panel.grid = element_blank(), 
@@ -1176,7 +1240,7 @@ p46f <- t(data.frame(pdac_ductal@assays$VAMcdf@data)) %>%
 The markers / gene sets match up with our cluster labels. 
 
 ```{r, fig.width=6.5, fig.height=3}
-p47 <- (p46f | p46e | p46b | p46d | p46c | p46c)
+p47 <- (p46f | p46e | p46b | p46d | p46c | p46a)
 p47
 ```
 
@@ -1348,7 +1412,7 @@ p49 <- DotPlot(pdac_ductal, features = unique(top5_pdac_ductal_markers_final$gen
 p49
 ```
 
-Finally, we'll repeat the ductal marker gene identification for simple basal vs. classical:
+We'll repeat the ductal marker gene identification for simple basal vs. classical:
 
 ```{r}
 Idents(pdac_ductal) <- "label_broad"
@@ -1382,6 +1446,65 @@ pdac_ductal_broad_markers_final %>%
   slice_head(n = 25) -> top25_pdac_broad_markers
 ```
 
+Lastly, we'll create combination dotplots for the CAF and normal stroma cells using the marker genes we derived solely when comparing CAFs against one another. 
+
+```{r, fig.width=4.5, fig.height=2.75}
+caf_markers_final_top5 <- caf_markers_final %>% 
+                          arrange(desc(avg_log2FC)) %>% 
+                          with_groups(cluster, slice_head, n = 5)
+fibro_markers_specific_top5 %>% filter(cluster == "Endothelial") %>% 
+  bind_rows((caf_markers_final_top5 %>% filter(cluster == "myCAF")), 
+            (fibro_markers_specific_top5 %>% filter(cluster == "Perivascular")), 
+            (caf_markers_final_top5 %>% filter(cluster == "iCAF")), 
+            (caf_markers_final_top5 %>% filter(cluster == "apCAF"))) %>% 
+  mutate(source = case_when(source = is.na(source) ~ "Stroma", TRUE ~ source), 
+                            log2FC_cutoff = case_when(is.na(log2FC_cutoff) ~ 0.25, TRUE ~ log2FC_cutoff)) -> fibro_markers_combo_top5
+p50 <- DotPlot(fibro, features = unique(fibro_markers_combo_top5$gene), dot.scale = 15) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Expression", size = "% Expressed", y = NULL) + 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_blank(), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+p50
+```
+
+And we'll do the same for the PDAC subtypes. 
+
+```{r, fig.width=5, fig.height=2.75}
+pdac_ductal_markers_final_top5 <- pdac_ductal_markers_final %>% 
+                                  arrange(desc(avg_log2FC)) %>% 
+                                  with_groups(cluster, slice_head, n = 5)
+pdac_ductal_markers_final_top5 %>% filter(cluster == "Classical 1") %>% 
+  bind_rows((ductal_markers_specific_top5 %>% filter(cluster == "Acinar")), 
+            (ductal_markers_specific_top5 %>% filter(cluster == "Secretory")), 
+            (pdac_ductal_markers_final_top5 %>% filter(cluster == "Classical 2")), 
+            (pdac_ductal_markers_final_top5 %>% filter(cluster == "Basal-like")), 
+            (ductal_markers_specific_top5 %>% filter(cluster == "Lipid Proc."))) %>% 
+  mutate(source = case_when(source = is.na(source) ~ "Ductal", TRUE ~ source), 
+                            log2FC_cutoff = case_when(is.na(log2FC_cutoff) ~ 0.25, TRUE ~ log2FC_cutoff)) -> ductal_markers_combo_top5
+p51 <- DotPlot(ductal, features = unique(ductal_markers_combo_top5$gene), dot.scale = 15) + 
+       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+       labs(color = "Expression", size = "% Expressed", y = NULL) + 
+       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+             legend.position = "right", legend.justification = "center", 
+             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+             axis.line = element_blank(), 
+             legend.title = element_text(size = 18), 
+             axis.title.x = element_blank(), 
+             axis.title.y = element_blank(), 
+             axis.text.y = element_text(size = 18)) + 
+       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+              size = guide_legend(title.position = "top", title.hjust = 0.5))
+p51
+```
+
 # Save Results 
 
 ## Data 
@@ -1405,6 +1528,12 @@ openxlsx::write.xlsx(caf_markers_final, file = "~/Desktop/Data/Elyada_CAF_Specif
 openxlsx::write.xlsx(top25_caf_markers, file = "~/Desktop/Data/Elyada_CAF_Specific_Marker_Genes_Top25.xlsx")
 openxlsx::write.xlsx(pdac_ductal_markers_final, file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes.xlsx")
 openxlsx::write.xlsx(top25_pdac_broad_markers, file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes_Top25.xlsx")
+pdac_markers %>% 
+  mutate(log2FC_cutoff = 0.25) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_Cluster_Marker_Genes.xlsx")
+pdac_markers_specific %>% 
+  mutate(log2FC_cutoff = 01) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_Cluster_Marker_Genes_Specific.xlsx")
 ```
 
 ## Figures 
@@ -1471,7 +1600,8 @@ SaveFigure(my.plot = p21, name = "SCISSORS_Clusters_Stroma_Perivascular_RGS5")
 SaveFigure(my.plot = p22, name = "SCISSORS_Clusters_Stroma_VAM_iCAF_FitSNE")
 SaveFigure(my.plot = p23, name = "SCISSORS_Clusters_Stroma_VAM_myCAF_FitSNE")
 SaveFigure(my.plot = p24, name = "SCISSORS_Clusters_Stroma_VAM_apCAF_FitSNE")
-SaveFigure(my.plot = p25, name = "SCISSORS_Clusters_Stroma_Labels_FitSNE")
+SaveFigure(my.plot = p25a, name = "SCISSORS_Clusters_Stroma_Labels_FitSNE")
+SaveFigure(my.plot = p25b, name = "SCISSORS_Clusters_Stroma_Dotplot_Specific", height = 5, width = 10)
 SaveFigure(my.plot = p26a, name = "SCISSORS_Clusters_CAF_apCAF_Violin")
 SaveFigure(my.plot = p26b, name = "SCISSORS_Clusters_CAF_iCAF_Violin")
 SaveFigure(my.plot = p26c, name = "SCISSORS_Clusters_CAF_myCAF_Violin")
@@ -1495,16 +1625,19 @@ SaveFigure(my.plot = p41, name = "SCISSORS_Clusters_Ductal_DECODER_bcRatio_PDAC_
 SaveFigure(my.plot = p42, name = "SCISSORS_Clusters_Ductal_CONICSmat_Annos_FitSNE")
 SaveFigure(my.plot = p43, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Classical25_FitSNE")
 SaveFigure(my.plot = p44, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Basal25_FitSNE")
-SaveFigure(my.plot = p45, name = "SCISSORS_Clusters_Ductal_Labels_FitSNE")
+SaveFigure(my.plot = p45a, name = "SCISSORS_Clusters_Ductal_Labels_FitSNE")
+SaveFigure(my.plot = p45b, name = "SCISSORS_Clusters_Ductal_Dotplot_Specific", height = 6, width = 12)
 SaveFigure(my.plot = p46a, name = "SCISSORS_Clusters_Ductal_GATA6_Violin")
 SaveFigure(my.plot = p46b, name = "SCISSORS_Clusters_Ductal_DECODER_Basal_PDAC_Violin")
 SaveFigure(my.plot = p46c, name = "SCISSORS_Clusters_Ductal_DECODER_Classical_PDAC_Violin")
 SaveFigure(my.plot = p46d, name = "SCISSORS_Clusters_Ductal_DECODER_bcRatio_Violin")
 SaveFigure(my.plot = p46e, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Classical_25_Violin")
 SaveFigure(my.plot = p46f, name = "SCISSORS_Clusters_Ductal_VAM_Moffitt_Basal_25_Violin")
-SaveFigure(my.plot = p47, name = "SCISSORS_Clusters_Ductal_Violin_Combined")
+SaveFigure(my.plot = p47, name = "SCISSORS_Clusters_Ductal_Violin_Combined", height = 5, width = 16)
 SaveFigure(my.plot = p48, name = "SCISSORS_Clusters_CAF_Dotplot_Specific", height = 6, width = 12)
 SaveFigure(my.plot = p49, name = "SCISSORS_Clusters_Ductal_Dotplot_Specific", height = 6, width = 12)
+SaveFigure(my.plot = p50, name = "SCISSORS_Clusters_Fibro_Dotplot_Specific_Combo", height = 5, width = 10)
+SaveFigure(my.plot = p51, name = "SCISSORS_Clusters_Ductal_Dotplot_Specific_Combo", height = 5, width = 10)
 ```
 
 # Supplementary Gene Sets 
