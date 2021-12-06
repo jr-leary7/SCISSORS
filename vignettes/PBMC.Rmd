@@ -793,21 +793,56 @@ mono_markers %>%
   group_by(cluster) %>% 
   slice_head(n = 5) -> top5_mono_markers
 
-p26 <- DotPlot(mono_only, features = unique(top5_mono_markers$gene), dot.scale = 15) + 
-       scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
-       labs(color = "Expression", size = "% Expressed", y = NULL) + 
-       theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
-             legend.position = "right", 
-             legend.justification = "center", 
-             panel.border = element_rect(fill = NA, size = 1, color = "black"), 
-             axis.line = element_blank(), 
-             legend.title = element_text(size = 18), 
-             axis.title.x = element_blank(), 
-             axis.title.y = element_text(size = 20), 
-             axis.text.y = element_text(size = 18)) + 
-       guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
-              size = guide_legend(title.position = "top", title.hjust = 0.5))
-p26
+p26a <- DotPlot(mono_only, features = unique(top5_mono_markers$gene), dot.scale = 15) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed", y = NULL) + 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", 
+              legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 18), 
+              axis.title.x = element_blank(), 
+              axis.title.y = element_text(size = 20), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p26a
+```
+
+We'll also add in the dendritic cells and platelets. 
+
+```{r, fig.width=5, fig.height=3.25}
+mono_reclust@meta.data$label <- case_when(mono_reclust@meta.data$seurat_clusters == 0 ~ "Classical Monocyte", 
+                                          mono_reclust@meta.data$seurat_clusters == 1 ~ "Intermediate Monocyte", 
+                                          mono_reclust@meta.data$seurat_clusters == 2 ~ "Non-classical Monocyte", 
+                                          mono_reclust@meta.data$seurat_clusters == 3 ~ "DC", 
+                                          mono_reclust@meta.data$seurat_clusters == 4 ~ "Platelet")
+Idents(mono_reclust) <- "label"
+myeloid_markers_final_top5 <- top5_mono_markers %>% 
+                              bind_rows((top_de_final_specific %>% filter(cluster == "DC")),
+                                        (top_de_final_specific %>% filter(cluster == "Platelet")))
+fibro_markers_specific_top5 %>% filter(cluster == "Endothelial") %>% 
+  bind_rows((caf_markers_final_top5 %>% filter(cluster == "myCAF")), 
+            (fibro_markers_specific_top5 %>% filter(cluster == "Perivascular")), 
+            (caf_markers_final_top5 %>% filter(cluster == "iCAF")), 
+            (caf_markers_final_top5 %>% filter(cluster == "apCAF"))) %>% 
+  mutate(source = case_when(source = is.na(source) ~ "Stroma", TRUE ~ source), 
+                            log2FC_cutoff = case_when(is.na(log2FC_cutoff) ~ 0.25, TRUE ~ log2FC_cutoff)) -> fibro_markers_combo_top5
+p26b <- DotPlot(mono_reclust, features = unique(myeloid_markers_final_top5$gene), dot.scale = 15) + 
+        scale_color_gradientn(colors = paletteer_d("wesanderson::Zissou1")) +
+        labs(color = "Expression", size = "% Expressed", y = NULL) + 
+        theme(axis.text.x = element_text(angle = 90, size = 16, vjust = 0.5), 
+              legend.position = "right", legend.justification = "center", 
+              panel.border = element_rect(fill = NA, size = 1, color = "black"), 
+              axis.line = element_blank(), 
+              legend.title = element_text(size = 18), 
+              axis.title.x = element_blank(), 
+              axis.title.y = element_blank(), 
+              axis.text.y = element_text(size = 18)) + 
+        guides(color = guide_colorbar(title.position = "top", barheight = unit(3, units = "cm"), title.hjust = 0.5), 
+               size = guide_legend(title.position = "top", title.hjust = 0.5))
+p26b
 ```
 
 We'll repeat the process for the T cells. 
@@ -928,8 +963,8 @@ Lastly, we'll save the figures under `./vignettes/figures/`.
 SaveFigure(p0a, name = "Seurat_Clusters")
 SaveFigure(p0b, name = "Seurat_Clusters_Silhouettes")
 SaveFigure(p1, name = "Seurat_Clusters_FitSNE")
-SaveFigure(p2a, name = "Marker_Genes_For_Seurat_Clusters", height = 8, width = 18)
-SaveFigure(p2b, name = "Marker_Genes_For_Seurat_Clusters_Specific", height = 8, width = 18)
+SaveFigure(p2a, name = "Marker_Genes_For_Seurat_Clusters", height = 5, width = 12)
+SaveFigure(p2b, name = "Marker_Genes_For_Seurat_Clusters_Specific", height = 5, width = 12)
 SaveFigure(p3, name = "Monocyte_Cluster_SCISSORS")
 SaveFigure(p4, name = "T_Cluster_SCISSORS")
 SaveFigure(p5, name = "SCISSORS_Clusters_Final")
@@ -954,8 +989,9 @@ SaveFigure(p23, name = "SCISSORS_Celltypes_Final")
 SaveFigure(p24a, name = "Marker_Genes_For_SCISSORS_Celltypes", height = 8, width = 18)
 SaveFigure(p24b, name = "Marker_Genes_For_SCISSORS_Celltypes_Specific", height = 8, width = 18)
 SaveFigure(p25g, name = "Intermediate_Mono_Marker_Violins", height = 6, width = 15)
-SaveFigure(p26, name = "Monocyte_Cluster_SCISSORS_Dotplot_Specific", height = 5, width = 8)
-SaveFigure(p27, name = "T_Cluster_SCISSORS_Dotplot_Specific", height = 5, width = 8)
+SaveFigure(p26a, name = "Monocyte_Cluster_SCISSORS_Dotplot_Specific", height = 5, width = 8)
+SaveFigure(p26b, name = "Monocyte_Cluster_SCISSORS_Dotplot_Specific_Combo", height = 5.75, width = 9.25)
+SaveFigure(p27, name = "T_Cluster_SCISSORS_Dotplot_Specific", height = 4.75, width = 7.5)
 ```
 
 And of course:
