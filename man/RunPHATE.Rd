@@ -32,3 +32,6 @@ This function wraps the PHATE dimension reduction algorithm in the typical Seura
 \examples{
 RunPhate(object = pbmc3k, n.components = 2, n.PC = 10)
 }
+\author{
+Jack Leary
+}

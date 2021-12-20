@@ -23,3 +23,6 @@ This function takes a list of outputs from ReclusterCells() and integrates the n
 \examples{
 IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)
 }
+\author{
+Jack Leary
+}

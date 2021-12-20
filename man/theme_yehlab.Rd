@@ -7,9 +7,12 @@
 theme_yehlab()
 }
 \description{
-This is the Yeh Lab's default \code{ggplot2} theme for dimension reduction scatterplots, and was used throughout
-the SCISSORS manuscript. Like all \code{ggplot2}-based themes, you can add more themes to it, or override them if you wish.
+This is the Yeh Lab's default \code{ggplot2} theme for dimension reduction scatterplots, and was used throughout the SCISSORS manuscript.
+Like all \code{ggplot2}-based themes, you can add more themes to it, or override them if you wish.
 }
 \examples{
-DimPlot(pbmc, reduction = "tsne") + theme_yehlab()
+\dontrun{DimPlot(pbmc, reduction = "umap") + theme_yehlab()}
+}
+\author{
+Jack Leary
 }
