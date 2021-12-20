@@ -4,10 +4,12 @@
 \alias{ComputeSilhouetteScores}
 \title{Calculate the mean silhouette score of a clustering.}
 \usage{
-ComputeSilhouetteScores(seurat.obj = NULL, avg = TRUE)
+ComputeSilhouetteScores(seurat.obj = NULL, dist.metric = "cosine", avg = TRUE)
 }
 \arguments{
 \item{seurat.obj}{The input object for which silhouette score will be computed. Defaults to NULL.}
+
+\item{dist.metric}{Which distanec metric should be used? Defaults to "cosine", but any of the metrics used by \code{\link[stats]{dist}} will work.}
 
 \item{avg}{Should the average scores for each cluster be returned, or should a dataframe of every observation's cluster identity and score be returned? Defaults to TRUE.}
 }
@@ -15,5 +17,8 @@ ComputeSilhouetteScores(seurat.obj = NULL, avg = TRUE)
 This function will compute the silhouette score for each cluster identified by \code{Seurat}'s Louvain modularity optimization community detection algorithm.
 }
 \examples{
-ComputeSilhouetteScores(seurat.obj)
+\dontrun{ComputeSilhouetteScores(seurat.obj)}
+}
+\author{
+Jack Leary
 }

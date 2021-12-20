@@ -18,7 +18,7 @@ FindSubpopulationMarkers(
 
 \item{reclust.data}{A specific\code{Seurat} object from the list of objects returned by \code{ReclusterCells}.}
 
-\item{which.compare}{Should subpopulation marker genes be determined in the context of the entire sample, or solely the single cluster? Defaults to "all cells"; choose "within cluster" to determine biomarkers at the cluster level.}
+\item{which.compare}{Should subpopulation marker genes be determined in the context of the entire sample, or solely the single cluster? Defaults to "all cells"; choose "within cluster" to determine marker genes at the cluster level.}
 
 \item{diff.exp.test}{The test used to calculate differential expression using \code{FindMarkers}. Defaults to "wilcox".}
 
@@ -33,4 +33,7 @@ p-values, gene prevalence, and effect size in the form of log2 fold change.
 }
 \examples{
 FindSubpopulationMarkers(seurat.object, reclust.data = reclust_results)
+}
+\author{
+Jack Leary
 }

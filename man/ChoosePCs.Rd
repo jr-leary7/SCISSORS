@@ -15,5 +15,8 @@ ChoosePCs(seurat.obj = NULL, cutoff = NULL)
 This function uses the eigenvalues of the principal component matrix to determine the best number of PCs. The default can be chosen automatically, or given by the user. It is intended to be run after \code{RunPCA()}.
 }
 \examples{
-ChoosePCs(seurat.obj = pbmc, cutoff = .15)
+\dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .15)}
+}
+\author{
+Jack Leary
 }

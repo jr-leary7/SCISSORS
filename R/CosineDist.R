@@ -1,15 +1,17 @@
 #' Compute the cosine distance matrix.
 #'
-#' This function takes a matrix as input, and computes the cosine distance (1 - cosine similarity) between the observations.
-#' @param input The input matrix. Defaults to NULL.
+#' @name CosineDist
+#' @author Jack Leary
+#' @description This function takes a matrix as input, and computes the cosine distance (1 - cosine similarity) between the observations.
+#' @param input.mat The input matrix. Defaults to NULL.
 #' @export
 #' @examples
-#' CosineDist(input = pca_matrix)
+#' \dontrun{CosineDist(input = pca_matrix)}
 
-CosineDist <- function(input = NULL) {
+CosineDist <- function(input.mat = NULL) {
   # check inputs -- although as this is a helper function, it should never be called incorrectly
-  if (is.null(input)) { stop("You forgot to provide an input matrix") }
+  if (is.null(input.mat)) { stop("You must provide a matrix to CosineDist().") }
   # run function
-  dist_mat <- as.dist(1 - input %*% t(input) / (sqrt(rowSums(input^2) %*% t(rowSums(input^2)))))
+  dist_mat <- stats::as.dist(1 - input.mat %*% t(input.mat) / (sqrt(rowSums(input.mat^2) %*% t(rowSums(input.mat^2)))))
   return(dist_mat)
 }

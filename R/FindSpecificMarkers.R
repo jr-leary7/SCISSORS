@@ -1,9 +1,11 @@
 #' This functions finds specific marker genes for a all clusters in a \code{Seurat} object.
 #'
 #' @name FindSpecificMarkers
+#' @author Jack Leary
 #' @description This function finds marker genes for all clusters, and then filters those markers on a per-cluster basis against the most highly expressed genes in other clusters.
+#' @import magrittr
 #' @importFrom Matrix t
-#' @importFrom dplyr mutate group_by summarise across filter pull bind_rows `%>%`
+#' @importFrom dplyr mutate group_by summarise across filter pull bind_rows
 #' @importFrom Seurat FindAllMarkers
 #' @param seurat.object The \code{Seurat} object containing clusters for which you'd like marker genes identified. Defaults to NULL.
 #' @param ident.use The cell identity to group by. Defaults to "seurat_clusters".

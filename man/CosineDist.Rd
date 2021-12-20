@@ -4,14 +4,17 @@
 \alias{CosineDist}
 \title{Compute the cosine distance matrix.}
 \usage{
-CosineDist(input = NULL)
+CosineDist(input.mat = NULL)
 }
 \arguments{
-\item{input}{The input matrix. Defaults to NULL.}
+\item{input.mat}{The input matrix. Defaults to NULL.}
 }
 \description{
 This function takes a matrix as input, and computes the cosine distance (1 - cosine similarity) between the observations.
 }
 \examples{
-CosineDist(input = pca_matrix)
+\dontrun{CosineDist(input = pca_matrix)}
+}
+\author{
+Jack Leary
 }

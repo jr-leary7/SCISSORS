@@ -32,3 +32,6 @@ This function finds marker genes for all clusters, and then filters those marker
 \examples{
 FindSpecificMarkers(seurat_object, method = "wilcox")
 }
+\author{
+Jack Leary
+}
