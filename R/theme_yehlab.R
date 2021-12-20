@@ -1,11 +1,12 @@
-#' A clean `ggplot2` theme for dimension reduction plots.
-#'
-#' This is the Yeh Lab's default `ggplot2` theme for dimension reduction scatterplots, and was used throughout
-#' the SCISSORS manuscript. Like all `ggplot2`-based themes, you can add more themes to it, or override them if you wish.
-#' @import ggplot2
+#' A clean \code{ggplot2} theme for dimension reduction plots.
+#' @name theme_yehlab
+#' @author Jack Leary
+#' @description This is the Yeh Lab's default \code{ggplot2} theme for dimension reduction scatterplots, and was used throughout the SCISSORS manuscript.
+#' Like all \code{ggplot2}-based themes, you can add more themes to it, or override them if you wish.
+#' @importFrom ggplot2 theme element_blank element_rect
 #' @export
 #' @examples
-#' DimPlot(pbmc, reduction = "tsne") + theme_yehlab()
+#' \dontrun{DimPlot(pbmc, reduction = "umap") + theme_yehlab()}
 
 theme_yehlab <- function() {
   theme(legend.position = "bottom",
