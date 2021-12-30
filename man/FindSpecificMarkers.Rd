@@ -18,7 +18,7 @@ FindSpecificMarkers(
 
 \item{ident.use}{The cell identity to group by. Defaults to "seurat_clusters".}
 
-\item{de.method}{The differential expression method used in \code{FindAllMarkers()}. Defaults to "wilcox".}
+\item{de.method}{The differential expression method used in \code{\link[Seurat]{FindAllMarkers}}. Defaults to "wilcox".}
 
 \item{perc.cutoff}{The percentile cutoff used to find highly expressed genes in other cluster. Defaults to 0.9.}
 
@@ -30,7 +30,10 @@ FindSpecificMarkers(
 This function finds marker genes for all clusters, and then filters those markers on a per-cluster basis against the most highly expressed genes in other clusters.
 }
 \examples{
-FindSpecificMarkers(seurat_object, method = "wilcox")
+\dontrun{FindSpecificMarkers(seurat_object, method = "wilcox")}
+}
+\seealso{
+\code{\link[Seurat]{FindAllMarkers}}
 }
 \author{
 Jack Leary

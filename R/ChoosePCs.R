@@ -2,10 +2,10 @@
 #'
 #' @name ChoosePCs
 #' @author Jack Leary
-#' @description This function uses the eigenvalues of the principal component matrix to determine the best number of PCs. The default can be chosen automatically, or given by the user. It is intended to be run after `RunPCA()`.
+#' @description This function uses the eigenvalues of the principal component matrix to determine the best number of PCs. The default can be chosen automatically, or given by the user. It is intended to be run after \code{\link[Seurat]{RunPCA}}.
 #' @importFrom matrixStats rowVars
 #' @importFrom Seurat GetAssayData Stdev
-#' @param seurat.object The object containing our single cell counts and principal component matrix. Defaults to NULL.
+#' @param seurat.obj The object containing our single cell counts and principal component matrix. Defaults to NULL.
 #' @param cutoff The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to NULL.
 #' @export
 #' @examples

@@ -2,24 +2,25 @@
 #'
 #' @name IntegrateSubclusters
 #' @author Jack Leary
-#' @description This function takes a list of outputs from ReclusterCells() and integrates the new subcluster identities into the original Seurat object.
+#' @description This function takes a list of outputs from \code{\link{ReclusterCells}} and integrates the new subcluster identities into the original Seurat object.
 #' @importFrom  Seurat Idents DimPlot
 #' @importFrom dplyr case_when
 #' @importFrom ggplot2 labs theme element_text
 #' @param original.object The original Seurat object. Defaults to NULL.
-#' @param reclust.results A list of reclustering results as output from ReclusterCells(). Defaults to NULL.
+#' @param reclust.results A list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.
 #' @param do.plot Should the results be plotted on a dimension reduction plot? Defaults to FALSE.
+#' @seealso \code{\link{ReclusterCells}}
 #' @export
 #' @examples
-#' IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)
+#' \dontrun{IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)}
 
 IntegrateSubclusters <- function(original.object = NULL, reclust.results = NULL, do.plot = FALSE) {
   # check inputs
-  if (is.null(original.object) | is.null(reclust.results)) stop("Arguments to IntegrateSubclusters() are missing.")
+  if (is.null(original.object) | is.null(reclust.results)) { stop("Arguments to IntegrateSubclusters() are missing.") }
   if (class(reclust.results) != "list") { stop("reclust.results must be of class list.") }
   if (any(sapply(reclust.results, class) != "Seurat")) { stop("All elements of reclust.results must be Seurat objects.") }
-  max_clust <- max(as.numeric(original.object$seurat_clusters) - 1)
   # identify new subclusters
+  max_clust <- max(as.numeric(original.object$seurat_clusters) - 1)
   cell_df <- NULL
   for (i in seq_along(reclust.results)) {
     n_clust <- length(unique(reclust.results[[i]]$seurat_clusters))
@@ -51,7 +52,6 @@ IntegrateSubclusters <- function(original.object = NULL, reclust.results = NULL,
   }
   original.object@meta.data$seurat_clusters <- as.factor(original.object@meta.data$seurat_clusters - 1)
   Seurat::Idents(original.object) <- "seurat_clusters"
-
   # plot results if desired
   if (do.plot) {
     p <- Seurat::DimPlot(original.object) +
@@ -60,6 +60,5 @@ IntegrateSubclusters <- function(original.object = NULL, reclust.results = NULL,
          ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5))
     print(p)
   }
-
   return(original.object)
 }

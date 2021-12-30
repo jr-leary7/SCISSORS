@@ -2,14 +2,14 @@
 % Please edit documentation in R/ComputeSilhouetteScores.R
 \name{ComputeSilhouetteScores}
 \alias{ComputeSilhouetteScores}
-\title{Calculate the mean silhouette score of a clustering.}
+\title{Calculate the silhouette score of a clustering.}
 \usage{
 ComputeSilhouetteScores(seurat.obj = NULL, dist.metric = "cosine", avg = TRUE)
 }
 \arguments{
 \item{seurat.obj}{The input object for which silhouette score will be computed. Defaults to NULL.}
 
-\item{dist.metric}{Which distanec metric should be used? Defaults to "cosine", but any of the metrics used by \code{\link[stats]{dist}} will work.}
+\item{dist.metric}{Which distance metric should be used? Defaults to "cosine", but any of the metrics used by \code{\link[stats]{dist}} will work.}
 
 \item{avg}{Should the average scores for each cluster be returned, or should a dataframe of every observation's cluster identity and score be returned? Defaults to TRUE.}
 }
@@ -18,6 +18,9 @@ This function will compute the silhouette score for each cluster identified by \
 }
 \examples{
 \dontrun{ComputeSilhouetteScores(seurat.obj)}
+}
+\seealso{
+\code{\link{CosineDist}}.
 }
 \author{
 Jack Leary

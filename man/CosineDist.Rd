@@ -13,7 +13,7 @@ CosineDist(input.mat = NULL)
 This function takes a matrix as input, and computes the cosine distance (1 - cosine similarity) between the observations.
 }
 \examples{
-\dontrun{CosineDist(input = pca_matrix)}
+\dontrun{CosineDist(input.mat = pca_matrix)}
 }
 \author{
 Jack Leary

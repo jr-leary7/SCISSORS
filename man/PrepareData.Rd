@@ -15,6 +15,7 @@ PrepareData(
   perplexity = 30,
   umap.lr = 0.05,
   initial.resolution = 0.3,
+  nn.metric = "cosine",
   k.val = NULL,
   do.plot = NULL,
   random.seed = 629
@@ -29,7 +30,7 @@ PrepareData(
 
 \item{regress.cc}{Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.}
 
-\item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using \code{ChoosePCs()}. Defaults to "auto".}
+\item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using \code{\link{ChoosePCs}}. Defaults to "auto".}
 
 \item{var.cutoff}{(Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.}
 
@@ -39,7 +40,9 @@ PrepareData(
 
 \item{umap.lr}{(Optional) What learning rate should be used for the UMAP embedding? Defaults to 0.05.}
 
-\item{initial.resolution}{The initial resolution parameter used in the \code{FindClusters} function. Defaults to 0.3.}
+\item{initial.resolution}{The initial resolution parameter used in the \code{\link[Seurat]{FindAllMarkers}} function. Defaults to 0.3.}
+
+\item{nn.metric}{(Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".}
 
 \item{k.val}{(Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \eqn{k \approx \sqrt{n}}.}
 
@@ -51,12 +54,17 @@ PrepareData(
 This function prepares  single cell data for reclustering analysis. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features (\% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 }
 \examples{
-PrepareData(seurat.object, n.variable.genes = 5000, do.plot = TRUE)
-PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 100)
+\dontrun{PrepareData(seurat.object, n.variable.genes = 3000, n.PC = 20, do.plot = TRUE)}
+\dontrun{PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 100)}
 }
 \references{
 Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph{Cell}.
 }
 \seealso{
 \code{\link{ChoosePCs}}
+
+\code{\link[Seurat]{FindAllMarkers}}
+}
+\author{
+Jack Leary
 }

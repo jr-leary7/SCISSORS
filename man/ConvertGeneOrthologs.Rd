@@ -15,6 +15,9 @@ ConvertGeneOrthologs(gene.vec = NULL, species = "mm")
 Converts gene names from human -> mouse and mouse -> human.
 }
 \examples{
-ConvertGeneOrthologs(gene.vec = mouse_genes)
-ConvertGeneOrthologs(gene.vec = human_genes, species = "hs")
+\dontrun{ConvertGeneOrthologs(gene.vec = mouse_genes)}
+\dontrun{ConvertGeneOrthologs(gene.vec = human_genes, species = "hs")}
+}
+\author{
+Jack Leary
 }

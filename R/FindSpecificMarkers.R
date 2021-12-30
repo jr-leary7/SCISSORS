@@ -7,15 +7,17 @@
 #' @importFrom Matrix t
 #' @importFrom dplyr mutate group_by summarise across filter pull bind_rows
 #' @importFrom Seurat FindAllMarkers
+#' @importFrom stats quantile
 #' @param seurat.object The \code{Seurat} object containing clusters for which you'd like marker genes identified. Defaults to NULL.
 #' @param ident.use The cell identity to group by. Defaults to "seurat_clusters".
-#' @param de.method The differential expression method used in \code{FindAllMarkers()}. Defaults to "wilcox".
+#' @param de.method The differential expression method used in \code{\link[Seurat]{FindAllMarkers}}. Defaults to "wilcox".
 #' @param perc.cutoff The percentile cutoff used to find highly expressed genes in other cluster. Defaults to 0.9.
 #' @param log2fc.cutoff The log2FC cutoff used, in part, to determine whether a gene is differentially expressed. Defaults to 0.25.
 #' @param fdr.cutoff The cutoff used to remove DE genes with non-significant adjusted \emph{p}-values. Defaults to 0.05.
+#' @seealso \code{\link[Seurat]{FindAllMarkers}}
 #' @export
 #' @examples
-#' FindSpecificMarkers(seurat_object, method = "wilcox")
+#' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox")}
 
 FindSpecificMarkers <- function(seurat.object = NULL,
                                 ident.use = "seurat_clusters",
@@ -30,7 +32,7 @@ FindSpecificMarkers <- function(seurat.object = NULL,
                          as.data.frame() %>%
                          dplyr::mutate(cell_ident = unname(unlist(seurat.object[[ident.use]]))) %>%
                          dplyr::group_by(cell_ident) %>%
-                         dplyr::summarise(across(where(is.numeric), mean))
+                         dplyr::summarise(dplyr::across(where(is.numeric), mean))
   # find list of genes w/ mean expression above 90th percentile of expression in each celltype
   high_exp_genes <- c()
   cluster_labels <- c()
@@ -40,7 +42,7 @@ FindSpecificMarkers <- function(seurat.object = NULL,
                      dplyr::select(-cell_ident) %>%
                      t() %>%
                      as.data.frame() %>%
-                     dplyr::filter(V1 > quantile(V1, perc.cutoff)) %>%
+                     dplyr::filter(V1 > stats::quantile(V1, perc.cutoff)) %>%
                      dplyr::mutate(gene = rownames(.)) %>%
                      dplyr::pull(gene)
     high_exp_genes <- c(high_exp_genes, top_exp_genes)

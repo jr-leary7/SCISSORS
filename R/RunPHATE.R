@@ -11,9 +11,10 @@
 #' @param mds.method The solver used for MDS. Defaults to SMACOF, but SGD can be used to speed up the algorithm.
 #' @param dist.metric The distance metric to use for KNN and MDS. Defaults to the cosine distance.
 #' @param random.seed The random seed used to control stochasticity. Defaults to 629.
+#' @seealso \code{\link[phateR]{phate}}
 #' @export
 #' @examples
-#' RunPhate(object = pbmc3k, n.components = 2, n.PC = 10)
+#' \dontrun{RunPhate(object = pbmc3k, n.components = 2, n.PC = 10)}
 
 RunPHATE <- function(object = NULL,
                      n.components = 2,
@@ -23,7 +24,7 @@ RunPHATE <- function(object = NULL,
                      random.seed = 629) {
   # check inputs
   if (is.null(object) | is.null(n.PC)) { stop("Please provide a Seurat object and a number of PCs to use to RunPHATE().") }
-  # run PHATE
+  # run PHATE on PCs
   pca_df <- data.frame(Seurat::Embeddings(object, reduction = "pca"))[, 1:n.PC]
   phate_res <- phateR::phate(pca_df,
                              ndim = n.components,

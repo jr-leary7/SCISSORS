@@ -26,28 +26,34 @@ ReclusterCells(
 
 \item{auto}{Should the clusters on which to run SCISSORS be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.}
 
-\item{merge.clusters}{(Optional). If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.}
+\item{merge.clusters}{(Optional) If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.}
 
 \item{n.HVG}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
 
-\item{n.PC}{How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by \code{ChoosePCs()}. Defaults to "auto".}
+\item{n.PC}{How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by \code{\link{ChoosePCs}}. Defaults to "auto".}
 
 \item{redo.embedding}{(Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.}
 
-\item{resolution.vals}{(Optional) A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).}
+\item{resolution.vals}{A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).}
 
-\item{k.vals}{(Optional) The parameters \emph{k} to be tested. Defaults to c(10, 25, 50).}
+\item{k.vals}{The values of the number of nearest neighbors \emph{k} to be tested. Defaults to c(10, 25, 50).}
 
-\item{cutoff.score}{(Optional) The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are \link{.1, .3}.}
+\item{cutoff.score}{The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are [.1, .3].}
 
 \item{nn.metric}{(Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".}
 
 \item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 }
 \description{
-This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{sctransform} as implemented in \code{Seurat}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
+This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{\link[Seurat]{SCTransform}}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
 }
 \examples{
-ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))
-ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE
+\dontrun{ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))}
+\dontrun{ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE)}
+}
+\seealso{
+\code{\link{ComputeSilhouetteScores}}
+}
+\author{
+Jack Leary
 }

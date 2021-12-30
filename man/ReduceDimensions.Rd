@@ -21,8 +21,14 @@ ReduceDimensions(
 \item{random.seed}{The random seed to use. Defaults to 312.}
 }
 \description{
-This function simplifies the running of various dimension reduction algorithms. It exists mostly to make the body of ReclusterCells() easier to read.
+This function simplifies the running of various dimension reduction algorithms. It exists mostly to make the body of \code{\link{ReclusterCells}} easier to read.
 }
 \examples{
-\dontrun{ReduceDimensions(pbmc3k, n.PC = 10, which.algos = "umap", seed = 629)}
+\dontrun{ReduceDimensions(pbmc3k, n.PC = 10, which.algos = "umap", random.seed = 629)}
+}
+\seealso{
+\code{\link{RunPHATE}}
+}
+\author{
+Jack Leary
 }

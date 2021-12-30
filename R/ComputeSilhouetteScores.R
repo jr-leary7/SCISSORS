@@ -1,4 +1,4 @@
-#' Calculate the mean silhouette score of a clustering.
+#' Calculate the silhouette score of a clustering.
 #'
 #' @name ComputeSilhouetteScores
 #' @author Jack Leary
@@ -7,9 +7,9 @@
 #' @importFrom stats dist
 #' @importFrom cluster silhouette
 #' @param seurat.obj The input object for which silhouette score will be computed. Defaults to NULL.
-#' @param dist.metric Which distanec metric should be used? Defaults to "cosine", but any of the metrics used by \code{\link[stats]{dist}} will work.
+#' @param dist.metric Which distance metric should be used? Defaults to "cosine", but any of the metrics used by \code{\link[stats]{dist}} will work.
 #' @param avg Should the average scores for each cluster be returned, or should a dataframe of every observation's cluster identity and score be returned? Defaults to TRUE.
-#' @importFrom cluster silhouette
+#' @seealso \code{\link{CosineDist}}.
 #' @export
 #' @examples
 #' \dontrun{ComputeSilhouetteScores(seurat.obj)}
@@ -23,7 +23,7 @@ ComputeSilhouetteScores <- function(seurat.obj = NULL, dist.metric = "cosine", a
   pca_mat <- as.matrix(pca_df)
   # calculate distance matrix -- default is cosine dissimilarity
   if (dist.metric == "cosine") {
-    pc_dists <- CosineDist(input = pca_mat)
+    pc_dists <- CosineDist(input.mat = pca_mat)
   } else {
     pc_dists <- stats::dist(x = pca_mat, method = dist.metric)
   }
@@ -35,8 +35,7 @@ ComputeSilhouetteScores <- function(seurat.obj = NULL, dist.metric = "cosine", a
     avg_widths <- unlist(avg_widths)
     val <- avg_widths
   } else {
-    val <- data.frame(Cluster = as.factor(res[, 1]),
-                      Score = res[, 3])
+    val <- data.frame(Cluster = as.factor(res[, 1]), Score = res[, 3])
   }
   return(val)
 }

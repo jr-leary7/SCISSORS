@@ -2,7 +2,7 @@
 % Please edit documentation in R/FindSubpopulationMarkers.R
 \name{FindSubpopulationMarkers}
 \alias{FindSubpopulationMarkers}
-\title{Identify marker genes for previosuly identified subpopulations.}
+\title{Identify marker genes for previously identified subpopulations.}
 \usage{
 FindSubpopulationMarkers(
   seurat.object = NULL,
@@ -16,23 +16,26 @@ FindSubpopulationMarkers(
 \arguments{
 \item{seurat.object}{The original \code{Seurat} object containing the entire cell population and related metadata.}
 
-\item{reclust.data}{A specific\code{Seurat} object from the list of objects returned by \code{ReclusterCells}.}
+\item{reclust.data}{A specific \code{Seurat} object from the list of objects returned by \code{\link{ReclusterCells}}.}
 
 \item{which.compare}{Should subpopulation marker genes be determined in the context of the entire sample, or solely the single cluster? Defaults to "all cells"; choose "within cluster" to determine marker genes at the cluster level.}
 
-\item{diff.exp.test}{The test used to calculate differential expression using \code{FindMarkers}. Defaults to "wilcox".}
+\item{diff.exp.test}{The test used to calculate differential expression using \code{\link[Seurat]{FindMarkers}}. Defaults to "wilcox".}
 
 \item{logfc.thresh}{The log2 fold-change cutoff used when performing differential expression analysis. Defaults to 2.}
 
 \item{random.seed}{(Optional) The seed used to control stochasticity in several functions. Defaults to 629.}
 }
 \description{
-This function determines which cells characterize the subpopulations identified using \code{ReclusterCells}. It is intended to be run on a single re-clustered \code{Seurat} object at a time, though if you wish you could
+This function determines which cells characterize the subpopulations identified using \code{\link{ReclusterCells}}. It is intended to be run on a single re-clustered \code{Seurat} object at a time, though if you wish you could
 iterate over the list of reclustering results, and save the outputs from this function in a matching array of lists. The function returns a list of dataframes, one dataframe per cluster, containing normal and Bonferroni-adjusted
 p-values, gene prevalence, and effect size in the form of log2 fold change.
 }
 \examples{
-FindSubpopulationMarkers(seurat.object, reclust.data = reclust_results)
+\dontrun{FindSubpopulationMarkers(seurat.object, reclust.data = reclust_results)}
+}
+\seealso{
+\code{\link{FindSpecificMarkers}}
 }
 \author{
 Jack Leary

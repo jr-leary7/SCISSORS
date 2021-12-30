@@ -30,7 +30,10 @@ RunPHATE(
 This function wraps the PHATE dimension reduction algorithm in the typical Seurat syntax.
 }
 \examples{
-RunPhate(object = pbmc3k, n.components = 2, n.PC = 10)
+\dontrun{RunPhate(object = pbmc3k, n.components = 2, n.PC = 10)}
+}
+\seealso{
+\code{\link[phateR]{phate}}
 }
 \author{
 Jack Leary
