@@ -18,7 +18,7 @@ ReduceDimensions <- function(obj = NULL,
                              random.seed = 312) {
   # check inputs
   if (is.null(obj) | is.null(n.PC)) { stop("Please provide all inputs to ReduceDimensions().") }
-  which.algs <- tolower(which.algs)  # just in case
+  which.algos <- tolower(which.algos)  # just in case
   # reduce dimensions
   if (n.PC != "auto") {
     obj <- Seurat::RunPCA(obj,

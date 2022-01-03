@@ -1,5 +1,5 @@
 ---
-title: "Reclustering PBMCs Using SCISSORS"
+title: "Reclustering PBMCs Using `SCISSORS`"
 subtitle: "Jack Leary"
 author: 
   - "University of North Carolina at Chapel Hill - Lineberger Comprehensive Cancer Center"
