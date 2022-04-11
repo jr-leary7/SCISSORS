@@ -778,7 +778,11 @@ Here we'll generate violin plots for each of the CAF `VAM` scores.
 
 ```{r}
 caf <- subset(fibro, subset = label %in% c("iCAF", "myCAF", "apCAF"))
-caf_markers_specific <- FindSpecificMarkers()
+caf_markers_specific <- FindSpecificMarkers(caf, 
+                                            ident.use = "label", 
+                                            de.method = "wilcox", 
+                                            log2fc.cutoff = 0.25, 
+                                            perc.cutoff = 0.9)
 p26a <- data.frame(t(caf@assays$VAMcdf@data)) %>% 
         bind_cols((caf@meta.data %>% dplyr::select(label))) %>% 
         ggplot(aes(x = label, y = apCAF, fill = label)) + 
@@ -1327,7 +1331,8 @@ top_macro_genes <- bed@assays@data@listData[["logcounts"]] %>%
                    as.data.frame() %>% 
                    filter(V1 > quantile(V1, .9)) %>% 
                    mutate(gene = rownames(.)) %>% 
-                   pull(gene)
+                   pull(gene) %>% 
+                   unique()
 caf_markers_final %<>% filter(!(gene %in% high_exp_genes_non_caf), !(gene %in% top_macro_genes))
 caf_markers_final %>% 
   arrange(desc(avg_log2FC)) %>% 
@@ -1647,29 +1652,56 @@ Lastly, we want specific gene sets for CAFs and PDAC cells that are larger than 
 ## CAFs
 
 ```{r}
-caf_markers_final <- FindAllMarkers(caf, 
-                                    logfc.threshold = 0.25, 
-                                    test.use = "wilcox", 
-                                    only.pos = TRUE, 
-                                    verbose = FALSE, 
-                                    random.seed = 312) %>% 
-                     filter(p_val_adj < 0.05)
+# caf_markers_final_2 <- FindAllMarkers(caf, 
+#                                       logfc.threshold = 0.25, 
+#                                       test.use = "wilcox", 
+#                                       only.pos = TRUE, 
+#                                       verbose = FALSE, 
+#                                       random.seed = 312) %>% 
+#                        filter(p_val_adj < 0.05)
+# high_exp_genes_non_caf2 <- c()
+# loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("iCAF", "myCAF", "apCAF")])
+# for (i in loop_celltypes) {
+#   top_exp_genes <- gene_means_by_clust %>% 
+#                    filter(label_fine == i) %>% 
+#                    dplyr::select(-label_fine) %>% 
+#                    t() %>% 
+#                    as.data.frame() %>% 
+#                    filter(V1 > quantile(V1, .9)) %>% 
+#                    mutate(gene = rownames(.)) %>% 
+#                    pull(gene)
+#   high_exp_genes_non_caf2 <- c(high_exp_genes_non_caf2, top_exp_genes)
+# }
+# high_exp_genes_non_caf2 <- unique(high_exp_genes_non_caf2)
+# caf_markers_final_large <-  caf_markers_final_2 %>% 
+#                             filter(!(gene %in% high_exp_genes_non_caf2), !(gene %in% top_macro_genes))
+# caf_markers_final_large %>% group_by(cluster) %>% slice_head(n = 25)
+caf_markers_final_2 <- FindAllMarkers(caf, 
+                                      logfc.threshold = 0, 
+                                      test.use = "wilcox", 
+                                      only.pos = TRUE, 
+                                      verbose = FALSE, 
+                                      random.seed = 312) %>% 
+  filter(p_val_adj < 0.05)
 high_exp_genes_non_caf2 <- c()
 loop_celltypes <- unname(gene_means_by_clust$label_fine[!gene_means_by_clust$label_fine %in% c("iCAF", "myCAF", "apCAF")])
 for (i in loop_celltypes) {
   top_exp_genes <- gene_means_by_clust %>% 
-                   filter(label_fine == i) %>% 
-                   dplyr::select(-label_fine) %>% 
-                   t() %>% 
-                   as.data.frame() %>% 
-                   filter(V1 > quantile(V1, .95)) %>% 
-                   mutate(gene = rownames(.)) %>% 
-                   pull(gene)
+    filter(label_fine == i) %>% 
+    dplyr::select(-label_fine) %>% 
+    t() %>% 
+    as.data.frame() %>% 
+    filter(V1 > quantile(V1, .9)) %>% 
+    mutate(gene = rownames(.)) %>% 
+    pull(gene)
   high_exp_genes_non_caf2 <- c(high_exp_genes_non_caf2, top_exp_genes)
 }
 high_exp_genes_non_caf2 <- unique(high_exp_genes_non_caf2)
-caf_markers_final_large <-  caf_markers_final %>% 
-                            filter(!(gene %in% high_exp_genes_non_caf2), !(gene %in% top_macro_genes))
+caf_markers_final_large <-  caf_markers_final_2 %>% 
+  filter(!(gene %in% high_exp_genes_non_caf2), !(gene %in% top_macro_genes))
+caf_markers_final_large %>% 
+  mutate(log2FC_cutoff = 0) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/SCISSORS_CAF_p005.xlsx")
 ```
 
 ## PDAC
@@ -1692,7 +1724,8 @@ for (i in loop_celltypes) {
                    dplyr::select(-label_fine) %>% 
                    t() %>% 
                    as.data.frame() %>% 
-                   filter(V1 > quantile(V1, .95)) %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   #filter(V1 > quantile(V1, .95)) %>% 
                    mutate(gene = rownames(.)) %>% 
                    pull(gene)
   high_exp_genes_non_pdac3 <- c(high_exp_genes_non_pdac3, top_exp_genes)
@@ -1701,6 +1734,79 @@ high_exp_genes_non_pdac3 <- unique(high_exp_genes_non_pdac3)
 pdac_ductal_broad_markers_final_large <- pdac_ductal_broad_markers_final %>% 
                                          filter(!(gene %in% high_exp_genes_non_pdac3))
 
+```
+
+## Perivascular Cells
+
+```{r}
+caf_cells <- rownames(fibro@meta.data[!fibro@meta.data$label %in% c("Perivascular", "Endothelial"), ])
+peri_cells <- rownames(fibro@meta.data[fibro@meta.data$label == "Perivascular", ])
+pdac@meta.data <- pdac@meta.data %>% 
+                  mutate(label_finest = case_when(rownames(.) %in% caf_cells ~ "CAF", 
+                                                  rownames(.) %in% peri_cells ~ "Perivascular", 
+                                                  TRUE ~ label_fine))
+gene_means_by_clust <- t(pdac@assays$SCT@data) %>% 
+                       as.data.frame() %>% 
+                       mutate(label_finest = pdac$label_finest) %>% 
+                       group_by(label_finest) %>% 
+                       summarise(across(where(is.numeric), mean))
+peri_markers <- FindAllMarkers(fibro, 
+                               logfc.threshold = 0.25, 
+                               test.use = "wilcox", 
+                               only.pos = TRUE, 
+                               verbose = FALSE, 
+                               random.seed = 312) %>% 
+                filter(p_val_adj < 0.05, 
+                       cluster == "Perivascular")
+loop_celltypes <- unname(gene_means_by_clust$label_finest[!gene_means_by_clust$label_finest == "Perivascular"])
+high_exp_genes_non_peri <- c()
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_finest == i) %>% 
+                   dplyr::select(-label_finest) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes_non_peri <- c(high_exp_genes_non_peri, top_exp_genes)
+}
+high_exp_genes_non_peri <- unique(high_exp_genes_non_peri)
+peri_markers <- peri_markers %>% 
+                filter(!(gene %in% high_exp_genes_non_peri))
+```
+
+## Pan-CAF 
+
+We'll do the same for the CAF cells in order to identify pan-CAF markers. 
+
+```{r}
+Idents(pdac) <- "label_finest"
+pan_caf_markers <- FindAllMarkers(pdac, 
+                                  logfc.threshold = 0.25, 
+                                  test.use = "wilcox", 
+                                  only.pos = TRUE, 
+                                  verbose = FALSE, 
+                                  random.seed = 312) %>% 
+                   filter(p_val_adj < 0.05, 
+                          cluster == "CAF")
+loop_celltypes <- unname(gene_means_by_clust$label_finest[!gene_means_by_clust$label_finest == "CAF"])
+high_exp_genes_non_caf <- c()
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_finest == i) %>% 
+                   dplyr::select(-label_finest) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes_non_caf <- c(high_exp_genes_non_caf, top_exp_genes)
+}
+high_exp_genes_non_caf <- unique(high_exp_genes_non_caf)
+pan_caf_markers <- pan_caf_markers %>% 
+                   filter(!(gene %in% high_exp_genes_non_caf), 
+                          !(gene %in% top_macro_genes))
 ```
 
 Lastly we save the expanded gene sets. 
@@ -1712,6 +1818,12 @@ caf_markers_final_large %>%
 pdac_ductal_broad_markers_final_large %>% 
   mutate(log2FC_cutoff = 0.25) %>% 
   openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_PDAC_Specific_Marker_Genes_Large.xlsx")
+peri_markers %>% 
+  mutate(log2FC_cutoff = 0.25) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_Perivascular_Specific_Marker_Genes_Large.xlsx")
+pan_caf_markers %>% 
+  mutate(log2FC_cutoff = 0.25) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_PanCAF_Specific_Marker_Genes_Large.xlsx")
 ```
 
 # R Session Details 
