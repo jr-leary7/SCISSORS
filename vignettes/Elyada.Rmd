@@ -1524,6 +1524,14 @@ saveRDS(ductal, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_ductal_acinar.
 saveRDS(pdac_ductal, file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_PDAC.Rds")
 ```
 
+```{r, eval=FALSE, echo=FALSE}
+pdac <- readRDS(file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada.Rds")
+fibro <- readRDS(file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_fibro.Rds")
+caf <- readRDS(file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_caf.Rds")
+ductal <- readRDS(file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_ductal_acinar.Rds")
+pdac_ductal <- readRDS(file = "~/Desktop/Data/Tuveson_Seurat_Objs/Elyada_PDAC.Rds")
+```
+
 And now the gene sets for CAF and PDAC cells.
 
 ```{r, eval=FALSE}
@@ -1776,13 +1784,56 @@ peri_markers <- peri_markers %>%
                 filter(!(gene %in% high_exp_genes_non_peri))
 ```
 
+## Endothelial Cells
+
+```{r}
+endo_cells <- rownames(fibro@meta.data[fibro@meta.data$label == "Endothelial", ])
+pdac@meta.data <- pdac@meta.data %>% 
+                  mutate(label_finest = case_when(rownames(.) %in% endo_cells ~ "Endothelial", 
+                                                  TRUE ~ label_fine))
+gene_means_by_clust <- t(pdac@assays$SCT@data) %>% 
+                       as.data.frame() %>% 
+                       mutate(label_finest = pdac$label_finest) %>% 
+                       group_by(label_finest) %>% 
+                       summarise(across(where(is.numeric), mean))
+endo_markers <- FindAllMarkers(fibro, 
+                               logfc.threshold = 0.25, 
+                               test.use = "wilcox", 
+                               only.pos = TRUE, 
+                               verbose = FALSE, 
+                               random.seed = 312) %>% 
+                filter(p_val_adj < 0.05, 
+                       cluster == "Endothelial")
+loop_celltypes <- unname(gene_means_by_clust$label_finest[!gene_means_by_clust$label_finest == "Endothelial"])
+high_exp_genes_non_endo <- c()
+for (i in loop_celltypes) {
+  top_exp_genes <- gene_means_by_clust %>% 
+                   filter(label_finest == i) %>% 
+                   dplyr::select(-label_finest) %>% 
+                   t() %>% 
+                   as.data.frame() %>% 
+                   filter(V1 > quantile(V1, .9)) %>% 
+                   mutate(gene = rownames(.)) %>% 
+                   pull(gene)
+  high_exp_genes_non_peri <- c(high_exp_genes_non_endo, top_exp_genes)
+}
+high_exp_genes_non_endo <- unique(high_exp_genes_non_endo)
+endo_markers <- endo_markers %>% 
+                filter(!(gene %in% high_exp_genes_non_endo))
+```
+
+
 ## Pan-CAF 
 
 We'll do the same for the CAF cells in order to identify pan-CAF markers. 
 
 ```{r}
-Idents(pdac) <- "label_finest"
-pan_caf_markers <- FindAllMarkers(pdac, 
+fibro@meta.data <- fibro@meta.data %>% 
+                   mutate(label_fine = case_when(rownames(.) %in% caf_cells ~ "CAF", 
+                                                 TRUE ~ label))
+Idents(fibro) <- "label_fine"
+DefaultAssay(fibro) <- "SCT"
+pan_caf_markers <- FindAllMarkers(fibro, 
                                   logfc.threshold = 0.25, 
                                   test.use = "wilcox", 
                                   only.pos = TRUE, 
@@ -1821,6 +1872,9 @@ pdac_ductal_broad_markers_final_large %>%
 peri_markers %>% 
   mutate(log2FC_cutoff = 0.25) %>% 
   openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_Perivascular_Specific_Marker_Genes_Large.xlsx")
+endo_markers %>% 
+  mutate(log2FC_cutoff = 0.25) %>% 
+  openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_Endothelial_Specific_Marker_Genes_Large.xlsx")
 pan_caf_markers %>% 
   mutate(log2FC_cutoff = 0.25) %>% 
   openxlsx::write.xlsx(file = "~/Desktop/Data/Elyada_PanCAF_Specific_Marker_Genes_Large.xlsx")
