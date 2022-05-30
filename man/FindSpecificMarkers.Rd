@@ -6,6 +6,8 @@
 \usage{
 FindSpecificMarkers(
   seurat.object = NULL,
+  assay.use = "RNA",
+  slot.use = "data",
   ident.use = "seurat_clusters",
   de.method = "wilcox",
   perc.cutoff = 0.9,
@@ -15,6 +17,10 @@ FindSpecificMarkers(
 }
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing clusters for which you'd like marker genes identified. Defaults to NULL.}
+
+\item{assay.use}{The assay to use when testing. Defaults to "RNA".}
+
+\item{slot.use}{The matrix to use when testing. Defaults to "data", for normalized counts, but "counts" (for the raw counts) can also be used.}
 
 \item{ident.use}{The cell identity to group by. Defaults to "seurat_clusters".}
 
@@ -31,6 +37,7 @@ This function finds marker genes for all clusters, and then filters those marker
 }
 \examples{
 \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox")}
+\dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", assay.use = "SCT", slot.use = "data")}
 }
 \seealso{
 \code{\link[Seurat]{FindAllMarkers}}

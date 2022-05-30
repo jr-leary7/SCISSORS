@@ -7,15 +7,15 @@
 #' @importFrom Seurat Idents DefaultAssay FindAllMarkers
 #' @importFrom dplyr filter mutate group_by summarise across ungroup select pull
 #' @importFrom stats quantile
-#' @param obj.1
-#' @param obj.2
-#' @param ident.1
-#' @param ident.2
-#' @param test.use
-#' @param pval.cutoff
-#' @param logfc.cutoff
-#' @param quantile.cutoff
-#' @param extra.cell.filter
+#' @param obj.1 The object containing clusters that you want marker genes for. Defaults to NULL.
+#' @param obj.2 The object containing reference data against which we'll filter the markers in \code{obj.1}. Defaults to NULL.
+#' @param ident.1 The group identifier for \code{obj.1}. Defaults to "seurat_clusters".
+#' @param ident.2 The group identifier for \code{obj.2}. Defaults to "seurat_clusters".
+#' @param de.method The differential expression method used in \code{\link[Seurat]{FindAllMarkers}}. Defaults to "wilcox".
+#' @param fdr.cutoff The cutoff used to remove DE genes with non-significant adjusted \emph{p}-values. Defaults to 0.05.
+#' @param log2fc.cutoff The log2FC cutoff used, in part, to determine whether a gene is differentially expressed. Defaults to 0.25.
+#' @param perc.cutoff The percentile cutoff used to find highly expressed genes in other cluster. Defaults to 0.9.
+#' @param extra.cell.filter An optional list of extra cells to filter out of \code{obj.2} other than the cells in \code{obj.1}. Defaults to NULL.
 #' @seealso \code{\link{FindSpecificMarkers}}
 #' @seealso \code{\link[Seurat]{FindAllMarkers}}
 #' @export
@@ -27,10 +27,10 @@ FindFilteredMarkers <- function(obj.1 = NULL,
                                 obj.2 = NULL,
                                 ident.1 = "seurat_clusters",
                                 ident.2 = "seurat_clusters",
-                                test.use = "wilcox",
-                                pval.cutoff = 0.05,
-                                logfc.cutoff = 0.25,
-                                quantile.cutoff = 0.9,
+                                de.method = "wilcox",
+                                fdr.cutoff = 0.05,
+                                log2fc.cutoff = 0.25,
+                                perc.cutoff = 0.9,
                                 extra.cell.filter = NULL) {
   # check inputs
   if (is.null(obj.1) || is.null(obj.2)) { stop("You must provide two non-NULL Seurat objects to FindFilteredMarkers().") }
@@ -41,12 +41,12 @@ FindFilteredMarkers <- function(obj.1 = NULL,
   Seurat::DefaultAssay(obj.1) <- "SCT"
   Seurat::DefaultAssay(obj.2) <- "SCT"
   markers <- Seurat::FindAllMarkers(obj.1,
-                                    logfc.threshold = logfc.cutoff,
-                                    test.use = test.use,
+                                    logfc.threshold = log2fc.cutoff,
+                                    test.use = de.method,
                                     only.pos = TRUE,
                                     verbose = FALSE,
                                     random.seed = 312) %>%
-             dplyr::filter(p_val_adj < pval.cutoff)
+             dplyr::filter(p_val_adj < fdr.cutoff)
   # filter obj.1 cells from obj.2
   obj.2 <- obj.2[, !rownames(obj.2@meta.data) %in% rownames(obj.1@meta.data)]
   if (!is.null(extra.cell.filter)) {
@@ -66,7 +66,7 @@ FindFilteredMarkers <- function(obj.1 = NULL,
                      dplyr::select(-label_fine) %>%
                      t() %>%
                      as.data.frame() %>%
-                     dplyr::filter(V1 > stats::quantile(V1, quantile.cutoff)) %>%
+                     dplyr::filter(V1 > stats::quantile(V1, perc.cutoff)) %>%
                      dplyr::mutate(gene = rownames(.)) %>%
                      dplyr::pull(gene)
     high_exp_genes <- c(high_exp_genes, top_exp_genes)

@@ -4,11 +4,14 @@
 #' @author Jack Leary
 #' @description This function finds marker genes for all clusters, and then filters those markers on a per-cluster basis against the most highly expressed genes in other clusters.
 #' @import magrittr
+#' @importFrom SeuratObject GetAssayData
 #' @importFrom Matrix t
 #' @importFrom dplyr mutate group_by summarise across filter pull bind_rows
 #' @importFrom Seurat FindAllMarkers
 #' @importFrom stats quantile
 #' @param seurat.object The \code{Seurat} object containing clusters for which you'd like marker genes identified. Defaults to NULL.
+#' @param assay.use The assay to use when testing. Defaults to "RNA".
+#' @param slot.use The matrix to use when testing. Defaults to "data", for normalized counts, but "counts" (for the raw counts) can also be used.
 #' @param ident.use The cell identity to group by. Defaults to "seurat_clusters".
 #' @param de.method The differential expression method used in \code{\link[Seurat]{FindAllMarkers}}. Defaults to "wilcox".
 #' @param perc.cutoff The percentile cutoff used to find highly expressed genes in other cluster. Defaults to 0.9.
@@ -18,8 +21,11 @@
 #' @export
 #' @examples
 #' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox")}
+#' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", assay.use = "SCT", slot.use = "data")}
 
 FindSpecificMarkers <- function(seurat.object = NULL,
+                                assay.use = "RNA",
+                                slot.use = "data",
                                 ident.use = "seurat_clusters",
                                 de.method = "wilcox",
                                 perc.cutoff = 0.9,
@@ -27,8 +33,9 @@ FindSpecificMarkers <- function(seurat.object = NULL,
                                 fdr.cutoff = 0.05) {
   # check inputs
   if (is.null(seurat.object)) { stop("You forgot to provide a Seurat object!") }
+  if (!ident.use %in% colnames(seurat.object@meta.data)) { stop("ident.use must exist in the object's metadata.") }
   # get highly expressed genes for each cluster
-  gene_means_by_clust <- Matrix::t(seurat.object@assays$SCT@data) %>%
+  gene_means_by_clust <- Matrix::t(SeuratObject::GetAssayData(seurat.object, assay = assay.use, slot = slot.use)) %>%
                          as.data.frame() %>%
                          dplyr::mutate(cell_ident = unname(unlist(seurat.object[[ident.use]]))) %>%
                          dplyr::group_by(cell_ident) %>%
@@ -48,9 +55,12 @@ FindSpecificMarkers <- function(seurat.object = NULL,
     high_exp_genes <- c(high_exp_genes, top_exp_genes)
     cluster_labels <- c(cluster_labels, rep(i, length(top_exp_genes)))
   }
-  high_exp_gene_df <- data.frame(High_Exp_Genes = high_exp_genes, Cluster = as.factor(cluster_labels))
+  high_exp_gene_df <- data.frame(High_Exp_Genes = high_exp_genes,
+                                 Cluster = as.factor(cluster_labels))
   # get marker genes w/ normal method
   marker_genes <- Seurat::FindAllMarkers(seurat.object,
+                                         assay = assay.use,
+                                         slot = slot.use,
                                          logfc.threshold = log2fc.cutoff,
                                          test.use = de.method,
                                          only.pos = TRUE,
