@@ -1,9 +1,9 @@
 Package: SCISSORS
 Title: Identify cell subpopulations in single cell RNA-seq data
-Version: 1.0.0
+Version: 1.1.0
 Author: Jack Leary [aut]
 Maintainer: Jack Leary <jrleary@live.unc.edu>
-Description: This package implements a method (to be published soon) that allows users to easily identify cell subtypes and / or subpopulations in scRNA-seq data. After running the necessary `Seurat` processing steps, the user decides which clusters they think are good candidates for subpopulation-detection based on cluster size, t-SNE visualizations, and / or identified cell cluster type. For example, if the user sees a large, fairly homogeneous cluster that they are fairly sure contains immune cells, they can use our method to tease out T cell subtypes, NK cells, B cells, etc. from within the original cluster. The method is predicated on the usage of a cosine-distance based silhouette score that is calculated for each cluster. Several different sets of parameters are used, and the subclustering that maximizes this mean silhouette score is considered optimal. The package is built around the `Seurat` package, but `SingleCellExperiment`-formatted data is accepted as input as well (it will be converted to `Seurat` format, though). We also support the identification of differentially-expressed marker genes for each identified subpopulation, which can be used to characterize known or novel cell subtypes at the transcriptomic level.
+Description: This package implements a method (to be published soon) that allows users to easily identify cell subtypes and / or subpopulations in scRNA-seq data. The method is predicated on the usage of a cosine-distance based silhouette score that is calculated for each cluster and indicates goodness of fit. Several different sets of parameters are used, and the subclustering that maximizes this measure is considered optimal. 
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

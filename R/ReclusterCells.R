@@ -16,6 +16,8 @@
 #' @param k.vals The values of the number of nearest neighbors \emph{k} to be tested. Defaults to c(10, 25, 50).
 #' @param cutoff.score The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are \[.1, .3\].
 #' @param nn.metric (Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".
+#' @param regress.mt Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE.
+#' @param regress.cc Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to FALSE.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @seealso \code{\link{ComputeSilhouetteScores}}
 #' @export
@@ -35,24 +37,29 @@ ReclusterCells <- function(seurat.object = NULL,
                            k.vals = c(10, 25, 50),
                            cutoff.score = .25,
                            nn.metric = "cosine",
+                           regress.mt = FALSE,
+                           regress.CC = FALSE,
                            random.seed = 629) {
   # check inputs
   if (is.null(seurat.object) | is.null(which.clust)) { stop("Please provide a Seurat object and clusters to investigate to ReclusterCells().") }
+
   # auto-choose clusters to investigate if desired
   if (auto) {
     print("Choosing clusters automatically.")
     scores <- ComputeSilhouetteScores(seurat.object)
     which.clust <- which(scores < .5)
   }
-  # set up regression variables
-  regress_vars <- c()
-  if ("percent_MT" %in% colnames(seurat.object@meta.data)) {
-    regress_vars <- c(regress_vars, "percent_MT")
+
+  # set up variables to regress out
+  regression_vars <- c()
+  if (regress.cc) {
+    regression_vars <- c(regression_vars, "CC_difference")
   }
-  if ("CC_difference" %in% colnames(seurat.object@meta.data)) {
-    regress_vars <- c(regress_vars, "CC_difference")
+  if (regress.mt) {
+    regression_vars <- c(regression_vars, "percent_MT")
   }
-  # determine which dimension reduction algs to run
+
+  # determine which dimension reduction algos to run
   dim_red_algs <- NULL
   if ("tsne" %in% names(seurat.object@reductions)) {
     dim_red_algs <- c(dim_red_algs, "tsne")
@@ -61,7 +68,8 @@ ReclusterCells <- function(seurat.object = NULL,
   } else if ("phate" %in% names(seurat.object@reductions)) {
     dim_red_algs <- c(dim_red_algs, "phate")
   }
-  # set up result list, account for case when clusters are to be merged, identify covariates
+
+  # set up result list, account for case when clusters are to be merged
   reclust_list <- list()
   if (merge.clusters) {
     temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
@@ -76,9 +84,9 @@ ReclusterCells <- function(seurat.object = NULL,
     # reprocess data
     if (Seurat::DefaultAssay(temp_obj) != "integrated") {
       if (use.sct) {
-        if (length(regress_vars) > 0) {
+        if (length(regression_vars) > 0) {
           temp_obj <- Seurat::SCTransform(temp_obj,
-                                          vars.to.regress = regress_vars,
+                                          vars.to.regress = regression_vars,
                                           variable.features.n = n.HVG,
                                           seed.use = random.seed,
                                           verbose = FALSE)
@@ -97,9 +105,9 @@ ReclusterCells <- function(seurat.object = NULL,
                                                  selection.method = "vst",
                                                  nfeatures = n.HVG,
                                                  verbose = FALSE)
-        if (length(regress_vars) > 0) {
+        if (length(regression_vars) > 0) {
           temp_obj <- Seurat::ScaleData(temp_obj,
-                                        vars.to.regress = regress_vars,
+                                        vars.to.regress = regression_vars,
                                         model.use = "negbinom",
                                         verbose = FALSE)
         } else {
@@ -141,6 +149,7 @@ ReclusterCells <- function(seurat.object = NULL,
         j <- j + 1
       }
     }
+
     # extract best parameter set
     if (max(sil_scores) > cutoff.score) {
       best_params <- names(sil_scores[sil_scores == max(sil_scores)])
@@ -196,10 +205,12 @@ ReclusterCells <- function(seurat.object = NULL,
     }
     reclust_list[[i]] <- temp_obj
   }
+
   # add names to list of Seurat objects
   if (!merge.clusters && length(which.clust) > 1) {
     names(reclust_list) <- as.character(unlist(which.clust))
   }
+
   # return single Seurat object or list of objects
   if (length(which.clust) == 1 || merge.clusters) {
     val <- reclust_list[[1]]

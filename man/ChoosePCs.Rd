@@ -4,18 +4,18 @@
 \alias{ChoosePCs}
 \title{A function to automatically choose the number of principal components.}
 \usage{
-ChoosePCs(seurat.obj = NULL, cutoff = NULL)
+ChoosePCs(seurat.obj = NULL, cutoff = 0.15)
 }
 \arguments{
 \item{seurat.obj}{The object containing our single cell counts and principal component matrix. Defaults to NULL.}
 
-\item{cutoff}{The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to NULL.}
+\item{cutoff}{The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to 15\%.}
 }
 \description{
 This function uses the eigenvalues of the principal component matrix to determine the best number of PCs. The default can be chosen automatically, or given by the user. It is intended to be run after \code{\link[Seurat]{RunPCA}}.
 }
 \examples{
-\dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .15)}
+\dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .3)}
 }
 \author{
 Jack Leary

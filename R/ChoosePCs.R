@@ -6,15 +6,14 @@
 #' @importFrom matrixStats rowVars
 #' @importFrom Seurat GetAssayData DefaultAssay Stdev
 #' @param seurat.obj The object containing our single cell counts and principal component matrix. Defaults to NULL.
-#' @param cutoff The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to NULL.
+#' @param cutoff The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to 15%.
 #' @export
 #' @examples
-#' \dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .15)}
+#' \dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .3)}
 
-ChoosePCs <- function(seurat.obj = NULL, cutoff = NULL) {
+ChoosePCs <- function(seurat.obj = NULL, cutoff = .15) {
   # check inputs
   if (is.null(seurat.obj)) { stop("Please supply a Seurat object.") }
-  if (is.null(cutoff)) { cutoff <- .15 }
   # run function
   total_var <- sum(matrixStats::rowVars(Seurat::GetAssayData(seurat.obj, assay = Seurat::DefaultAssay(seurat.obj), slot = "data")))
   eigenvals <- Seurat::Stdev(seurat.obj, reduction = "pca")^2
