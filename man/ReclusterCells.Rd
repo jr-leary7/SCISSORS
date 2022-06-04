@@ -6,15 +6,17 @@
 \usage{
 ReclusterCells(
   seurat.object = NULL,
-  use.sct = TRUE,
   which.clust = NULL,
   auto = FALSE,
   merge.clusters = FALSE,
+  use.sct = TRUE,
   n.HVG = 4000,
   n.PC = "auto",
   redo.embedding = TRUE,
   resolution.vals = c(0.1, 0.2, 0.3, 0.4),
   k.vals = c(10, 25, 50),
+  is.integrated = FALSE,
+  integration.ident = NULL,
   cutoff.score = 0.25,
   nn.metric = "cosine",
   regress.mt = FALSE,
@@ -25,13 +27,13 @@ ReclusterCells(
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
 
-\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
-
 \item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.}
 
 \item{auto}{Should the clusters on which to run SCISSORS be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.}
 
 \item{merge.clusters}{(Optional) If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.}
+
+\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
 
 \item{n.HVG}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
 
@@ -42,6 +44,10 @@ ReclusterCells(
 \item{resolution.vals}{A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).}
 
 \item{k.vals}{The values of the number of nearest neighbors \emph{k} to be tested. Defaults to c(10, 25, 50).}
+
+\item{is.integrated}{Do the data come from multiple samples & need to be re-integrated? See https://github.com/satijalab/seurat/issues/1883 for discussion on this topic. Defaults to FALSE.}
+
+\item{integration.ident}{If the data are to be re-integrated, what metadata column contains the sample identity? Defaults to NULL.}
 
 \item{cutoff.score}{The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are [.1, .3].}
 

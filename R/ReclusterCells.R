@@ -3,7 +3,7 @@
 #' @name ReclusterCells
 #' @author Jack Leary
 #' @description This function identifies subclusters of cell types by recalculating the *n* most highly variable genes for each cluster using \code{\link[Seurat]{SCTransform}}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
-#' @importFrom Seurat DefaultAssay SCTransform FindVariableFeatures NormalizeData ScaleData FindNeighbors FindClusters
+#' @importFrom Seurat DefaultAssay SplitObject SCTransform FindVariableFeatures NormalizeData SelectIntegrationFeatures FindIntegrationAnchors PrepSCTIntegration IntegrateData ScaleData FindNeighbors FindClusters
 #' @param seurat.object The \code{Seurat} object containing cells and their assigned cluster IDs.
 #' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.
 #' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.
@@ -14,6 +14,8 @@
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
 #' @param resolution.vals A user-defined vector of resolution values to compare when clustering cells. Defaults to c(.1, .2, .3, .4).
 #' @param k.vals The values of the number of nearest neighbors \emph{k} to be tested. Defaults to c(10, 25, 50).
+#' @param is.integrated Do the data come from multiple samples & need to be re-integrated? See https://github.com/satijalab/seurat/issues/1883 for discussion on this topic. Defaults to FALSE.
+#' @param integration.ident If the data are to be re-integrated, what metadata column contains the sample identity? Defaults to NULL.
 #' @param cutoff.score The lowest mean silhouette score accepted as evidence of subclusters. Defaults to .25, reasonable values are \[.1, .3\].
 #' @param nn.metric (Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".
 #' @param regress.mt Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE.
@@ -26,26 +28,29 @@
 #' \dontrun{ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE)}
 
 ReclusterCells <- function(seurat.object = NULL,
-                           use.sct = TRUE,
                            which.clust = NULL,
                            auto = FALSE,
                            merge.clusters = FALSE,
+                           use.sct = TRUE,
                            n.HVG = 4000,
                            n.PC = "auto",
                            redo.embedding = TRUE,
                            resolution.vals = c(.1, .2, .3, .4),
                            k.vals = c(10, 25, 50),
+                           is.integrated = FALSE,
+                           integration.ident = NULL,
                            cutoff.score = .25,
                            nn.metric = "cosine",
                            regress.mt = FALSE,
                            regress.cc = FALSE,
                            random.seed = 629) {
   # check inputs
-  if (is.null(seurat.object) | is.null(which.clust)) { stop("Please provide a Seurat object and clusters to investigate to ReclusterCells().") }
+  if (is.null(seurat.object) || is.null(which.clust)) { stop("Please provide a Seurat object and clusters to investigate to ReclusterCells().") }
+  if (is.integrated && !integration.ident %in% colnames(seurat.object@meta.data)) { stop("integration.ident must exist in Seurat object metadata.") }
 
-  # auto-choose clusters to investigate if desired
+  # auto-choose clusters based on silhouette scores to investigate if desired
   if (auto) {
-    print("Choosing clusters automatically.")
+    print("Choosing reclustering candidates automatically.")
     scores <- ComputeSilhouetteScores(seurat.object)
     which.clust <- which(scores < .5)
   }
@@ -81,9 +86,63 @@ ReclusterCells <- function(seurat.object = NULL,
     if (!merge.clusters) {
       temp_obj <- subset(seurat.object, subset = seurat_clusters == which.clust[[i]])
     }
-    # reprocess data
-    if (Seurat::DefaultAssay(temp_obj) != "integrated") {
+    # reprocess data, accounting for integration if necessary (otherwise batch effects are usually pretty large & will define clustering)
+    if (is.integrated) {
+      obj_list <- Seurat::SplitObject(seurat.object, split.by = integration.ident)
       if (use.sct) {
+        # SCTransform integration
+        obj_list <- purrr::map(obj_list, SCTransform)
+        int_features <- Seurat::SelectIntegrationFeatures(obj_list,
+                                                          nfeatures = n.HVG,
+                                                          verbose = FALSE)
+        obj_list <- Seurat::PrepSCTIntegration(obj_list,
+                                               anchor.features = int_features,
+                                               verbose = FALSE)
+        int_anchors <- Seurat::FindIntegrationAnchors(obj_list,
+                                                      normalization.method = "SCT",
+                                                      anchor.features = int_features,
+                                                      verbose = FALSE)
+        temp_obj <- Seurat::IntegrateData(anchorset = int_anchors,
+                                          normalization.method = "SCT",
+                                          verbose = FALSE)
+        # not sure really how to regress out effects w/ SCT after integration, so using this
+        if (length(regression_vars) > 0) {
+          temp_obj <- Seurat::ScaleData(temp_obj,
+                                        vars.to.regress = regression_vars,
+                                        model.use = "negbinom",
+                                        verbose = FALSE)
+        } else {
+          temp_obj <- Seurat::ScaleData(temp_obj, verbose = FALSE)
+        }
+      } else {
+        # log-normalization integration
+        obj_list <- purrr::map(seu_objs, function(x) {
+          x %>%
+            Seurat::NormalizeData(verbose = FALSE) %>%
+            Seurat::FindVariableFeatures(nfeatures = n.HVG, verbose = FALSE)
+        })
+        int_features <- Seurat::SelectIntegrationFeatures(obj_list,
+                                                          nfeatures = n.HVG,
+                                                          verbose = FALSE)
+        int_anchors <- Seurat::FindIntegrationAnchors(obj_list,
+                                                      anchor.features = int_features,
+                                                      normalization.method = "LogNormalize",
+                                                      verbose = FALSE)
+        temp_obj <- Seurat::IntegrateData(anchorset = int_anchors,
+                                          normalization.method = "LogNormalize",
+                                          verbose = FALSE)
+        if (length(regression_vars) > 0) {
+          temp_obj <- Seurat::ScaleData(temp_obj,
+                                        vars.to.regress = regression_vars,
+                                        model.use = "negbinom",
+                                        verbose = FALSE)
+        } else {
+          temp_obj <- Seurat::ScaleData(temp_obj, verbose = FALSE)
+        }
+      }
+    } else {
+      if (use.sct) {
+        # SCTransform normalization (no integration)
         if (length(regression_vars) > 0) {
           temp_obj <- Seurat::SCTransform(temp_obj,
                                           vars.to.regress = regression_vars,
@@ -97,6 +156,7 @@ ReclusterCells <- function(seurat.object = NULL,
                                           verbose = FALSE)
         }
       } else {
+        # log-normalization (no integration)
         temp_obj <- Seurat::NormalizeData(temp_obj,
                                           normalization.method = "LogNormalize",
                                           scale.factor = 10000,

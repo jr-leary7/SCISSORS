@@ -28,7 +28,7 @@ ReduceDimensions <- function(obj = NULL,
                           verbose = FALSE)
   } else {
     obj <- Seurat::RunPCA(obj,
-                          npcs = 30,
+                          npcs = 100,
                           features = Seurat::VariableFeatures(obj),
                           seed.use = random.seed,
                           verbose = FALSE)
