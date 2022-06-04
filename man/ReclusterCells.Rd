@@ -18,7 +18,7 @@ ReclusterCells(
   cutoff.score = 0.25,
   nn.metric = "cosine",
   regress.mt = FALSE,
-  regress.CC = FALSE,
+  regress.cc = FALSE,
   random.seed = 629
 )
 }
@@ -49,9 +49,9 @@ ReclusterCells(
 
 \item{regress.mt}{Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE.}
 
-\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
-
 \item{regress.cc}{Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to FALSE.}
+
+\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
 }
 \description{
 This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{\link[Seurat]{SCTransform}}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.

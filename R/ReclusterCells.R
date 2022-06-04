@@ -38,7 +38,7 @@ ReclusterCells <- function(seurat.object = NULL,
                            cutoff.score = .25,
                            nn.metric = "cosine",
                            regress.mt = FALSE,
-                           regress.CC = FALSE,
+                           regress.cc = FALSE,
                            random.seed = 629) {
   # check inputs
   if (is.null(seurat.object) | is.null(which.clust)) { stop("Please provide a Seurat object and clusters to investigate to ReclusterCells().") }
