@@ -116,7 +116,7 @@ ReclusterCells <- function(seurat.object = NULL,
         }
       } else {
         # log-normalization integration
-        obj_list <- purrr::map(seu_objs, function(x) {
+        obj_list <- purrr::map(obj_list, function(x) {
           x %>%
             Seurat::NormalizeData(verbose = FALSE) %>%
             Seurat::FindVariableFeatures(nfeatures = n.HVG, verbose = FALSE)
