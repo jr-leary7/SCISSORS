@@ -4,7 +4,7 @@
 #' @author Jack Leary
 #' @description This function uses the eigenvalues of the principal component matrix to determine the best number of PCs. The default can be chosen automatically, or given by the user. It is intended to be run after \code{\link[Seurat]{RunPCA}}.
 #' @importFrom matrixStats rowVars
-#' @importFrom Seurat GetAssayData Stdev
+#' @importFrom Seurat GetAssayData DefaultAssay Stdev
 #' @param seurat.obj The object containing our single cell counts and principal component matrix. Defaults to NULL.
 #' @param cutoff The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to NULL.
 #' @export
@@ -16,7 +16,7 @@ ChoosePCs <- function(seurat.obj = NULL, cutoff = NULL) {
   if (is.null(seurat.obj)) { stop("Please supply a Seurat object.") }
   if (is.null(cutoff)) { cutoff <- .15 }
   # run function
-  total_var <- sum(matrixStats::rowVars(Seurat::GetAssayData(seurat.obj, assay = "SCT", slot = "scale.data")))
+  total_var <- sum(matrixStats::rowVars(Seurat::GetAssayData(seurat.obj, assay = Seurat::DefaultAssay(seurat.obj), slot = "data")))
   eigenvals <- Seurat::Stdev(seurat.obj, reduction = "pca")^2
   prop_var <- eigenvals / total_var
   cum_prop_var <- cumsum(prop_var)

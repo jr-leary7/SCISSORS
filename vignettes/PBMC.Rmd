@@ -71,6 +71,7 @@ Here we use `PrepareData()` to normalize expression & select highly variable gen
 
 ```{r, warning=FALSE, message=FALSE}
 pbmc <- PrepareData(pbmc, 
+                    use.sct = TRUE, 
                     n.HVG = 4000, 
                     regress.cc = FALSE, 
                     regress.mt = FALSE, 
@@ -178,7 +179,7 @@ pbmc_de %>%
   slice_head(n = 5) -> top5_de
 ```
 
-We'll also try using `FindSpecificMarkers()` to, of cours, find marker genes that are "specific" to each cluster by filtering the marker list for each cluster against a list of genes that are highly expressed in other clusters. 
+We'll also try using `FindSpecificMarkers()` to, of course, find marker genes that are "specific" to each cluster by filtering the marker list for each cluster against a list of genes that are highly expressed in other clusters. 
 
 ```{r}
 pbmc_de_specific <- FindSpecificMarkers(pbmc, log2fc.cutoff = .25, perc.cutoff = 0.95)
@@ -234,6 +235,7 @@ We'll run SCISSORS on the monocytes & T cells; i.e. on clusters 1 & 4 and 0 & 2.
 
 ```{r, warning=FALSE, message=FALSE, results='hold'}
 mono_reclust <- ReclusterCells(pbmc, 
+                               use.sct = TRUE, 
                                which.clust = list(1, 4), 
                                merge.clusters = TRUE, 
                                n.HVG = 4000,
@@ -243,6 +245,7 @@ mono_reclust <- ReclusterCells(pbmc,
                                redo.embedding = TRUE, 
                                random.seed = 629)
 t_reclust <- ReclusterCells(pbmc, 
+                            use.sct = TRUE, 
                             which.clust = list(0, 2), 
                             merge.clusters = TRUE, 
                             n.HVG = 4000, 

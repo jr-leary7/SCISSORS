@@ -3,8 +3,9 @@
 #' @name ReclusterCells
 #' @author Jack Leary
 #' @description This function identifies subclusters of cell types by recalculating the *n* most highly variable genes for each cluster using \code{\link[Seurat]{SCTransform}}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
-#' @importFrom Seurat DefaultAssay SCTransform FindNeighbors FindClusters
+#' @importFrom Seurat DefaultAssay SCTransform FindVariableFeatures NormalizeData ScaleData FindNeighbors FindClusters
 #' @param seurat.object The \code{Seurat} object containing cells and their assigned cluster IDs.
+#' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.
 #' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.
 #' @param auto Should the clusters on which to run SCISSORS be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.
 #' @param merge.clusters (Optional) If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.
@@ -23,6 +24,7 @@
 #' \dontrun{ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE)}
 
 ReclusterCells <- function(seurat.object = NULL,
+                           use.sct = TRUE,
                            which.clust = NULL,
                            auto = FALSE,
                            merge.clusters = FALSE,
@@ -42,19 +44,13 @@ ReclusterCells <- function(seurat.object = NULL,
     scores <- ComputeSilhouetteScores(seurat.object)
     which.clust <- which(scores < .5)
   }
-  # set up result list, account for case when clusters are to be merged, identify covariates
-  reclust_list <- list()
-  if (merge.clusters) {
-    temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
-    old_which_clust <- which.clust
-    which.clust <- 1
-  }
+  # set up regression variables
   regress_vars <- c()
   if ("percent_MT" %in% colnames(seurat.object@meta.data)) {
     regress_vars <- c(regress_vars, "percent_MT")
   }
-  if ("S.Score" %in% colnames(seurat.object@meta.data) && "G2M.Score" %in% colnames(seurat.object@meta.data)) {
-    regress_vars <- c(regress_vars, "S.Score", "G2M.Score")
+  if ("CC_difference" %in% colnames(seurat.object@meta.data)) {
+    regress_vars <- c(regress_vars, "CC_difference")
   }
   # determine which dimension reduction algs to run
   dim_red_algs <- NULL
@@ -65,6 +61,13 @@ ReclusterCells <- function(seurat.object = NULL,
   } else if ("phate" %in% names(seurat.object@reductions)) {
     dim_red_algs <- c(dim_red_algs, "phate")
   }
+  # set up result list, account for case when clusters are to be merged, identify covariates
+  reclust_list <- list()
+  if (merge.clusters) {
+    temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
+    old_which_clust <- which.clust
+    which.clust <- 1
+  }
   # iterate and recluster cells
   for (i in seq_along(which.clust)) {
     if (!merge.clusters) {
@@ -72,17 +75,36 @@ ReclusterCells <- function(seurat.object = NULL,
     }
     # reprocess data
     if (Seurat::DefaultAssay(temp_obj) != "integrated") {
-      if (length(regress_vars) > 0) {
-        temp_obj <- Seurat::SCTransform(temp_obj,
-                                        vars.to.regress = regress_vars,
-                                        variable.features.n = n.HVG,
-                                        seed.use = random.seed,
-                                        verbose = FALSE)
+      if (use.sct) {
+        if (length(regress_vars) > 0) {
+          temp_obj <- Seurat::SCTransform(temp_obj,
+                                          vars.to.regress = regress_vars,
+                                          variable.features.n = n.HVG,
+                                          seed.use = random.seed,
+                                          verbose = FALSE)
+        } else {
+          temp_obj <- Seurat::SCTransform(temp_obj,
+                                          variable.features.n = n.HVG,
+                                          seed.use = random.seed,
+                                          verbose = FALSE)
+        }
       } else {
-        temp_obj <- Seurat::SCTransform(temp_obj,
-                                        variable.features.n = n.HVG,
-                                        seed.use = random.seed,
+        temp_obj <- Seurat::NormalizeData(temp_obj,
+                                          normalization.method = "LogNormalize",
+                                          scale.factor = 10000,
+                                          verbose = FALSE)
+        temp_obj <- Seurat::FindVariableFeatures(temp_obj,
+                                                 selection.method = "vst",
+                                                 nfeatures = n.HVG,
+                                                 verbose = FALSE)
+        if (length(regress_vars) > 0) {
+          temp_obj <- Seurat::ScaleData(temp_obj,
+                                        vars.to.regress = regress_vars,
+                                        model.use = "negbinom",
                                         verbose = FALSE)
+        } else {
+          temp_obj <- Seurat::ScaleData(temp_obj, verbose = FALSE)
+        }
       }
     }
     temp_obj <- ReduceDimensions(temp_obj,

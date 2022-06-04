@@ -6,6 +6,7 @@
 \usage{
 PrepareData(
   seurat.object = NULL,
+  use.sct = TRUE,
   n.HVG = 4000,
   regress.mt = TRUE,
   regress.cc = TRUE,
@@ -23,6 +24,8 @@ PrepareData(
 }
 \arguments{
 \item{seurat.object}{The object containing the cells you'd like to analyze. Defaults to NULL.}
+
+\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
 
 \item{n.HVG}{The number of highly variable genes to compute. Defaults to 4000.}
 

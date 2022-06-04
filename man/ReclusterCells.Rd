@@ -6,6 +6,7 @@
 \usage{
 ReclusterCells(
   seurat.object = NULL,
+  use.sct = TRUE,
   which.clust = NULL,
   auto = FALSE,
   merge.clusters = FALSE,
@@ -21,6 +22,8 @@ ReclusterCells(
 }
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
+
+\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
 
 \item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.}
 

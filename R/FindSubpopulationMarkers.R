@@ -13,7 +13,6 @@
 #' @param logfc.thresh The log2 fold-change cutoff used when performing differential expression analysis. Defaults to 2.
 #' @param random.seed (Optional) The seed used to control stochasticity in several functions. Defaults to 629.
 #' @seealso \code{\link{FindSpecificMarkers}}
-#' @export
 #' @examples
 #' \dontrun{FindSubpopulationMarkers(seurat.object, reclust.data = reclust_results)}
 

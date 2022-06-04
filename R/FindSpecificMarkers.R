@@ -34,6 +34,7 @@ FindSpecificMarkers <- function(seurat.object = NULL,
   # check inputs
   if (is.null(seurat.object)) { stop("You forgot to provide a Seurat object!") }
   if (!ident.use %in% colnames(seurat.object@meta.data)) { stop("ident.use must exist in the object's metadata.") }
+  Idents(seurat.object) <- ident.use
   # get highly expressed genes for each cluster
   gene_means_by_clust <- Matrix::t(SeuratObject::GetAssayData(seurat.object, assay = assay.use, slot = slot.use)) %>%
                          as.data.frame() %>%

@@ -4,8 +4,9 @@
 #' @author Jack Leary
 #' @description This function prepares  single cell data for reclustering analysis. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features (% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 #' @importFrom SeuratObject as.Seurat colSums
-#' @importFrom Seurat GetAssayData VariableFeatures CellCycleScoring PercentageFeatureSet SCTransform RunPCA RunTSNE RunUMAP FindNeighbors FindClusters DimPlot
+#' @importFrom Seurat GetAssayData VariableFeatures CellCycleScoring PercentageFeatureSet SCTransform NormalizeData FindVariableFeatures ScaleData RunPCA RunTSNE RunUMAP FindNeighbors FindClusters DimPlot
 #' @param seurat.object The object containing the cells you'd like to analyze. Defaults to NULL.
+#' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.
 #' @param n.HVG The number of highly variable genes to compute. Defaults to 4000.
 #' @param regress.mt Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to TRUE.
 #' @param regress.cc Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.
@@ -29,6 +30,7 @@
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 
 PrepareData <- function(seurat.object = NULL,
+                        use.sct = TRUE,
                         n.HVG = 4000,
                         regress.mt = TRUE,
                         regress.cc = TRUE,
@@ -50,27 +52,32 @@ PrepareData <- function(seurat.object = NULL,
     seurat.object <- SeuratObject::as.Seurat(seurat.object, data = NULL)
     # add necessary metadata for normalization
     RNA_counts <- SeuratObject::colSums(x = seurat.object, slot = "counts")
-    feature_counts <- colSums(x = Seurat::GetAssayData(object = seurat.object, slot = "counts") > 0)
+    feature_counts <- colSums(x = Seurat::GetAssayData(object = seurat.object, assay = "RNA", slot = "counts") > 0)
     seurat.object@meta.data$nCount_RNA <- RNA_counts
     seurat.object@meta.data$nFeature_RNA <- feature_counts
   }
   # add cell metadata and normalize
-  if (is.null(seurat.object@assays$SCT) && length(Seurat::VariableFeatures(seurat.object)) == 0) {
-    regression_vars <- c()
+  if (regress.cc) {
     # add cell cycle scores
-    if (regress.cc) {
-      seurat.object <- Seurat::CellCycleScoring(seurat.object,
-                                                s.features = cc.genes.updated.2019$s.genes,
-                                                g2m.features = cc.genes.updated.2019$g2m.genes,
-                                                set.ident = FALSE)
-      seurat.object$CC_difference <- seurat.object$S.Score - seurat.object$G2M.Score
-      regression_vars <- c(regression_vars, "CC_difference")
-    }
+    seurat.object <- Seurat::CellCycleScoring(seurat.object,
+                                              s.features = cc.genes.updated.2019$s.genes,
+                                              g2m.features = cc.genes.updated.2019$g2m.genes,
+                                              set.ident = FALSE)
+    seurat.object$CC_difference <- seurat.object$S.Score - seurat.object$G2M.Score
+  }
+  if (regress.mt) {
     # add % mitochondrial DNA
-    if (regress.mt) {
-      seurat.object[["percent_MT"]] <- Seurat::PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # works for human & mouse
-      regression_vars <- c(regression_vars, "percent_MT")
-    }
+    seurat.object[["percent_MT"]] <- Seurat::PercentageFeatureSet(seurat.object, pattern = "^MT-|^mt-")  # works for human & mouse
+  }
+  # set up variables to regress out
+  regression_vars <- c()
+  if (regress.cc) {
+    regression_vars <- c(regression_vars, "CC_difference")
+  }
+  if (regress.mt) {
+    regression_vars <- c(regression_vars, "percent_MT")
+  }
+  if (use.sct) {
     # normalize counts
     if (length(regression_vars) > 0) {
       seurat.object <- Seurat::SCTransform(seurat.object,
@@ -84,7 +91,25 @@ PrepareData <- function(seurat.object = NULL,
                                            seed.use = random.seed,
                                            verbose = FALSE)
     }
+  } else {
+    seurat.object <- Seurat::NormalizeData(seurat.object,
+                                           normalization.method = "LogNormalize",
+                                           scale.factor = 10000,
+                                           verbose = FALSE)
+    seurat.object <- Seurat::FindVariableFeatures(seurat.object,
+                                                  selection.method = "vst",
+                                                  nfeatures = n.HVG,
+                                                  verbose = FALSE)
+    if (length(regression_vars) > 0) {
+      seurat.object <- Seurat::ScaleData(seurat.object,
+                                         vars.to.regress = regression_vars,
+                                         model.use = "negbinom",
+                                         verbose = FALSE)
+    } else {
+      seurat.object <- Seurat::ScaleData(seurat.object, verbose = FALSE)
+    }
   }
+
   # dimension reduction - PCA, t-SNE, UMAP, and/or PHATE
   if (is.null(seurat.object@reductions$pca)) {
     if (n.PC != "auto") {
@@ -96,7 +121,7 @@ PrepareData <- function(seurat.object = NULL,
     } else {
       seurat.object <- Seurat::RunPCA(seurat.object,
                                       features = Seurat::VariableFeatures(seurat.object),
-                                      npcs = 50,
+                                      npcs = 100,
                                       verbose = FALSE,
                                       seed.use = random.seed)
       n.PC <- ChoosePCs(seurat.object, cutoff = var.cutoff)
