@@ -60,8 +60,7 @@ ReclusterCells <- function(seurat.object = NULL,
   # auto-choose clusters based on silhouette scores to investigate if desired
   if (auto) {
     print("Choosing reclustering candidates automatically.")
-    scores <- ComputeSilhouetteScores(seurat.object)
-    which.clust <- which(scores < .25)
+    which.clust <- names(which(ComputeSilhouetteScores(seurat.object) < cutoff.score))
   }
 
   # set up variables to regress out
