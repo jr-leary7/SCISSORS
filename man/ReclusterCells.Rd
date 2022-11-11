@@ -29,7 +29,7 @@ ReclusterCells(
 \arguments{
 \item{seurat.object}{The \code{Seurat} object containing cells and their assigned cluster IDs.}
 
-\item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.}
+\item{which.clust}{Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Leave NULL if setting \code{auto = TRUE}. Defaults to NULL.}
 
 \item{auto}{Should the clusters on which to run SCISSORS be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.}
 
@@ -37,7 +37,7 @@ ReclusterCells(
 
 \item{use.parallel}{Should the \code{Seurat} data reprocessing & the main reclustering loop be parallelized? Defaults to TRUE.}
 
-\item{n.cores}{The number of cores to be used in parallel computation is \code{use.parallel} is TRUE. Defaults to 3.}
+\item{n.cores}{The number of cores to be used in parallel computation is \code{use.parallel = TRUE}. Defaults to 3.}
 
 \item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
 

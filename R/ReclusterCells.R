@@ -9,11 +9,11 @@
 #' @importFrom doParallel registerDoParallel
 #' @importFrom parallel makeCluster stopCluster clusterEvalQ
 #' @param seurat.object The \code{Seurat} object containing cells and their assigned cluster IDs.
-#' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Defaults to NULL.
+#' @param which.clust Which clusters should undergo subpopulation detection analysis? A user-provided list or single integer. Leave NULL if setting \code{auto = TRUE}. Defaults to NULL.
 #' @param auto Should the clusters on which to run SCISSORS be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.
 #' @param merge.clusters If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.
 #' @param use.parallel Should the \code{Seurat} data reprocessing & the main reclustering loop be parallelized? Defaults to TRUE.
-#' @param n.cores The number of cores to be used in parallel computation is \code{use.parallel} is TRUE. Defaults to 3.
+#' @param n.cores The number of cores to be used in parallel computation is \code{use.parallel = TRUE}. Defaults to 3.
 #' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.
 #' @param n.HVG How many variable genes should be detected in each subcluster? Defaults to 4000.
 #' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by \code{\link{ChoosePCs}}. Defaults to "auto".
@@ -54,13 +54,14 @@ ReclusterCells <- function(seurat.object = NULL,
                            regress.cc = FALSE,
                            random.seed = 312) {
   # check inputs
-  if (is.null(seurat.object) || is.null(which.clust)) { stop("Please provide a Seurat object and clusters to investigate to ReclusterCells().") }
+  if (is.null(seurat.object)) { stop("Please provide a Seurat object to ReclusterCells().") }
+  if (is.null(which.clust) && !auto) { stop("Please provide a vector of clusters or set auto = TRUE.") }
   if (is.integrated && !integration.ident %in% colnames(seurat.object@meta.data)) { stop("integration.ident must exist in Seurat object metadata.") }
 
   # auto-choose clusters based on silhouette scores to investigate if desired
   if (auto) {
     print("Choosing reclustering candidates automatically.")
-    which.clust <- names(which(ComputeSilhouetteScores(seurat.object) < cutoff.score))
+    which.clust <- as.integer(names(which(ComputeSilhouetteScores(seurat.object) < cutoff.score)))
   }
 
   # set up variables to regress out
@@ -87,7 +88,7 @@ ReclusterCells <- function(seurat.object = NULL,
   if (merge.clusters) {
     temp_obj <- subset(seurat.object, subset = seurat_clusters %in% which.clust)
     old_which_clust <- which.clust
-    which.clust <- 1
+    which.clust <- 1L
   }
   # iterate and recluster cells
   for (i in seq_along(which.clust)) {
