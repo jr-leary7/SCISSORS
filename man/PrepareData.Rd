@@ -8,8 +8,10 @@ PrepareData(
   seurat.object = NULL,
   use.sct = TRUE,
   n.HVG = 4000,
-  regress.mt = TRUE,
-  regress.cc = TRUE,
+  use.parallel = TRUE,
+  n.cores = 3,
+  regress.mt = FALSE,
+  regress.cc = FALSE,
   n.PC = "auto",
   var.cutoff = 0.15,
   which.dim.reduc = c("umap"),
@@ -29,9 +31,13 @@ PrepareData(
 
 \item{n.HVG}{The number of highly variable genes to compute. Defaults to 4000.}
 
-\item{regress.mt}{Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to TRUE.}
+\item{use.parallel}{Should the \code{Seurat} data reprocessing & the main reclustering loop be parallelized? Defaults to TRUE.}
 
-\item{regress.cc}{Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.}
+\item{n.cores}{The number of cores to be used in parallel computation is \code{use.parallel} is TRUE. Defaults to 3.}
+
+\item{regress.mt}{Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE}
+
+\item{regress.cc}{Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to FALSE}
 
 \item{n.PC}{The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using \code{\link{ChoosePCs}}. Defaults to "auto".}
 
@@ -43,11 +49,11 @@ PrepareData(
 
 \item{umap.lr}{(Optional) What learning rate should be used for the UMAP embedding? Defaults to 0.05.}
 
-\item{initial.resolution}{The initial resolution parameter used in the \code{\link[Seurat]{FindAllMarkers}} function. Defaults to 0.3.}
+\item{initial.resolution}{The initial resolution parameter used in the \code{\link[Seurat]{FindClusters}} function. Defaults to 0.3.}
 
 \item{nn.metric}{(Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".}
 
-\item{k.val}{(Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \eqn{k \approx \sqrt{n}}.}
+\item{k.val}{(Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph with \code{\link[Seurat]{FindNeighbors}}. Defaults to \eqn{k \approx \sqrt{n}}.}
 
 \item{do.plot}{(Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.}
 
@@ -66,7 +72,15 @@ Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph
 \seealso{
 \code{\link{ChoosePCs}}
 
-\code{\link[Seurat]{FindAllMarkers}}
+\code{\link[Seurat]{NormalizeData}}
+
+\code{\link[Seurat]{FindVariableFeatures}}
+
+\code{\link[Seurat]{SCTransform}}
+
+\code{\link[Seurat]{FindNeighbors}}
+
+\code{\link[Seurat]{FindClusters}}
 }
 \author{
 Jack Leary

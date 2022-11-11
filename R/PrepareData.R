@@ -5,23 +5,30 @@
 #' @description This function prepares  single cell data for reclustering analysis. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features (% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 #' @importFrom SeuratObject as.Seurat colSums
 #' @importFrom Seurat GetAssayData VariableFeatures CellCycleScoring PercentageFeatureSet SCTransform NormalizeData FindVariableFeatures ScaleData RunPCA RunTSNE RunUMAP FindNeighbors FindClusters DimPlot
+#' @importFrom future plan
 #' @param seurat.object The object containing the cells you'd like to analyze. Defaults to NULL.
 #' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.
 #' @param n.HVG The number of highly variable genes to compute. Defaults to 4000.
-#' @param regress.mt Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to TRUE.
-#' @param regress.cc Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to TRUE.
+#' @param use.parallel Should the \code{Seurat} data reprocessing & the main reclustering loop be parallelized? Defaults to TRUE.
+#' @param n.cores The number of cores to be used in parallel computation is \code{use.parallel} is TRUE. Defaults to 3.
+#' @param regress.mt Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE
+#' @param regress.cc Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to FALSE
 #' @param n.PC The number of PCs used as input to non-linear dimension reduction and clustering algorithms. Can be chosen by user, or set automatically using \code{\link{ChoosePCs}}. Defaults to "auto".
 #' @param var.cutoff (Optional) The proportion of variance explained cutoff to be used when n.PC is set to "auto". Defaults to .15.
 #' @param which.dim.reduc (Optional) Which non-linear dimension reduction algorithms should be used? Supports "tsne", "umap", "phate", and "all". Plots will be generated using the t-SNE embedding. Defaults to c("umap"), as most users will likely not have \code{phateR} installed.
 #' @param perplexity (Optional) What perplexity value should be used when embedding cells in t-SNE space? Defaults to 30.
 #' @param umap.lr (Optional) What learning rate should be used for the UMAP embedding? Defaults to 0.05.
-#' @param initial.resolution The initial resolution parameter used in the \code{\link[Seurat]{FindAllMarkers}} function. Defaults to 0.3.
+#' @param initial.resolution The initial resolution parameter used in the \code{\link[Seurat]{FindClusters}} function. Defaults to 0.3.
 #' @param nn.metric (Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".
-#' @param k.val (Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph. Defaults to \eqn{k \approx \sqrt{n}}.
+#' @param k.val (Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph with \code{\link[Seurat]{FindNeighbors}}. Defaults to \eqn{k \approx \sqrt{n}}.
 #' @param do.plot (Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
 #' @seealso \code{\link{ChoosePCs}}
-#' @seealso \code{\link[Seurat]{FindAllMarkers}}
+#' @seealso \code{\link[Seurat]{NormalizeData}}
+#' @seealso \code{\link[Seurat]{FindVariableFeatures}}
+#' @seealso \code{\link[Seurat]{SCTransform}}
+#' @seealso \code{\link[Seurat]{FindNeighbors}}
+#' @seealso \code{\link[Seurat]{FindClusters}}
 #' @export
 #' @examples
 #' \dontrun{PrepareData(seurat.object, n.variable.genes = 3000, n.PC = 20, do.plot = TRUE)}
@@ -32,8 +39,10 @@
 PrepareData <- function(seurat.object = NULL,
                         use.sct = TRUE,
                         n.HVG = 4000,
-                        regress.mt = TRUE,
-                        regress.cc = TRUE,
+                        use.parallel = TRUE,
+                        n.cores = 3,
+                        regress.mt = FALSE,
+                        regress.cc = FALSE,
                         n.PC = "auto",
                         var.cutoff = .15,
                         which.dim.reduc = c("umap"),
@@ -55,6 +64,10 @@ PrepareData <- function(seurat.object = NULL,
     feature_counts <- colSums(x = Seurat::GetAssayData(object = seurat.object, assay = "RNA", slot = "counts") > 0)
     seurat.object@meta.data$nCount_RNA <- RNA_counts
     seurat.object@meta.data$nFeature_RNA <- feature_counts
+  }
+  # parallelize Seurat pre-processing with future
+  if (use.parallel) {
+    future::plan("multisession", workers = n.cores)
   }
   # add cell metadata and normalize
   if (regress.cc) {
@@ -161,15 +174,18 @@ PrepareData <- function(seurat.object = NULL,
                                          k.param = k.val,
                                          annoy.metric = nn.metric,
                                          nn.method = "annoy",
-                                         verbose = FALSE)
-  seurat.object <- Seurat::FindClusters(seurat.object,
-                                        resolution = initial.resolution,
+                                         verbose = FALSE) %>%
+                   Seurat::FindClusters(resolution = initial.resolution,
                                         algorithm = 1,
                                         random.seed = random.seed,
                                         verbose = FALSE)
+  if (use.parallel) {
+    future:::ClusterRegistry("stop")
+  }
   print(sprintf("Found %s unique clusters", length(unique(seurat.object$seurat_clusters))))
   # plot results if desired
-  if (!is.null(do.plot)) print(Seurat::DimPlot(seurat.object, reduction = do.plot))
-  # return prepared object
+  if (!is.null(do.plot)) {
+    print(Seurat::DimPlot(seurat.object, reduction = do.plot))
+  }
   return(seurat.object)
 }

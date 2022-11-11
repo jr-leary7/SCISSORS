@@ -14,12 +14,12 @@
 #' \dontrun{ReduceDimensions(pbmc3k, n.PC = 10, which.algos = "umap", random.seed = 629)}
 ReduceDimensions <- function(obj = NULL,
                              n.PC = NULL,
-                             which.algos = "umap",
+                             which.algos = c("umap"),
                              random.seed = 312) {
   # check inputs
   if (is.null(obj) | is.null(n.PC)) { stop("Please provide all inputs to ReduceDimensions().") }
   which.algos <- tolower(which.algos)  # just in case
-  # reduce dimensions
+  # reduce dimensions -- start with required PCA
   if (n.PC != "auto") {
     obj <- Seurat::RunPCA(obj,
                           npcs = n.PC,
@@ -35,10 +35,16 @@ ReduceDimensions <- function(obj = NULL,
     n.PC <- ChoosePCs(obj)
   }
   if ("tsne" %in% which.algos) {
+    perp <- 30
+    if (ncol(obj) <= 100) {
+      warning("Low number of cells, reducing t-SNE perplexity parameter to 15.")
+      perp <- 15
+    }
     obj <- Seurat::RunTSNE(obj,
                            reduction = "pca",
                            dims = 1:n.PC,
                            dim.embed = 2,
+                           perplexity = perp,
                            seed.use = random.seed)
   }
   if ("umap" %in% which.algos) {

@@ -15,7 +15,9 @@ ChoosePCs <- function(seurat.obj = NULL, cutoff = .15) {
   # check inputs
   if (is.null(seurat.obj)) { stop("Please supply a Seurat object.") }
   # run function
-  total_var <- sum(matrixStats::rowVars(Seurat::GetAssayData(seurat.obj, assay = Seurat::DefaultAssay(seurat.obj), slot = "data")))
+  total_var <- sum(matrixStats::rowVars(as.matrix(Seurat::GetAssayData(seurat.obj,
+                                                                       assay = Seurat::DefaultAssay(seurat.obj),
+                                                                       slot = "data"))))
   eigenvals <- Seurat::Stdev(seurat.obj, reduction = "pca")^2
   prop_var <- eigenvals / total_var
   cum_prop_var <- cumsum(prop_var)

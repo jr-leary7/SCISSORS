@@ -9,6 +9,8 @@ ReclusterCells(
   which.clust = NULL,
   auto = FALSE,
   merge.clusters = FALSE,
+  use.parallel = TRUE,
+  n.cores = 3,
   use.sct = TRUE,
   n.HVG = 4000,
   n.PC = "auto",
@@ -21,7 +23,7 @@ ReclusterCells(
   nn.metric = "cosine",
   regress.mt = FALSE,
   regress.cc = FALSE,
-  random.seed = 629
+  random.seed = 312
 )
 }
 \arguments{
@@ -31,7 +33,11 @@ ReclusterCells(
 
 \item{auto}{Should the clusters on which to run SCISSORS be determined automatically? If so, \code{which.clust} will be chosen through silhouette score analysis. Not recommended for large datasets as the distance matrix calculation is computationally expensive. Defaults to FALSE.}
 
-\item{merge.clusters}{(Optional) If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.}
+\item{merge.clusters}{If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.}
+
+\item{use.parallel}{Should the \code{Seurat} data reprocessing & the main reclustering loop be parallelized? Defaults to TRUE.}
+
+\item{n.cores}{The number of cores to be used in parallel computation is \code{use.parallel} is TRUE. Defaults to 3.}
 
 \item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
 
@@ -53,11 +59,11 @@ ReclusterCells(
 
 \item{nn.metric}{(Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".}
 
-\item{regress.mt}{Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE.}
+\item{regress.mt}{(Optional) Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE.}
 
-\item{regress.cc}{Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to FALSE.}
+\item{regress.cc}{(Optional) Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to FALSE.}
 
-\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
+\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 312}
 }
 \description{
 This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{\link[Seurat]{SCTransform}}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
@@ -65,6 +71,7 @@ This function identifies subclusters of cell types by recalculating the \emph{n}
 \examples{
 \dontrun{ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))}
 \dontrun{ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE)}
+\dontrun{ReclusterCells(seurat.object, which.clust = list(0, 2), use.parallel = TRUE, n.cores = 6)}
 }
 \seealso{
 \code{\link{ComputeSilhouetteScores}}
