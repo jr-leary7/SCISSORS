@@ -1,14 +1,14 @@
 Package: SCISSORS
 Title: Identify cell subpopulations in single cell RNA-seq data
-Version: 1.1.0
+Version: 1.2.0
 Author: Jack Leary [aut]
 Maintainer: Jack Leary <jrleary@live.unc.edu>
-Description: This package implements a method (to be published soon) that allows users to easily identify cell subtypes and / or subpopulations in scRNA-seq data. The method is predicated on the usage of a cosine-distance based silhouette score that is calculated for each cluster and indicates goodness of fit. Several different sets of parameters are used, and the subclustering that maximizes this measure is considered optimal. 
+Description: SCISSORS allows users to easily identify cell subtypes and other subpopulations in scRNA-seq data. The method is predicated on the usage of a cosine-distance based silhouette score that is calculated for each cluster and indicates goodness of fit. Several different sets of parameters are used, and the subclustering that maximizes this measure is considered optimal. 
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.1
 Depends:
   magrittr
 Imports:
@@ -22,5 +22,9 @@ Imports:
   matrixStats, 
   dplyr, 
   ggplot2, 
-  SeuratObject
+  SeuratObject, 
+  foreach, 
+  doParallel, 
+  parallel, 
+  future
 URL: https://github.com/jr-leary7/SCISSORS

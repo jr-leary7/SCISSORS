@@ -7,7 +7,7 @@
 ReduceDimensions(
   obj = NULL,
   n.PC = NULL,
-  which.algos = "umap",
+  which.algos = c("umap"),
   random.seed = 312
 )
 }
