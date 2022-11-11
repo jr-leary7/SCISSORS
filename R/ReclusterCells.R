@@ -174,10 +174,8 @@ ReclusterCells <- function(seurat.object = NULL,
         # log-normalization (no integration)
         temp_obj <- Seurat::NormalizeData(temp_obj,
                                           normalization.method = "LogNormalize",
-                                          scale.factor = 10000,
-                                          verbose = FALSE)
-        temp_obj <- Seurat::FindVariableFeatures(temp_obj,
-                                                 selection.method = "vst",
+                                          verbose = FALSE) %>%
+                    Seurat::FindVariableFeatures(selection.method = "vst",
                                                  nfeatures = n.HVG,
                                                  verbose = FALSE)
         if (length(regression_vars) > 0) {
@@ -190,12 +188,11 @@ ReclusterCells <- function(seurat.object = NULL,
         }
       }
     }
-    if (redo.embedding) {
-      temp_obj <- ReduceDimensions(temp_obj,
-                                   n.PC = n.PC,
-                                   which.algos = dim_red_algs,
-                                   random.seed = random.seed)
-    }
+    # run PCA, & other dimension reductions if desired
+    temp_obj <- ReduceDimensions(temp_obj,
+                                 n.PC = n.PC,
+                                 which.algos = ifelse(redo.embedding, dim_red_algs, c("")),
+                                 random.seed = random.seed)
     if (use.parallel) {
       future:::ClusterRegistry("stop")
     }
@@ -211,14 +208,14 @@ ReclusterCells <- function(seurat.object = NULL,
     param_grid <- expand.grid(k.vals, resolution.vals)
     colnames(param_grid) <- c("K", "R")
     # loop over parameter values in parallel
-    sil_scores <- foreach::foreach(i = seq(nrow(param_grid)),
+    sil_scores <- foreach::foreach(j = seq(nrow(param_grid)),
                                    .combine = "c",
                                    .multicombine = ifelse(nrow(param_grid) > 1, TRUE, FALSE),
                                    .maxcombine = ifelse(nrow(param_grid) > 1, nrow(param_grid), 2),
                                    .packages = c("SCISSORS", "Seurat"),
                                    .verbose = FALSE) %dopar% {
-      k <- param_grid$K[i]
-      r <- param_grid$K[i]
+      k <- param_grid$K[j]
+      r <- param_grid$R[j]
       temp_obj <- Seurat::FindNeighbors(temp_obj,
                                         reduction = "pca",
                                         dims = 1:n.PC,
@@ -231,7 +228,7 @@ ReclusterCells <- function(seurat.object = NULL,
                                        algorithm = 1,
                                        verbose = FALSE)
       if (length(unique(levels(temp_obj$seurat_clusters))) > 1) {
-        sil_res <- ComputeSilhouetteScores(seurat.obj = temp_obj)
+        sil_res <- SCISSORS::ComputeSilhouetteScores(seurat.obj = temp_obj)
         mean_sil <- mean(sil_res)
       } else {
         # neutral placeholder value for the case when the number of identified clusters is 1
