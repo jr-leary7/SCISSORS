@@ -301,7 +301,7 @@ ReclusterCells <- function(seurat.object = NULL,
                       round(max(sil_scores), 3)))
       } else {
         print(sprintf("Reclustering cells in cluster %s using k = %s & resolution = %s; S = %s",
-                      which.clust[[1]],
+                      which.clust[[i]],
                       best_k,
                       best_res,
                       round(max(sil_scores), 3)))
