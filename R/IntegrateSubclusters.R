@@ -4,7 +4,7 @@
 #' @author Jack Leary
 #' @description This function takes a list of outputs from \code{\link{ReclusterCells}} and integrates the new subcluster identities into the original Seurat object.
 #' @importFrom  Seurat Idents DimPlot
-#' @importFrom dplyr case_when
+#' @importFrom dplyr case_when mutate with_groups
 #' @importFrom ggplot2 labs theme element_text
 #' @param original.object The original Seurat object. Defaults to NULL.
 #' @param reclust.results A list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.
@@ -14,10 +14,15 @@
 #' @examples
 #' \dontrun{IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)}
 
-IntegrateSubclusters <- function(original.object = NULL, reclust.results = NULL, do.plot = FALSE) {
+IntegrateSubclusters <- function(original.object = NULL,
+                                 reclust.results = NULL,
+                                 do.plot = FALSE) {
   # check inputs
   if (is.null(original.object) | is.null(reclust.results)) { stop("Arguments to IntegrateSubclusters() are missing.") }
-  if (class(reclust.results) != "list") { stop("reclust.results must be of class list.") }
+  if (class(reclust.results) == "Seurat") {
+    reclust.results <- list(reclust.results)
+  }
+  if (class(reclust.results) != "list") { stop("reclust.results must be a list or a single Seurat object.") }
   if (any(sapply(reclust.results, class) != "Seurat")) { stop("All elements of reclust.results must be Seurat objects.") }
   # identify new subclusters
   max_clust <- max(as.numeric(original.object$seurat_clusters) - 1)
@@ -28,13 +33,20 @@ IntegrateSubclusters <- function(original.object = NULL, reclust.results = NULL,
       next
     } else {
       meta_df <- reclust.results[[i]]@meta.data
+      original_meta <- original.object@meta.data
       unique_subclust <- sort(unique(as.numeric(meta_df$seurat_clusters)) - 1)
       for (j in seq_along(unique_subclust)) {
         subclust_df <- data.frame(Cell = rownames(meta_df[meta_df$seurat_clusters == unique_subclust[j], ]),
-                                  ClustID = max_clust + 1)
+                                  ClustID = max_clust + 1,
+                                  PreviousClust = as.numeric(original_meta[rownames(original_meta) %in% rownames(meta_df[meta_df$seurat_clusters == unique_subclust[j], ]), ]$seurat_clusters[1]) - 1,
+                                  Reclustering = i)
         cell_df <- rbind(cell_df, subclust_df)
         max_clust <- max_clust + 1
       }
+      cell_df <- dplyr::with_groups(cell_df,
+                                    c(Reclustering),
+                                    dplyr::mutate,
+                                    ClustID = dplyr::case_when(ClustID == max(ClustID) ~ PreviousClust, TRUE ~ ClustID))
     }
   }
   # integrate new subclusters
@@ -46,11 +58,7 @@ IntegrateSubclusters <- function(original.object = NULL, reclust.results = NULL,
     original.object@meta.data$seurat_clusters <- dplyr::case_when(rownames(original.object@meta.data) %in% clust_cells ~ new_clusts[k],
                                                                   TRUE ~ original.object@meta.data$seurat_clusters)
   }
-  clusts_to_fix <- sort(unique(original.object$seurat_clusters))
-  for (l in seq_along(clusts_to_fix)) {
-    original.object@meta.data[original.object@meta.data$seurat_clusters == clusts_to_fix[l], ]$seurat_clusters <- l
-  }
-  original.object@meta.data$seurat_clusters <- as.factor(original.object@meta.data$seurat_clusters - 1)
+  original.object@meta.data$seurat_clusters <- as.factor(original.object@meta.data$seurat_clusters)
   Seurat::Idents(original.object) <- "seurat_clusters"
   # plot results if desired
   if (do.plot) {
