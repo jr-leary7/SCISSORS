@@ -2,7 +2,7 @@
 % Please edit documentation in R/ReduceDimensions.R
 \name{ReduceDimensions}
 \alias{ReduceDimensions}
-\title{A function to run PCA / t-SNE / UMAP / PHATE.}
+\title{Run PCA / t-SNE / UMAP / PHATE.}
 \usage{
 ReduceDimensions(
   obj = NULL,
@@ -19,6 +19,9 @@ ReduceDimensions(
 \item{which.algos}{Which nonlinear dimension algorithms can be used? Should be some combination of "tsne", "umap", and "phate". Defaults to "umap".}
 
 \item{random.seed}{The random seed to use. Defaults to 312.}
+}
+\value{
+A \code{Seurat} object.
 }
 \description{
 This function simplifies the running of various dimension reduction algorithms. It exists mostly to make the body of \code{\link{ReclusterCells}} easier to read.

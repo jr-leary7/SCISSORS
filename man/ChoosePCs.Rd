@@ -2,7 +2,7 @@
 % Please edit documentation in R/ChoosePCs.R
 \name{ChoosePCs}
 \alias{ChoosePCs}
-\title{A function to automatically choose the number of principal components.}
+\title{Automatically choose the number of principal components.}
 \usage{
 ChoosePCs(seurat.obj = NULL, cutoff = 0.15)
 }
@@ -10,6 +10,9 @@ ChoosePCs(seurat.obj = NULL, cutoff = 0.15)
 \item{seurat.obj}{The object containing our single cell counts and principal component matrix. Defaults to NULL.}
 
 \item{cutoff}{The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to 15\%.}
+}
+\value{
+An integer specifying the number of PCs to use.
 }
 \description{
 This function uses the eigenvalues of the principal component matrix to determine the best number of PCs. The default can be chosen automatically, or given by the user. It is intended to be run after \code{\link[Seurat]{RunPCA}}.

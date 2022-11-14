@@ -2,7 +2,7 @@
 % Please edit documentation in R/FindFilteredMarkers.R
 \name{FindFilteredMarkers}
 \alias{FindFilteredMarkers}
-\title{This function finds marker genes for a given set of cells, and filters out highly expressed genes from cells in a reference Seurat object.}
+\title{Find marker genes for a given set of cells, and filter out highly expressed genes from cells in a reference Seurat object.}
 \usage{
 FindFilteredMarkers(
   obj.1 = NULL,
@@ -34,6 +34,9 @@ FindFilteredMarkers(
 \item{perc.cutoff}{The percentile cutoff used to find highly expressed genes in other cluster. Defaults to 0.9.}
 
 \item{extra.cell.filter}{An optional list of extra cells to filter out of \code{obj.2} other than the cells in \code{obj.1}. Defaults to NULL.}
+}
+\value{
+A data.frame of markers for each cluster in \code{obj.1} filtered by genes considered highly expressed in clusters in \code{obj.2}.
 }
 \description{
 Used to filter candidate marker genes for a subcluster Seurat object. Prevents markers from being chosen if they are highly expressed in other celltypes.

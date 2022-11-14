@@ -9,6 +9,7 @@
 #' @param seurat.obj The input object for which silhouette score will be computed. Defaults to NULL.
 #' @param dist.metric Which distance metric should be used? Defaults to "cosine", but any of the metrics used by \code{\link[stats]{dist}} will work.
 #' @param avg Should the average scores for each cluster be returned, or should a dataframe of every observation's cluster identity and score be returned? Defaults to TRUE.
+#' @return If \code{avg = TRUE}, returns the average silhouette score per cluster, else returns a cell-level dataframe of the cluster identities & silhouette scores.
 #' @seealso \code{\link{CosineDist}}.
 #' @export
 #' @examples

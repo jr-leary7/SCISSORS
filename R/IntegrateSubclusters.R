@@ -1,4 +1,4 @@
-#' A function to integrate subcluster identities into the original Seurat object.
+#' Integrate estimated subcluster identities into the original Seurat object.
 #'
 #' @name IntegrateSubclusters
 #' @author Jack Leary
@@ -9,6 +9,7 @@
 #' @param original.object The original Seurat object. Defaults to NULL.
 #' @param reclust.results A list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.
 #' @param do.plot Should the results be plotted on a dimension reduction plot? Defaults to FALSE.
+#' @return A \code{Seurat} object.
 #' @seealso \code{\link{ReclusterCells}}
 #' @export
 #' @examples

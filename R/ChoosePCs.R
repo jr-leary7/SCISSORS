@@ -1,4 +1,4 @@
-#' A function to automatically choose the number of principal components.
+#' Automatically choose the number of principal components.
 #'
 #' @name ChoosePCs
 #' @author Jack Leary
@@ -7,6 +7,7 @@
 #' @importFrom Seurat GetAssayData DefaultAssay Stdev
 #' @param seurat.obj The object containing our single cell counts and principal component matrix. Defaults to NULL.
 #' @param cutoff The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to 15%.
+#' @return An integer specifying the number of PCs to use.
 #' @export
 #' @examples
 #' \dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .3)}

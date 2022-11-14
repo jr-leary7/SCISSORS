@@ -27,7 +27,9 @@
 #' @param regress.mt (Optional) Should the percentage of mitochondrial DNA be computed and regressed out? Works for mouse / human gene names. Defaults to FALSE.
 #' @param regress.cc (Optional) Should cell cycle scores be computed & regressed out? NOTE: uses human cell cycle genes. Defaults to FALSE.
 #' @param random.seed The seed used to control stochasticity in several functions. Defaults to 312
+#' @return If the number of clusters to be re-clustered is 1, returns the re-clustered \code{Seurat} object, else returns a list of re-clustered \code{Seurat} objects.
 #' @seealso \code{\link{ComputeSilhouetteScores}}
+#' @seealso \code{\link{IntegrateSubclusters}}
 #' @export
 #' @examples
 #' \dontrun{ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))}
@@ -98,7 +100,8 @@ ReclusterCells <- function(seurat.object = NULL,
 
     # parallelize Seurat pre-processing with future
     if (use.parallel) {
-      future::plan("multisession", workers = n.cores)
+      cl <- parallel::makeCluster(n.cores)
+      future::plan("cluster", workers = cl)
     }
 
     # reprocess data, accounting for integration if necessary (otherwise batch effects are usually pretty large & will define clustering)
@@ -194,7 +197,7 @@ ReclusterCells <- function(seurat.object = NULL,
                                  which.algos = ifelse(redo.embedding, dim_red_algs, c("")),
                                  random.seed = random.seed)
     if (use.parallel) {
-      future:::ClusterRegistry("stop")
+      parallel::stopCluster(cl)
     }
     # silhouette score various clusterings to find best results
     if (use.parallel) {
@@ -202,7 +205,6 @@ ReclusterCells <- function(seurat.object = NULL,
       doParallel::registerDoParallel(cl)
     } else {
       cl <- foreach::registerDoSEQ()
-      set.seed(random.seed)
     }
 
     param_grid <- expand.grid(k.vals, resolution.vals)

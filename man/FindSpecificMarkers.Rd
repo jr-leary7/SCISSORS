@@ -2,7 +2,7 @@
 % Please edit documentation in R/FindSpecificMarkers.R
 \name{FindSpecificMarkers}
 \alias{FindSpecificMarkers}
-\title{This functions finds specific marker genes for a all clusters in a \code{Seurat} object.}
+\title{Find highly specific marker genes for a all clusters in a \code{Seurat} object.}
 \usage{
 FindSpecificMarkers(
   seurat.object = NULL,
@@ -32,11 +32,14 @@ FindSpecificMarkers(
 
 \item{fdr.cutoff}{The cutoff used to remove DE genes with non-significant adjusted \emph{p}-values. Defaults to 0.05.}
 }
+\value{
+A data.frame of markers for each cluster filtered by genes considered highly expressed in other clusters.
+}
 \description{
 This function finds marker genes for all clusters, and then filters those markers on a per-cluster basis against the most highly expressed genes in other clusters.
 }
 \examples{
-\dontrun{FindSpecificMarkers(seurat_object, method = "wilcox")}
+\dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", ident.use = "celltype")}
 \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", assay.use = "SCT", slot.use = "data")}
 }
 \seealso{
