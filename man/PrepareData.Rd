@@ -21,7 +21,7 @@ PrepareData(
   nn.metric = "cosine",
   k.val = NULL,
   do.plot = NULL,
-  random.seed = 629
+  random.seed = 312
 )
 }
 \arguments{
@@ -57,14 +57,17 @@ PrepareData(
 
 \item{do.plot}{(Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.}
 
-\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 629.}
+\item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 312.}
+}
+\value{
+A \code{Seurat} object.
 }
 \description{
 This function prepares  single cell data for reclustering analysis. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features (\% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 }
 \examples{
 \dontrun{PrepareData(seurat.object, n.variable.genes = 3000, n.PC = 20, do.plot = TRUE)}
-\dontrun{PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 100)}
+\dontrun{PrepareData(seurat.object, use.parallel = TRUE, n.cores = 6, initial.resolution = .5, k.val = 25)}
 }
 \references{
 Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph{Cell}.

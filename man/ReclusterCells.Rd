@@ -65,6 +65,9 @@ ReclusterCells(
 
 \item{random.seed}{The seed used to control stochasticity in several functions. Defaults to 312}
 }
+\value{
+If the number of clusters to be re-clustered is 1, returns the re-clustered \code{Seurat} object, else returns a list of re-clustered \code{Seurat} objects.
+}
 \description{
 This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{\link[Seurat]{SCTransform}}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
 }
@@ -75,6 +78,8 @@ This function identifies subclusters of cell types by recalculating the \emph{n}
 }
 \seealso{
 \code{\link{ComputeSilhouetteScores}}
+
+\code{\link{IntegrateSubclusters}}
 }
 \author{
 Jack Leary

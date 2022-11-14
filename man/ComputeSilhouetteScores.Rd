@@ -13,6 +13,9 @@ ComputeSilhouetteScores(seurat.obj = NULL, dist.metric = "cosine", avg = TRUE)
 
 \item{avg}{Should the average scores for each cluster be returned, or should a dataframe of every observation's cluster identity and score be returned? Defaults to TRUE.}
 }
+\value{
+If \code{avg = TRUE}, returns the average silhouette score per cluster, else returns a cell-level dataframe of the cluster identities & silhouette scores.
+}
 \description{
 This function will compute the silhouette score for each cluster identified by \code{Seurat}'s Louvain modularity optimization community detection algorithm.
 }

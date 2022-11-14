@@ -1,4 +1,4 @@
-#' This functions finds specific marker genes for a all clusters in a \code{Seurat} object.
+#' Find highly specific marker genes for a all clusters in a \code{Seurat} object.
 #'
 #' @name FindSpecificMarkers
 #' @author Jack Leary
@@ -17,10 +17,11 @@
 #' @param perc.cutoff The percentile cutoff used to find highly expressed genes in other cluster. Defaults to 0.9.
 #' @param log2fc.cutoff The log2FC cutoff used, in part, to determine whether a gene is differentially expressed. Defaults to 0.25.
 #' @param fdr.cutoff The cutoff used to remove DE genes with non-significant adjusted \emph{p}-values. Defaults to 0.05.
+#' @return A data.frame of markers for each cluster filtered by genes considered highly expressed in other clusters.
 #' @seealso \code{\link[Seurat]{FindAllMarkers}}
 #' @export
 #' @examples
-#' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox")}
+#' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", ident.use = "celltype")}
 #' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", assay.use = "SCT", slot.use = "data")}
 
 FindSpecificMarkers <- function(seurat.object = NULL,
@@ -75,8 +76,11 @@ FindSpecificMarkers <- function(seurat.object = NULL,
                                dplyr::filter(Cluster != i) %>%
                                dplyr::pull(High_Exp_Genes) %>%
                                unique()
-    sub_df <- marker_genes %>% dplyr::filter(cluster == i & !(gene %in% outgroup_high_exp_genes))
-    specific_marker_genes <- specific_marker_genes %>% dplyr::bind_rows(sub_df)
+    sub_df <- dplyr::filter(marker_genes,
+                            cluster == i,
+                            !(gene %in% outgroup_high_exp_genes))
+    specific_marker_genes <- specific_marker_genes %>%
+                             dplyr::bind_rows(sub_df)
   }
   return(specific_marker_genes)
 }

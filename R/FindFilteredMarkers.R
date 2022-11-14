@@ -1,4 +1,4 @@
-#' This function finds marker genes for a given set of cells, and filters out highly expressed genes from cells in a reference Seurat object.
+#' Find marker genes for a given set of cells, and filter out highly expressed genes from cells in a reference Seurat object.
 #'
 #' @name FindFilteredMarkers
 #' @author Jack Leary
@@ -16,6 +16,7 @@
 #' @param log2fc.cutoff The log2FC cutoff used, in part, to determine whether a gene is differentially expressed. Defaults to 0.25.
 #' @param perc.cutoff The percentile cutoff used to find highly expressed genes in other cluster. Defaults to 0.9.
 #' @param extra.cell.filter An optional list of extra cells to filter out of \code{obj.2} other than the cells in \code{obj.1}. Defaults to NULL.
+#' @return A data.frame of markers for each cluster in \code{obj.1} filtered by genes considered highly expressed in clusters in \code{obj.2}.
 #' @seealso \code{\link{FindSpecificMarkers}}
 #' @seealso \code{\link[Seurat]{FindAllMarkers}}
 #' @export

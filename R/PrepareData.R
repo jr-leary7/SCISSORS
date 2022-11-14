@@ -22,7 +22,8 @@
 #' @param nn.metric (Optional) The distance metric to be used in computing the SNN graph. Defaults to "cosine".
 #' @param k.val (Optional) The nearest-neighbors parameter \emph{k} to be used when creating the shared nearest-neighbor graph with \code{\link[Seurat]{FindNeighbors}}. Defaults to \eqn{k \approx \sqrt{n}}.
 #' @param do.plot (Optional) The dimension reduction view you'd like plotted. Should be one of "tsne", "umap", "phate", or "pca". Defaults to NULL.
-#' @param random.seed The seed used to control stochasticity in several functions. Defaults to 629.
+#' @param random.seed The seed used to control stochasticity in several functions. Defaults to 312.
+#' @return A \code{Seurat} object.
 #' @seealso \code{\link{ChoosePCs}}
 #' @seealso \code{\link[Seurat]{NormalizeData}}
 #' @seealso \code{\link[Seurat]{FindVariableFeatures}}
@@ -32,7 +33,7 @@
 #' @export
 #' @examples
 #' \dontrun{PrepareData(seurat.object, n.variable.genes = 3000, n.PC = 20, do.plot = TRUE)}
-#' \dontrun{PrepareData(seurat.object, initial.resolution = .5, k.val = 25, random.seed = 100)}
+#' \dontrun{PrepareData(seurat.object, use.parallel = TRUE, n.cores = 6, initial.resolution = .5, k.val = 25)}
 #' @references
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 
@@ -52,7 +53,7 @@ PrepareData <- function(seurat.object = NULL,
                         nn.metric = "cosine",
                         k.val = NULL,
                         do.plot = NULL,
-                        random.seed = 629) {
+                        random.seed = 312) {
   # check inputs & assays present in Seurat object
   if (is.null(seurat.object)) { stop("You forgot to supply a Seurat object!") }
   # convert SingleCellExperiment object to Seurat if necessary

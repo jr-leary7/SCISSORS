@@ -1,4 +1,4 @@
-#' A function to perform nonlinear dimension reduction using PHATE.
+#' Perform nonlinear dimension reduction using PHATE.
 #'
 #' @name RunPHATE
 #' @author Jack Leary
@@ -6,11 +6,12 @@
 #' @importFrom phateR phate
 #' @importFrom Seurat Embeddings CreateDimReducObject
 #' @param object The Seurat object you'd like to run PHATE on. Defaults to NULL.
-#' @param n.components How dimensions should the data be reduced to? Defaults to 2.
+#' @param n.components How dimensions should the data be reduced to? Defaults to \emph{p} = 2.
 #' @param n.PC How many PCs should be used as input to the algorithm? Defaults to NULL.
 #' @param mds.method The solver used for MDS. Defaults to SMACOF, but SGD can be used to speed up the algorithm.
 #' @param dist.metric The distance metric to use for KNN and MDS. Defaults to the cosine distance.
-#' @param random.seed The random seed used to control stochasticity. Defaults to 629.
+#' @param random.seed The random seed used to control stochasticity. Defaults to 312.
+#' @return A \code{Seurat} object with an added dimension reduction object for the \emph{p}-dimensional PHATE embedding.
 #' @seealso \code{\link[phateR]{phate}}
 #' @export
 #' @examples
@@ -21,7 +22,7 @@ RunPHATE <- function(object = NULL,
                      n.PC = NULL,
                      mds.method = "smacof",
                      dist.metric = "cosine",
-                     random.seed = 629) {
+                     random.seed = 312) {
   # check inputs
   if (is.null(object) | is.null(n.PC)) { stop("Please provide a Seurat object and a number of PCs to use to RunPHATE().") }
   # run PHATE on PCs

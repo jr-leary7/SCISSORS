@@ -2,7 +2,7 @@
 % Please edit documentation in R/IntegrateSubclusters.R
 \name{IntegrateSubclusters}
 \alias{IntegrateSubclusters}
-\title{A function to integrate subcluster identities into the original Seurat object.}
+\title{Integrate estimated subcluster identities into the original Seurat object.}
 \usage{
 IntegrateSubclusters(
   original.object = NULL,
@@ -16,6 +16,9 @@ IntegrateSubclusters(
 \item{reclust.results}{A list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.}
 
 \item{do.plot}{Should the results be plotted on a dimension reduction plot? Defaults to FALSE.}
+}
+\value{
+A \code{Seurat} object.
 }
 \description{
 This function takes a list of outputs from \code{\link{ReclusterCells}} and integrates the new subcluster identities into the original Seurat object.

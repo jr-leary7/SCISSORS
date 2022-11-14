@@ -1,4 +1,4 @@
-#' A function to run PCA / t-SNE / UMAP / PHATE.
+#' Run PCA / t-SNE / UMAP / PHATE.
 #'
 #' @name ReduceDimensions
 #' @author Jack Leary
@@ -8,6 +8,7 @@
 #' @param n.PC How many principal components should be used? Can be an integer or "auto". Defaults to NULL.
 #' @param which.algos Which nonlinear dimension algorithms can be used? Should be some combination of "tsne", "umap", and "phate". Defaults to "umap".
 #' @param random.seed The random seed to use. Defaults to 312.
+#' @return A \code{Seurat} object.
 #' @seealso \code{\link{RunPHATE}}
 #' @export
 #' @examples
