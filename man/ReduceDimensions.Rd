@@ -6,7 +6,7 @@
 \usage{
 ReduceDimensions(
   obj = NULL,
-  n.PC = NULL,
+  n.PC = "auto",
   which.algos = c("umap"),
   random.seed = 312
 )
@@ -14,7 +14,7 @@ ReduceDimensions(
 \arguments{
 \item{obj}{The Seurat object to run dimension reduction algorithms on. Defaults to NULL.}
 
-\item{n.PC}{How many principal components should be used? Can be an integer or "auto". Defaults to NULL.}
+\item{n.PC}{How many principal components should be used? Can be an integer or "auto". Defaults to "auto".}
 
 \item{which.algos}{Which nonlinear dimension algorithms can be used? Should be some combination of "tsne", "umap", and "phate". Defaults to "umap".}
 
@@ -27,7 +27,11 @@ A \code{Seurat} object.
 This function simplifies the running of various dimension reduction algorithms. It exists mostly to make the body of \code{\link{ReclusterCells}} easier to read.
 }
 \examples{
-\dontrun{ReduceDimensions(pbmc3k, n.PC = 10, which.algos = "umap", random.seed = 629)}
+\dontrun{
+ReduceDimensions(pbmc,
+                 n.PC = 10,
+                 which.algos = c("umap", "phate"))
+}
 }
 \seealso{
 \code{\link{RunPHATE}}

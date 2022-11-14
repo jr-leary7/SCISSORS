@@ -13,9 +13,16 @@
 #' @seealso \code{\link{CosineDist}}.
 #' @export
 #' @examples
-#' \dontrun{ComputeSilhouetteScores(seurat.obj)}
+#' \dontrun{
+#' ComputeSilhouetteScores(seurat.obj)
+#' ComputeSilhouetteScores(seurat.obj,
+#'                         dist.metric = "euclidean",
+#'                         avg = FALSE)
+#' }
 
-ComputeSilhouetteScores <- function(seurat.obj = NULL, dist.metric = "cosine", avg = TRUE) {
+ComputeSilhouetteScores <- function(seurat.obj = NULL,
+                                    dist.metric = "cosine",
+                                    avg = TRUE) {
   # check inputs
   if (is.null(seurat.obj)) { stop("You didn't supply a Seurat object to ComputeSilhouetteScores().") }
   # run function

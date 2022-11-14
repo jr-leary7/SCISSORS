@@ -16,7 +16,7 @@ RunPHATE(
 \arguments{
 \item{object}{The Seurat object you'd like to run PHATE on. Defaults to NULL.}
 
-\item{n.components}{How dimensions should the data be reduced to? Defaults to \emph{p} = 2.}
+\item{n.components}{How dimensions should the data be reduced to? Defaults to \eqn{p = 2}.}
 
 \item{n.PC}{How many PCs should be used as input to the algorithm? Defaults to NULL.}
 
@@ -33,7 +33,15 @@ A \code{Seurat} object with an added dimension reduction object for the \emph{p}
 This function wraps the PHATE dimension reduction algorithm in the typical Seurat syntax.
 }
 \examples{
-\dontrun{RunPhate(object = pbmc3k, n.components = 2, n.PC = 10)}
+\dontrun{
+RunPhate(object = pbmc,
+         n.components = 2,
+         n.PC = 10)
+RunPhate(object = pbmc,
+         n.components = 5,
+         n.PC = 30,
+         dist.metric = "euclidean")
+}
 }
 \seealso{
 \code{\link[phateR]{phate}}

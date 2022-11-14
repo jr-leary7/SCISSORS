@@ -66,8 +66,17 @@ A \code{Seurat} object.
 This function prepares  single cell data for reclustering analysis. The input is a \code{Seurat} object in any stage of pre-processing, or even a \code{SingleCellExperiment} object that will be converted to \code{Seurat} format. The function checks which metadata features (\% mitochondrial DNA, cell cycle scores) and assays are present (normalized counts, PCA & t-SNE embeddings), then runs an initial graph-based clustering.
 }
 \examples{
-\dontrun{PrepareData(seurat.object, n.variable.genes = 3000, n.PC = 20, do.plot = TRUE)}
-\dontrun{PrepareData(seurat.object, use.parallel = TRUE, n.cores = 6, initial.resolution = .5, k.val = 25)}
+\dontrun{
+PrepareData(seurat.object,
+            n.variable.genes = 3000,
+            n.PC = 20,
+            do.plot = TRUE)
+PrepareData(seurat.object,
+            use.parallel = TRUE,
+            n.cores = 6,
+            initial.resolution = .5,
+            k.val = 25)
+}
 }
 \references{
 Stuart \emph{et al} (2019). Comprehensive integration of single-cell data. \emph{Cell}.

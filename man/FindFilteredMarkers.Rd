@@ -42,7 +42,18 @@ A data.frame of markers for each cluster in \code{obj.1} filtered by genes consi
 Used to filter candidate marker genes for a subcluster Seurat object. Prevents markers from being chosen if they are highly expressed in other celltypes.
 }
 \examples{
-\dontrun{filtered_markers <- FindFilteredMarkers(obj.1 = subclust_obj, obj.2 = full_obj, ident.1 = "label", ident.2 = "seurat_clusters")}
+\dontrun{
+FindFilteredMarkers(obj.1 = subclust_obj,
+                    obj.2 = full_obj,
+                    ident.1 = "label",
+                    ident.2 = "seurat_clusters")
+FindFilteredMarkers(obj.1 = subclust_obj,
+                    obj.2 = full_obj,
+                    de.method = "t",
+                    fdr.cutoff = 0.01,
+                    log2fc.cutoff = 1,
+                    perc.cutoff = 0.95)
+}
 }
 \seealso{
 \code{\link{FindSpecificMarkers}}

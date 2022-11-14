@@ -8,7 +8,9 @@
 #' @return A function specifying a minimalist \code{ggplot2} theme.
 #' @export
 #' @examples
-#' \dontrun{DimPlot(pbmc, reduction = "umap") + theme_yehlab()}
+#' \dontrun{
+#' DimPlot(pbmc) + theme_yehlab()
+#' }
 
 theme_yehlab <- function() {
   ggplot2::theme(legend.position = "bottom",

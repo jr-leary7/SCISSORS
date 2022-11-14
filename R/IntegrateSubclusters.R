@@ -7,13 +7,15 @@
 #' @importFrom dplyr case_when mutate with_groups
 #' @importFrom ggplot2 labs theme element_text
 #' @param original.object The original Seurat object. Defaults to NULL.
-#' @param reclust.results A list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.
+#' @param reclust.results Either an individual \code{Seurat} object or a list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.
 #' @param do.plot Should the results be plotted on a dimension reduction plot? Defaults to FALSE.
 #' @return A \code{Seurat} object.
 #' @seealso \code{\link{ReclusterCells}}
 #' @export
 #' @examples
-#' \dontrun{IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)}
+#' \dontrun{
+#' IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)
+#' }
 
 IntegrateSubclusters <- function(original.object = NULL,
                                  reclust.results = NULL,

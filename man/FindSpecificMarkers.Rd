@@ -2,7 +2,7 @@
 % Please edit documentation in R/FindSpecificMarkers.R
 \name{FindSpecificMarkers}
 \alias{FindSpecificMarkers}
-\title{Find highly specific marker genes for a all clusters in a \code{Seurat} object.}
+\title{Find highly specific marker genes for all clusters in a \code{Seurat} object.}
 \usage{
 FindSpecificMarkers(
   seurat.object = NULL,
@@ -39,8 +39,15 @@ A data.frame of markers for each cluster filtered by genes considered highly exp
 This function finds marker genes for all clusters, and then filters those markers on a per-cluster basis against the most highly expressed genes in other clusters.
 }
 \examples{
-\dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", ident.use = "celltype")}
-\dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", assay.use = "SCT", slot.use = "data")}
+\dontrun{
+FindSpecificMarkers(seurat_object,
+                    method = "wilcox",
+                    ident.use = "celltype")
+FindSpecificMarkers(seurat_object,
+                    method = "wilcox",
+                    assay.use = "SCT",
+                    slot.use = "data")
+}
 }
 \seealso{
 \code{\link[Seurat]{FindAllMarkers}}

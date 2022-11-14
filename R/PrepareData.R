@@ -32,8 +32,17 @@
 #' @seealso \code{\link[Seurat]{FindClusters}}
 #' @export
 #' @examples
-#' \dontrun{PrepareData(seurat.object, n.variable.genes = 3000, n.PC = 20, do.plot = TRUE)}
-#' \dontrun{PrepareData(seurat.object, use.parallel = TRUE, n.cores = 6, initial.resolution = .5, k.val = 25)}
+#' \dontrun{
+#' PrepareData(seurat.object,
+#'             n.variable.genes = 3000,
+#'             n.PC = 20,
+#'             do.plot = TRUE)
+#' PrepareData(seurat.object,
+#'             use.parallel = TRUE,
+#'             n.cores = 6,
+#'             initial.resolution = .5,
+#'             k.val = 25)
+#' }
 #' @references
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 

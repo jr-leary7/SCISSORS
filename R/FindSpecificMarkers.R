@@ -1,4 +1,4 @@
-#' Find highly specific marker genes for a all clusters in a \code{Seurat} object.
+#' Find highly specific marker genes for all clusters in a \code{Seurat} object.
 #'
 #' @name FindSpecificMarkers
 #' @author Jack Leary
@@ -21,8 +21,15 @@
 #' @seealso \code{\link[Seurat]{FindAllMarkers}}
 #' @export
 #' @examples
-#' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", ident.use = "celltype")}
-#' \dontrun{FindSpecificMarkers(seurat_object, method = "wilcox", assay.use = "SCT", slot.use = "data")}
+#' \dontrun{
+#' FindSpecificMarkers(seurat_object,
+#'                     method = "wilcox",
+#'                     ident.use = "celltype")
+#' FindSpecificMarkers(seurat_object,
+#'                     method = "wilcox",
+#'                     assay.use = "SCT",
+#'                     slot.use = "data")
+#' }
 
 FindSpecificMarkers <- function(seurat.object = NULL,
                                 assay.use = "RNA",

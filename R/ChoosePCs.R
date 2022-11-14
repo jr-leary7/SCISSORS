@@ -10,7 +10,9 @@
 #' @return An integer specifying the number of PCs to use.
 #' @export
 #' @examples
-#' \dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .3)}
+#' \dontrun{
+#' ChoosePCs(seurat.obj = pbmc, cutoff = .3)
+#' }
 
 ChoosePCs <- function(seurat.obj = NULL, cutoff = .15) {
   # check inputs

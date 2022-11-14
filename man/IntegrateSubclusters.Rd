@@ -13,7 +13,7 @@ IntegrateSubclusters(
 \arguments{
 \item{original.object}{The original Seurat object. Defaults to NULL.}
 
-\item{reclust.results}{A list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.}
+\item{reclust.results}{Either an individual \code{Seurat} object or a list of reclustering results as output from \code{\link{ReclusterCells}}. Defaults to NULL.}
 
 \item{do.plot}{Should the results be plotted on a dimension reduction plot? Defaults to FALSE.}
 }
@@ -24,7 +24,9 @@ A \code{Seurat} object.
 This function takes a list of outputs from \code{\link{ReclusterCells}} and integrates the new subcluster identities into the original Seurat object.
 }
 \examples{
-\dontrun{IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)}
+\dontrun{
+IntegrateSubclusters(original.object = pbmc, reclust.results = my_subclusts)
+}
 }
 \seealso{
 \code{\link{ReclusterCells}}
