@@ -14,7 +14,7 @@
 #' @param merge.clusters If multiple clusters are specified, should the clusters be grouped as one before running SCISSORS? Defaults to FALSE.
 #' @param use.parallel Should the \code{Seurat} data reprocessing & the main reclustering loop be parallelized? Defaults to TRUE.
 #' @param n.cores The number of cores to be used in parallel computation is \code{use.parallel = TRUE}. Defaults to 3.
-#' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.
+#' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to FALSE, which equates to using typical log1p-normalization.
 #' @param n.HVG How many variable genes should be detected in each subcluster? Defaults to 4000.
 #' @param n.PC How many PCs should be used as input to non-linear to non-linear dimension reduction and clustering algorithms. Can be provided by the user, or set automatically by \code{\link{ChoosePCs}}. Defaults to "auto".
 #' @param redo.embedding (Optional) Should a cluster-specific dimension reduction embeddings be generated? Sometimes subpopulations appear mixed together on the original coordinates, but separate clearly when re-embedded. Defaults to TRUE.
@@ -32,9 +32,24 @@
 #' @seealso \code{\link{IntegrateSubclusters}}
 #' @export
 #' @examples
-#' \dontrun{ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))}
-#' \dontrun{ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE)}
-#' \dontrun{ReclusterCells(seurat.object, which.clust = list(0, 2), use.parallel = TRUE, n.cores = 6)}
+#' \dontrun{
+#' ReclusterCells(seurat.object,
+#'                which.clust = 5,
+#'                resolution.vals = c(.1, .2, .5),
+#'                k.vals = c(10, 20, 30))
+#' ReclusterCells(seurat.object,
+#'                which.clust = c(0, 3, 5),
+#'                merge.clusters = TRUE,
+#'                n.HVG = 2000,
+#'                n.PC = 20,
+#'                cutoff.score = 0.1)
+#' ReclusterCells(seurat.object,
+#'                auto = TRUE,
+#'                use.parallel = TRUE,
+#'                n.cores = 6,
+#'                is.integrated = TRUE,
+#'                integration.ident = "samplename")
+#' }
 
 ReclusterCells <- function(seurat.object = NULL,
                            which.clust = NULL,
@@ -42,7 +57,7 @@ ReclusterCells <- function(seurat.object = NULL,
                            merge.clusters = FALSE,
                            use.parallel = TRUE,
                            n.cores = 3,
-                           use.sct = TRUE,
+                           use.sct = FALSE,
                            n.HVG = 4000,
                            n.PC = "auto",
                            redo.embedding = TRUE,

@@ -20,7 +20,12 @@ If \code{avg = TRUE}, returns the average silhouette score per cluster, else ret
 This function will compute the silhouette score for each cluster identified by \code{Seurat}'s Louvain modularity optimization community detection algorithm.
 }
 \examples{
-\dontrun{ComputeSilhouetteScores(seurat.obj)}
+\dontrun{
+ComputeSilhouetteScores(seurat.obj)
+ComputeSilhouetteScores(seurat.obj,
+                        dist.metric = "euclidean",
+                        avg = FALSE)
+}
 }
 \seealso{
 \code{\link{CosineDist}}.

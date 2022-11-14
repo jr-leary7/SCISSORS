@@ -14,7 +14,9 @@ This is the Yeh Lab's default \code{ggplot2} theme for dimension reduction scatt
 Like all \code{ggplot2}-based themes, you can add more themes to it, or override them if you wish.
 }
 \examples{
-\dontrun{DimPlot(pbmc, reduction = "umap") + theme_yehlab()}
+\dontrun{
+DimPlot(pbmc) + theme_yehlab()
+}
 }
 \author{
 Jack Leary

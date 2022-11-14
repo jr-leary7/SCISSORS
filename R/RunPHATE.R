@@ -6,7 +6,7 @@
 #' @importFrom phateR phate
 #' @importFrom Seurat Embeddings CreateDimReducObject
 #' @param object The Seurat object you'd like to run PHATE on. Defaults to NULL.
-#' @param n.components How dimensions should the data be reduced to? Defaults to \emph{p} = 2.
+#' @param n.components How dimensions should the data be reduced to? Defaults to \eqn{p = 2}.
 #' @param n.PC How many PCs should be used as input to the algorithm? Defaults to NULL.
 #' @param mds.method The solver used for MDS. Defaults to SMACOF, but SGD can be used to speed up the algorithm.
 #' @param dist.metric The distance metric to use for KNN and MDS. Defaults to the cosine distance.
@@ -15,7 +15,15 @@
 #' @seealso \code{\link[phateR]{phate}}
 #' @export
 #' @examples
-#' \dontrun{RunPhate(object = pbmc3k, n.components = 2, n.PC = 10)}
+#' \dontrun{
+#' RunPhate(object = pbmc,
+#'          n.components = 2,
+#'          n.PC = 10)
+#' RunPhate(object = pbmc,
+#'          n.components = 5,
+#'          n.PC = 30,
+#'          dist.metric = "euclidean")
+#' }
 
 RunPHATE <- function(object = NULL,
                      n.components = 2,

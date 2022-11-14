@@ -11,7 +11,7 @@ ReclusterCells(
   merge.clusters = FALSE,
   use.parallel = TRUE,
   n.cores = 3,
-  use.sct = TRUE,
+  use.sct = FALSE,
   n.HVG = 4000,
   n.PC = "auto",
   redo.embedding = TRUE,
@@ -39,7 +39,7 @@ ReclusterCells(
 
 \item{n.cores}{The number of cores to be used in parallel computation is \code{use.parallel = TRUE}. Defaults to 3.}
 
-\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
+\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to FALSE, which equates to using typical log1p-normalization.}
 
 \item{n.HVG}{How many variable genes should be detected in each subcluster? Defaults to 4000.}
 
@@ -72,9 +72,24 @@ If the number of clusters to be re-clustered is 1, returns the re-clustered \cod
 This function identifies subclusters of cell types by recalculating the \emph{n} most highly variable genes for each cluster using \code{\link[Seurat]{SCTransform}}. The function returns a list of \code{Seurat} objects, one for each cluster the user wants to investigate.
 }
 \examples{
-\dontrun{ReclusterCells(seurat.object, which.clust = 5, resolution.vals = c(.1, .2, .5), k.vals = c(10, 20, 30))}
-\dontrun{ReclusterCells(seurat.object, which.clust = list(0, 3, 5), merge.clusters = TRUE)}
-\dontrun{ReclusterCells(seurat.object, which.clust = list(0, 2), use.parallel = TRUE, n.cores = 6)}
+\dontrun{
+ReclusterCells(seurat.object,
+               which.clust = 5,
+               resolution.vals = c(.1, .2, .5),
+               k.vals = c(10, 20, 30))
+ReclusterCells(seurat.object,
+               which.clust = c(0, 3, 5),
+               merge.clusters = TRUE,
+               n.HVG = 2000,
+               n.PC = 20,
+               cutoff.score = 0.1)
+ReclusterCells(seurat.object,
+               auto = TRUE,
+               use.parallel = TRUE,
+               n.cores = 6,
+               is.integrated = TRUE,
+               integration.ident = "samplename")
+}
 }
 \seealso{
 \code{\link{ComputeSilhouetteScores}}

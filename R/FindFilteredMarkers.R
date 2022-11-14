@@ -21,7 +21,18 @@
 #' @seealso \code{\link[Seurat]{FindAllMarkers}}
 #' @export
 #' @examples
-#' \dontrun{filtered_markers <- FindFilteredMarkers(obj.1 = subclust_obj, obj.2 = full_obj, ident.1 = "label", ident.2 = "seurat_clusters")}
+#' \dontrun{
+#' FindFilteredMarkers(obj.1 = subclust_obj,
+#'                     obj.2 = full_obj,
+#'                     ident.1 = "label",
+#'                     ident.2 = "seurat_clusters")
+#' FindFilteredMarkers(obj.1 = subclust_obj,
+#'                     obj.2 = full_obj,
+#'                     de.method = "t",
+#'                     fdr.cutoff = 0.01,
+#'                     log2fc.cutoff = 1,
+#'                     perc.cutoff = 0.95)
+#' }
 
 
 FindFilteredMarkers <- function(obj.1 = NULL,

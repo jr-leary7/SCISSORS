@@ -7,7 +7,9 @@
 #' @param input.mat The input matrix. Defaults to NULL.
 #' @export
 #' @examples
-#' \dontrun{CosineDist(input.mat = pca_matrix)}
+#' \dontrun{
+#' CosineDist(input.mat = pca_matrix)
+#' }
 
 CosineDist <- function(input.mat = NULL) {
   # check inputs -- although as this is a helper function, it should never be called incorrectly

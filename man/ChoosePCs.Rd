@@ -18,7 +18,9 @@ An integer specifying the number of PCs to use.
 This function uses the eigenvalues of the principal component matrix to determine the best number of PCs. The default can be chosen automatically, or given by the user. It is intended to be run after \code{\link[Seurat]{RunPCA}}.
 }
 \examples{
-\dontrun{ChoosePCs(seurat.obj = pbmc, cutoff = .3)}
+\dontrun{
+ChoosePCs(seurat.obj = pbmc, cutoff = .3)
+}
 }
 \author{
 Jack Leary

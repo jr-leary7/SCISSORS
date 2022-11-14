@@ -16,16 +16,26 @@ Here's a basic tutorial on how to get `SCISSORS` up and running (and finding coo
 
 ## Libraries
 
-First, we load the necessary libraries, `Seurat` to contain our analyses and `SeuratData` for our example dataset.
+First, we load the necessary libraries, including `Seurat` for data structures and `SeuratData` for our example dataset.
 
 ```{r}
 library(Seurat)
+library(SCISSORS)
 library(SeuratData)
+```
+
+## Parallelism 
+
+Both main functions in `SCISSORS` (`PrepareData()` and `ReclusterCells()`) support parallel processing in order to speed up operations. The `future` package is used to parallelize the `Seurat` processing code, and `foreach` is used for the main reclustering loop. While the `foreach` loop doesn't need any extra care to be used, `future` can be tricky due to its default memory limits. If you're going to use parallel processing, make sure to add this line of code at the beginning of your processing code. It increases the size of objects that can be exported to each parallel worker - but be careful to not exceed to amount of free memory on your system. Replace the `1000` with the number of MB you'd like to be able to export, e.g., `10000` is equivalent to 10GB. 
+
+```{r}
+options(future.globals.maxSize = 1000 * 1024^2)   # 1GB per worker 
+options(future.globals.maxSize = 10000 * 1024^2)  # 10GB per worker 
 ```
 
 ## Preprocessing
 
-Next, we use the `PrepareData()` function to pre-process our data. This function calculates the percentage of mitochondrial DNA for each cell and uses `SCTransform` to select highly variable genes, normalize and scale the counts, and regress out the effect of the percentage of mitochondrial DNA. It then runs PCA, chooses an appropriate number of principal components using a cutoff value for the cumulative proportion of variance explained, and then performs t-SNE using the principal component matrix as an initialization for the embedding. Finally, we create a SNN graph using the approximation *k* \~ sqrt(*N*) and generate a preliminary rough clustering of our cells using Louvain modularity optimization. Basically, the function performs all the necessary pre-processing steps commonly used in `Seurat`.
+Next, we use the `PrepareData()` function to pre-process our data. This function can calculate the percentage of mitochondrial DNA for each cell, select highly variable genes, normalize and scale the counts, and regress out the effect of the percentage of mitochondrial DNA as well as cell cycle effects. It then runs PCA, chooses an appropriate number of principal components using a cutoff value for the cumulative proportion of variance explained, and then performs non-linear dimension reduction using the principal component matrix as an initialization various embeddings. Finally, we create a SNN graph using the approximation *k* \~ sqrt(*n*) and generate a preliminary rough clustering of our cells using Louvain modularity optimization. Essentially, the function performs all the usual pre-processing steps commonly used in `Seurat`.
 
 ```{r}
 pbmc <- SeuratData::LoadData("pbmc3k")
@@ -74,8 +84,7 @@ t_markers <- FindSpecificMarkers(t_reclust, ident.use = "seurat_clusters", perc.
 Lastly, once the subclusters have been identified and annotate we can add their identities back to the original `Seurat` object like so:
 
 ```{r}
-pbmc <- IntegrateSubclusters(original.object = pbmc, 
-                             reclust.results = list(t_reclust))
+pbmc <- IntegrateSubclusters(original.object = pbmc, reclust.results = t_reclust)
 ```
 
 The above function also works for multiple reclustering results; just provide the list of subpopulation `Seurat` objects to the `reclust.results` argument. 
