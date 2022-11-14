@@ -7,7 +7,7 @@
 #' @importFrom Seurat GetAssayData VariableFeatures CellCycleScoring PercentageFeatureSet SCTransform NormalizeData FindVariableFeatures ScaleData RunPCA RunTSNE RunUMAP FindNeighbors FindClusters DimPlot
 #' @importFrom future plan
 #' @param seurat.object The object containing the cells you'd like to analyze. Defaults to NULL.
-#' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.
+#' @param use.sct Should \code{SCTransform} be used for normalization / HVG selection? Defaults to FALSE, which equates to using typical log1p-normalization.
 #' @param n.HVG The number of highly variable genes to compute. Defaults to 4000.
 #' @param use.parallel Should the \code{Seurat} data reprocessing & the main reclustering loop be parallelized? Defaults to TRUE.
 #' @param n.cores The number of cores to be used in parallel computation is \code{use.parallel} is TRUE. Defaults to 3.
@@ -47,7 +47,7 @@
 #' Stuart *et al* (2019). Comprehensive integration of single-cell data. *Cell*.
 
 PrepareData <- function(seurat.object = NULL,
-                        use.sct = TRUE,
+                        use.sct = FALSE,
                         n.HVG = 4000,
                         use.parallel = TRUE,
                         n.cores = 3,

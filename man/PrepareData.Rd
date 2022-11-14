@@ -6,7 +6,7 @@
 \usage{
 PrepareData(
   seurat.object = NULL,
-  use.sct = TRUE,
+  use.sct = FALSE,
   n.HVG = 4000,
   use.parallel = TRUE,
   n.cores = 3,
@@ -27,7 +27,7 @@ PrepareData(
 \arguments{
 \item{seurat.object}{The object containing the cells you'd like to analyze. Defaults to NULL.}
 
-\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to TRUE, otherwise typical log-normalization is used.}
+\item{use.sct}{Should \code{SCTransform} be used for normalization / HVG selection? Defaults to FALSE, which equates to using typical log1p-normalization.}
 
 \item{n.HVG}{The number of highly variable genes to compute. Defaults to 4000.}
 
