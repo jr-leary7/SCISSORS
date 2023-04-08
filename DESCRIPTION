@@ -1,9 +1,10 @@
 Package: SCISSORS
+Type: Package
 Title: Identify cell subpopulations in single cell RNA-seq data
 Version: 1.2.0
-Author: Jack Leary [aut]
-Maintainer: Jack Leary <jrleary@live.unc.edu>
-Description: SCISSORS allows users to easily identify cell subtypes and other subpopulations in scRNA-seq data. The method is predicated on the usage of a cosine-distance based silhouette score that is calculated for each cluster and indicates goodness of fit. Several different sets of parameters are used, and the subclustering that maximizes this measure is considered optimal. 
+Authors@R: c(person(given = "Jack", family = "Leary", email = "jrleary@live.unc.edu", role = c("aut", "cre")), 
+             person(given = "Xianlu", family = "Peng", email = "xlpeng@med.unc.edu", role = c("aut", "ctb")))
+Description: SCISSORS enables easy & robust identification of cell subtypes and other subpopulations in scRNA-seq data. The method leverages a cosine-distance based silhouette score that is calculated for each cell and indicates goodness of fit. Several different sets of parameters are tried, and the combination that maximizes this metric is considered optimal. 
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -15,9 +16,7 @@ Imports:
   Seurat,
   stats, 
   cluster, 
-  phateR, 
   SingleCellExperiment, 
-  biomaRt, 
   Matrix, 
   matrixStats, 
   dplyr, 
@@ -27,4 +26,11 @@ Imports:
   doParallel, 
   parallel, 
   future
+Suggests:
+  rmarkdown, 
+  knitr, 
+  phateR, 
+  biomaRt
 URL: https://github.com/jr-leary7/SCISSORS
+BugReports: https://github.com/jr-leary7/SCISSORS/issues 
+VignetteBuilder: knitr

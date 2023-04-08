@@ -6,7 +6,7 @@
 #' @importFrom matrixStats rowVars
 #' @importFrom Seurat GetAssayData DefaultAssay Stdev
 #' @param seurat.obj The object containing our single cell counts and principal component matrix. Defaults to NULL.
-#' @param cutoff The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to 15%.
+#' @param cutoff The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determined automatically. Defaults to 0.15, or 15%.
 #' @return An integer specifying the number of PCs to use.
 #' @export
 #' @examples
@@ -24,9 +24,12 @@ ChoosePCs <- function(seurat.obj = NULL, cutoff = .15) {
   eigenvals <- Seurat::Stdev(seurat.obj, reduction = "pca")^2
   prop_var <- eigenvals / total_var
   cum_prop_var <- cumsum(prop_var)
-  if (any(cum_prop_var) > cutoff) {
+  if (any(cum_prop_var > cutoff)) {
     cutoff_PC <- which.min(cum_prop_var > cutoff)
   } else {
+    warning(paste0("The proportion of variance explained didn't reach the specified cutoff value of ",
+                   round(100 * cutoff, 2),
+                   "%."))
     print(sprintf("Cumulative % of variance explained did not reach cutoff value = %s.", cutoff))
     cutoff_PC <- length(eigenvals)
   }

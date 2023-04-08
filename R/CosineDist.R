@@ -12,7 +12,7 @@
 #' }
 
 CosineDist <- function(input.mat = NULL) {
-  # check inputs -- although as this is a helper function, it should never be called incorrectly
+  # check inputs
   if (is.null(input.mat)) { stop("You must provide a matrix to CosineDist().") }
   # compute cosine distance
   dist_mat <- stats::as.dist(1 - input.mat %*% t(input.mat) / (sqrt(rowSums(input.mat^2) %*% t(rowSums(input.mat^2)))))

@@ -9,7 +9,7 @@
 #' @param seurat.obj The input object for which silhouette score will be computed. Defaults to NULL.
 #' @param dist.metric Which distance metric should be used? Defaults to "cosine", but any of the metrics used by \code{\link[stats]{dist}} will work.
 #' @param avg Should the average scores for each cluster be returned, or should a dataframe of every observation's cluster identity and score be returned? Defaults to TRUE.
-#' @return If \code{avg = TRUE}, returns the average silhouette score per cluster, else returns a cell-level dataframe of the cluster identities & silhouette scores.
+#' @return If \code{avg = TRUE}, returns the average silhouette score per cluster, otherwise returns a cell-level dataframe of the cluster identities & silhouette scores.
 #' @seealso \code{\link{CosineDist}}.
 #' @export
 #' @examples
@@ -25,7 +25,6 @@ ComputeSilhouetteScores <- function(seurat.obj = NULL,
                                     avg = TRUE) {
   # check inputs
   if (is.null(seurat.obj)) { stop("You didn't supply a Seurat object to ComputeSilhouetteScores().") }
-  # run function
   # prepare input matrix
   pca_df <- data.frame(Seurat::Embeddings(seurat.obj, reduction = "pca"))
   pca_mat <- as.matrix(pca_df)
@@ -35,7 +34,7 @@ ComputeSilhouetteScores <- function(seurat.obj = NULL,
   } else {
     pc_dists <- stats::dist(x = pca_mat, method = dist.metric)
   }
-  clust_list <- as.integer(seurat.obj$seurat_clusters) - 1
+  clust_list <- as.integer(seurat.obj$seurat_clusters) - 1L
   res <- cluster::silhouette(dist = pc_dists, x = clust_list)
   # prepare results & return
   if (avg) {

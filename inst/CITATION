@@ -1,0 +1,19 @@
+citHeader("To cite SCISSORS in publications use:")
+
+citEntry(
+  entry = "article",
+  title = "Sub-cluster identification through semi-supervised optimization of rare cell silhouettes (SCISSORS) in single-cell sequencing",
+  author = personList(as.person("Jack Leary"),
+                      as.person("Yi Xu"),
+                      as.person("Ashley Morrison"),
+                      as.person("Chong Jin"),
+                      as.person("Emily C. Shen"),
+                      as.person("Ye Su"),
+                      as.person("Naim Rashid"),
+                      as.person("Jen Jen Yeh"),
+                      as.person("Xianlu Peng")),
+  journal = "BioRxiv",
+  year = "2021",
+  url = "https://doi.org/10.1101/2021.10.29.466448",
+  textVersion = "Leary, J. et al. Sub-cluster identification through semi-supervised optimization of rare cell silhouettes (SCISSORS) in single-cell sequencing. BioRxiv (2021)."
+)
