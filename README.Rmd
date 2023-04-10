@@ -91,8 +91,8 @@ markers <- c("CD3G", "IL7R",    # CD4+ T
              "LYZ", "CD14",     # CD14+ monocyte
              "MS4A1", "CD79A",  # B 
              "CD8A",            # CD8+ T
-             "RHOC",            # CD16+ monocyte
-             "NKG7")            # NK
+             "MS4A7",           # CD16+ monocyte
+             "GNLY")            # NK
 VlnPlot(seu_pbmc, 
         features = markers, 
         stack = TRUE, 

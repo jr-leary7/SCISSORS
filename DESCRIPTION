@@ -4,7 +4,7 @@ Title: Identify cell subpopulations in single cell RNA-seq data
 Version: 1.2.0
 Authors@R: c(person(given = "Jack", family = "Leary", email = "jrleary@live.unc.edu", role = c("aut", "cre")), 
              person(given = "Xianlu", family = "Peng", email = "xlpeng@med.unc.edu", role = c("aut", "ctb")))
-Description: SCISSORS enables easy & robust identification of cell subtypes and other subpopulations in scRNA-seq data. The method leverages a cosine-distance based silhouette score that is calculated for each cell and indicates goodness of fit. Several different sets of parameters are tried, and the combination that maximizes this metric is considered optimal. 
+Description: SCISSORS enables easy & robust identification of cell subtypes and other subpopulations in scRNA-seq data. The method leverages a cosine distance-based silhouette score that is calculated for each cell and indicates goodness of fit. Several different sets of parameters are tried, and the combination that maximizes this metric is considered optimal. 
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -20,17 +20,18 @@ Imports:
   Matrix, 
   matrixStats, 
   dplyr, 
-  ggplot2, 
   SeuratObject, 
   foreach, 
   doParallel, 
   parallel, 
-  future
+  future, 
+  coop
 Suggests:
   rmarkdown, 
   knitr, 
   phateR, 
-  biomaRt
+  biomaRt, 
+  ggplot2
 URL: https://github.com/jr-leary7/SCISSORS
 BugReports: https://github.com/jr-leary7/SCISSORS/issues 
 VignetteBuilder: knitr

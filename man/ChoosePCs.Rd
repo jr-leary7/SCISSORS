@@ -9,7 +9,7 @@ ChoosePCs(seurat.obj = NULL, cutoff = 0.15)
 \arguments{
 \item{seurat.obj}{The object containing our single cell counts and principal component matrix. Defaults to NULL.}
 
-\item{cutoff}{The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determine automatically. Defaults to 15\%.}
+\item{cutoff}{The cutoff value for cumulative proportion of variance explained. Can be set by the user, or can be determined automatically. Defaults to 0.15, or 15\%.}
 }
 \value{
 An integer specifying the number of PCs to use.

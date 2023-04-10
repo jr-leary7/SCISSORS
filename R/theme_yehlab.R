@@ -2,10 +2,10 @@
 #'
 #' @name theme_yehlab
 #' @author Jack Leary
-#' @description This is the Yeh Lab's default \code{ggplot2} theme for dimension reduction scatterplots, and was used throughout the SCISSORS manuscript.
-#' Like all \code{ggplot2}-based themes, you can add more themes to it, or override them if you wish.
+#' @description This is the Yeh Lab's default \code{ggplot2} theme for dimension reduction scatterplots, and was used throughout the SCISSORS manuscript. Like all \code{ggplot2}-based themes, you can add more themes to it, or override them if you wish.
 #' @importFrom ggplot2 theme element_blank element_rect
 #' @return A function specifying a minimalist \code{ggplot2} theme.
+#' @seealso \code{\link[ggplot2]{theme}}
 #' @export
 #' @examples
 #' \dontrun{
