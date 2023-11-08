@@ -20,7 +20,7 @@ set.seed(312)
 <!-- badges: start -->
 <!-- badges: end -->
 
-This package enables researchers to efficiently, accurately, and reproducibly uncover rare celltypes and other small subgroups using an iterative reclustering optimization routine built as an extension to a typical `Seurat` workflow. Tools are included to preprocess data, identify potential targets for subgroup analysis, optimize reclustering, and annotate results. A preprint detailing the method & some biological results is available [on BioRxiv](https://doi.org/10.1101/2021.10.29.466448). 
+This package enables researchers to efficiently, accurately, and reproducibly uncover rare celltypes and other small subgroups using an iterative reclustering optimization routine built as an extension to a typical `Seurat` workflow. Tools are included to preprocess data, identify potential targets for subgroup analysis, optimize reclustering, and annotate results. A paper detailing the method & some biological results is available [in Bioinformatics](https://doi.org/10.1093/bioinformatics/btad449). 
 
 ## Installation
 
