@@ -43,6 +43,7 @@ FindFilteredMarkers <- function(obj.1 = NULL,
                                 fdr.cutoff = 0.05,
                                 log2fc.cutoff = 0.25,
                                 perc.cutoff = 0.9,
+                                min.pct = 0.25,
                                 extra.cell.filter = NULL) {
   # check inputs
   if (is.null(obj.1) || is.null(obj.2)) { stop("You must provide two non-NULL Seurat objects to FindFilteredMarkers().") }
@@ -57,30 +58,31 @@ FindFilteredMarkers <- function(obj.1 = NULL,
                                     test.use = de.method,
                                     only.pos = TRUE,
                                     verbose = FALSE,
+                                    min.pct = min.pct,
                                     random.seed = 312) %>%
-             dplyr::filter(p_val_adj < fdr.cutoff)
+    dplyr::filter(p_val_adj < fdr.cutoff)
   # filter obj.1 cells from obj.2
   obj.2 <- obj.2[, !rownames(obj.2@meta.data) %in% rownames(obj.1@meta.data)]
   if (!is.null(extra.cell.filter)) {
     obj.2 <- obj.2[, !rownames(obj.2@meta.data) %in% extra.cell.filter]
   }
   gene_means_by_clust <- t(obj.2@assays$SCT@data) %>%
-                         as.data.frame() %>%
-                         dplyr::mutate(label_fine = obj.2[[ident.2]][, 1]) %>%
-                         dplyr::group_by(label_fine) %>%
-                         dplyr::summarise(dplyr::across(where(is.numeric), mean)) %>%
-                         dplyr::ungroup()
+    as.data.frame() %>%
+    dplyr::mutate(label_fine = obj.2[[ident.2]][, 1]) %>%
+    dplyr::group_by(label_fine) %>%
+    dplyr::summarise(dplyr::across(where(is.numeric), mean)) %>%
+    dplyr::ungroup()
   high_exp_genes <- c()
   loop_celltypes <- unique(obj.2[[ident.2]][, 1])
   for (i in loop_celltypes) {
     top_exp_genes <- gene_means_by_clust %>%
-                     dplyr::filter(label_fine == i) %>%
-                     dplyr::select(-label_fine) %>%
-                     t() %>%
-                     as.data.frame() %>%
-                     dplyr::filter(V1 > stats::quantile(V1, perc.cutoff)) %>%
-                     dplyr::mutate(gene = rownames(.)) %>%
-                     dplyr::pull(gene)
+      dplyr::filter(label_fine == i) %>%
+      dplyr::select(-label_fine) %>%
+      t() %>%
+      as.data.frame() %>%
+      dplyr::filter(V1 > stats::quantile(V1, perc.cutoff)) %>%
+      dplyr::mutate(gene = rownames(.)) %>%
+      dplyr::pull(gene)
     high_exp_genes <- c(high_exp_genes, top_exp_genes)
   }
   high_exp_genes <- unique(high_exp_genes)
