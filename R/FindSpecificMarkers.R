@@ -30,7 +30,6 @@
 #'                     assay.use = "SCT",
 #'                     slot.use = "data")
 #' }
-
 FindSpecificMarkers <- function(seurat.object = NULL,
                                 assay.use = "RNA",
                                 slot.use = "data",
@@ -38,29 +37,30 @@ FindSpecificMarkers <- function(seurat.object = NULL,
                                 de.method = "wilcox",
                                 perc.cutoff = 0.9,
                                 log2fc.cutoff = 0.25,
-                                fdr.cutoff = 0.05) {
+                                fdr.cutoff = 0.05,
+                                min.pct = 0.25) {
   # check inputs
   if (is.null(seurat.object)) { stop("You forgot to provide a Seurat object!") }
   if (!ident.use %in% colnames(seurat.object@meta.data)) { stop("ident.use must exist in the object's metadata.") }
   Idents(seurat.object) <- ident.use
   # get highly expressed genes for each cluster
   gene_means_by_clust <- Matrix::t(SeuratObject::GetAssayData(seurat.object, assay = assay.use, slot = slot.use)) %>%
-                         as.data.frame() %>%
-                         dplyr::mutate(cell_ident = unname(unlist(seurat.object[[ident.use]]))) %>%
-                         dplyr::group_by(cell_ident) %>%
-                         dplyr::summarise(dplyr::across(where(is.numeric), mean))
+    as.data.frame() %>%
+    dplyr::mutate(cell_ident = unname(unlist(seurat.object[[ident.use]]))) %>%
+    dplyr::group_by(cell_ident) %>%
+    dplyr::summarise(dplyr::across(where(is.numeric), mean))
   # find list of genes w/ mean expression above 90th percentile of expression in each celltype
   high_exp_genes <- c()
   cluster_labels <- c()
   for (i in gene_means_by_clust$cell_ident) {
     top_exp_genes <- gene_means_by_clust %>%
-                     dplyr::filter(cell_ident == i) %>%
-                     dplyr::select(-cell_ident) %>%
-                     t() %>%
-                     as.data.frame() %>%
-                     dplyr::filter(V1 > stats::quantile(V1, perc.cutoff)) %>%
-                     dplyr::mutate(gene = rownames(.)) %>%
-                     dplyr::pull(gene)
+      dplyr::filter(cell_ident == i) %>%
+      dplyr::select(-cell_ident) %>%
+      t() %>%
+      as.data.frame() %>%
+      dplyr::filter(V1 > stats::quantile(V1, perc.cutoff)) %>%
+      dplyr::mutate(gene = rownames(.)) %>%
+      dplyr::pull(gene)
     high_exp_genes <- c(high_exp_genes, top_exp_genes)
     cluster_labels <- c(cluster_labels, rep(i, length(top_exp_genes)))
   }
@@ -74,20 +74,21 @@ FindSpecificMarkers <- function(seurat.object = NULL,
                                          test.use = de.method,
                                          only.pos = TRUE,
                                          verbose = FALSE,
+                                         min.pct = min.pct,
                                          random.seed = 312) %>%
-                  dplyr::filter(p_val_adj < fdr.cutoff)
+    dplyr::filter(p_val_adj < fdr.cutoff)
   # remove highly expressed genes in other clusters from each cluster's markers
   specific_marker_genes <- NULL
   for (i in unique(marker_genes$cluster)) {
     outgroup_high_exp_genes <- high_exp_gene_df %>%
-                               dplyr::filter(Cluster != i) %>%
-                               dplyr::pull(High_Exp_Genes) %>%
-                               unique()
+      dplyr::filter(Cluster != i) %>%
+      dplyr::pull(High_Exp_Genes) %>%
+      unique()
     sub_df <- dplyr::filter(marker_genes,
                             cluster == i,
                             !(gene %in% outgroup_high_exp_genes))
     specific_marker_genes <- specific_marker_genes %>%
-                             dplyr::bind_rows(sub_df)
+      dplyr::bind_rows(sub_df)
   }
   return(specific_marker_genes)
 }
