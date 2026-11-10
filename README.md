@@ -6,6 +6,12 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
+Cite:
+
+Leary JR, Xu Y, Morrison AB, Jin C, Shen EC, Kuhlers PC, Su Y, Rashid NU, Yeh JJ, Peng XL. Sub-Cluster Identification through Semi-Supervised Optimization of Rare-Cell Silhouettes (SCISSORS) in single-cell RNA-sequencing. Bioinformatics. 2023 Aug 1;39(8):btad449. doi: 10.1093/bioinformatics/btad449. PMID: 37498558; PMCID: PMC10412410.
+
+The SCISSORS package has now been migrated to https://github.com/laurapeng/scissors to support long-term maintenance.
+
 This package enables researchers to efficiently, accurately, and
 reproducibly uncover rare celltypes and other small subgroups using an
 iterative reclustering optimization routine built as an extension to a
